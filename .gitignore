@@ -16,15 +16,15 @@
 .recommenders/
 
 # AI Agent - Excluye archivos de IA y agentes (Descomentar)
-#.agents/
-#.opencode/
-#.windsurf/
-#.gemini/
-#.continue/
-#.kiro/
-#.junie/
-#.claude/
-#.claude-plugin/
+.agents/
+.opencode/
+.windsurf/
+.gemini/
+.continue/
+.kiro/
+.junie/
+.claude/
+.claude-plugin/
 .claude/.simplify-ignore-cache/
 .claude/sdd-cache/
 
@@ -127,7 +127,6 @@ target/
 *.class
 *.jar
 *.war
-target/
 .mvn/
 # Ruby
 vendor/bundle/
@@ -138,8 +137,6 @@ vendor/bundle/
 .next/
 out/
 # Vite / Webpack
-dist/
-build/
 # Laravel
 storage/*.key
 # Django
