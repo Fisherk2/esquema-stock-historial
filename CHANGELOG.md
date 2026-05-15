@@ -7,6 +7,32 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [0.1.0] — 2026-05-14 — F0: Preparación (Completado)
+
+#### Agregado
+- Estructura Clean Architecture: `src/{domain,application,infrastructure,adapters}` + `tests/{unit,integration,e2e}`
+- `pyproject.toml` con configuración de ruff, black, pytest, mypy
+- `requirements.txt` con dependencias pinned para F0-F7
+- `Makefile` con comandos: `install`, `dev`, `lint`, `format`, `test`, `test-cov`, `build`, `docker-up`, `docker-down`
+- `Dockerfile` multi-stage (builder + runtime)
+- `docker-compose.yml` con PostgreSQL 16 + app, ambos con healthchecks
+- `.env.example` con variables documentadas
+- `.pre-commit-config.yaml` con hooks: ruff, black, trailing-whitespace, end-of-file-fixer, check-yaml
+- `.github/workflows/ci.yml` con jobs de lint y test
+- FastAPI app factory (`src/main.py`) con endpoint `GET /v1/health`
+- Configuración pydantic-settings (`src/core/config.py`)
+- Pool de conexión asyncpg placeholder (`src/infrastructure/db/connection.py`)
+- Test smoke de health endpoint (`tests/unit/test_health.py`)
+- Fixture de test con `TestClient` (`tests/conftest.py`)
+- Reglas de importación Clean Architecture documentadas en `docs/agents/architecture-design.md`
+
+#### Corregido
+- Import `AsyncGenerator` migrado de `typing` a `collections.abc` (Python 3.12+)
+- Import `TestClient` movido a bloque `TYPE_CHECKING` para cumplir regla TC002 de ruff
+- `pythonpath` agregado a `pyproject.toml` para resolver imports en pytest
+
+---
+
 ---
 
 ## Información del Proyecto

@@ -54,3 +54,21 @@ graph TD
 - **SQL Explícito:** Control total sobre `EXPLAIN ANALYZE`, índices compuestos y CTEs. Sin ORM que oculte planes de ejecución.
 - **FastAPI + Pydantic:** OpenAPI 3.0 nativo. Validación estricta sin boilerplate.
 - **APScheduler Interno:** Refresh como tarea asíncrona aislada del ciclo request/response. Swappable a Celery/RQ sin tocar dominio.
+
+## Reglas de Importación (Clean Architecture Enforcement)
+
+Las siguientes reglas de importación son obligatorias y se verifican en CI:
+
+| Capa | Puede importar de | No puede importar de |
+|------|-------------------|---------------------|
+| `domain/` | Solo módulos internos de `domain/` | `application/`, `infrastructure/`, `adapters/` |
+| `application/` | `domain/`, módulos internos de `application/` | `infrastructure/`, `adapters/` |
+| `infrastructure/` | `domain/`, `application/`, libs externas | `adapters/` |
+| `adapters/` | `domain/`, `application/`, `infrastructure/`, libs externas | — |
+
+**Verificación automatizada:**
+- `ruff` con `ban-relative-imports = "all"` previene imports relativos entre paquetes
+- CI ejecuta `make lint` en cada push/PR
+- Para enforcement estricto por directorio, considerar `import-linter` en fases futuras
+
+**Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/`.

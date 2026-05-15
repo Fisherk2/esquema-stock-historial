@@ -17,7 +17,7 @@
 
 # AI Agent - Excluye archivos de IA y agentes (Descomentar)
 .agents/
-.opencode/
+#.opencode/
 .windsurf/
 .gemini/
 .continue/

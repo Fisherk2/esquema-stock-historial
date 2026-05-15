@@ -4,11 +4,11 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 
 | ID | Nombre | Descripción | Prioridad | Fase | Archivos Involucrados | Dependencias | Checklist | Estado |
 |----|--------|-------------|-----------|------|----------------------|--------------|-----------|--------|
-| Spec-01 | Estructura y convenciones | Árbol Clean Architecture, naming, `.gitignore` | Alta | F0 | `src/`, `tests/`, `.gitignore`, `pyproject.toml` | Ninguna | [0/4] | Pend. |
-| Spec-02 | Entorno de desarrollo | Docker Compose dev, `.env.example`, `Makefile` | Alta | F0 | `docker-compose.dev.yml`, `.env.example`, `Makefile`, `requirements.txt` | Spec-01 | [0/3] | Pend. |
-| Spec-03 | Calidad y automatización | `ruff`, `black`, `pytest`, pre-commit, CI/CD | Media | F0 | `.pre-commit-config.yaml`, `pyproject.toml`, `.github/workflows/` | Spec-01, Spec-02 | [0/5] | Pend. |
-| Spec-04 | Documentación inicial | `AGENTS.md`, `WORKFLOW.md`, `README.md`, `specs/` | Alta | F0 | `AGENTS.md`, `WORKFLOW.md`, `README.md`, `specs/` | Spec-01 | [0/4] | Pend. |
-| Spec-10 | Configuración DB | PostgreSQL 16+, `asyncpg`, connection pooling, healthcheck | Alta | F1 | `src/infrastructure/db/`, `docker-compose.dev.yml` | Spec-02 | [0/3] | Bloq. |
+| Spec-01 | Estructura y convenciones | Árbol Clean Architecture, naming, `.gitignore` | Alta | F0 | `src/`, `tests/`, `.gitignore`, `pyproject.toml` | Ninguna | [4/4] | Completado |
+| Spec-02 | Entorno de desarrollo | Docker Compose dev, `.env.example`, `Makefile` | Alta | F0 | `docker-compose.yml`, `.env.example`, `Makefile`, `requirements.txt` | Spec-01 | [3/3] | Completado |
+| Spec-03 | Calidad y automatización | `ruff`, `black`, `pytest`, pre-commit, CI/CD | Media | F0 | `.pre-commit-config.yaml`, `pyproject.toml`, `.github/workflows/` | Spec-01, Spec-02 | [5/5] | Completado |
+| Spec-04 | Documentación inicial | `AGENTS.md`, `WORKFLOW.md`, `README.md`, `specs/` | Alta | F0 | `AGENTS.md`, `WORKFLOW.md`, `README.md`, `specs/` | Spec-01 | [4/4] | Completado |
+| Spec-10 | Configuración DB | PostgreSQL 16+, `asyncpg`, connection pooling, healthcheck | Alta | F1 | `src/infrastructure/db/`, `docker-compose.yml` | Spec-02 | [0/3] | Pend. |
 | Spec-11 | Esquema y Migraciones | Tablas `products`, `movements`, constraints, FK, 3NF | Alta | F1 | `migrations/`, `specs/` (DDL) | Spec-10 | [0/6] | Bloq. |
 | Spec-12 | Índices y Optimización Base | Índices compuestos, parciales, `EXPLAIN` baseline, seed data | Media | F1 | `migrations/`, `specs/` (indexes.sql) | Spec-11 | [0/4] | Bloq. |
 | Spec-20 | Entidades (Domain) | Clases `Product`, `Movement`, value objects, excepciones de dominio | Alta | F2 | `src/domain/entities/`, `src/domain/exceptions/` | Spec-11 | [0/5] | Bloq. |
