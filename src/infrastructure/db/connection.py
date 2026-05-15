@@ -30,8 +30,7 @@ async def init_pool(settings: Settings) -> None:
         logger.info("Database pool initialized")
     except Exception:
         logger.warning(
-            "Database pool initialization failed "
-            "(DB may not be available yet)"
+            "Database pool initialization failed " "(DB may not be available yet)"
         )
         _pool = None
 

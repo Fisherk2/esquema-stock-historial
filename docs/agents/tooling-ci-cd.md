@@ -16,11 +16,12 @@
 ## CI/CD
 
 - **Plataforma:** GitHub Actions (`.github/workflows/`).
-- **Pipeline stages:** lint → test (unit + integration) → coverage → build → (staging deploy).
-- **Quality gates:** Ruff sin warnings, tests passing, cobertura umbrales.
+- **Pipeline stages (F0 activo):** lint → test → coverage
+- **Pipeline stages (F7 pendiente):** build → staging deploy (Spec-72)
+- **Quality gates:** Ruff sin warnings, tests passing, cobertura `>=80%`.
 
 ## Docker
 
-- **Dev:** `docker-compose.dev.yml` con PostgreSQL efímero.
-- **Prod:** `Dockerfile` multi-stage + `docker-compose.prod.yml`.
+- **Dev:** `docker-compose.yml` con PostgreSQL efímero.
+- **Prod:** `Dockerfile` multi-stage + `docker-compose.prod.yml` (Spec-70, F7).
 - **Healthchecks:** Endpoint de healthcheck en FastAPI.

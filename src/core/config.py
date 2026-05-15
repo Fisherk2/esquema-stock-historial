@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "info"
     environment: str = "development"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial"
+    )
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
