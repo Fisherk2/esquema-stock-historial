@@ -4,6 +4,8 @@
 
 Scaffold the foundational project structure, development environment, and quality tooling for the stock-historial inventory system. Zero business logic — deliverable is a clean, lintable, testable, containerized skeleton with a working health endpoint.
 
+**Status:** COMPLETED (2026-05-14)
+
 ## Architecture Decisions
 
 - **Vertical slicing by working state** — each task leaves the system verifiably runnable, not just "files exist"
@@ -31,48 +33,48 @@ pyproject.toml + requirements.txt
 
 ### Phase 1: Foundation
 
-- [ ] Task 1: pyproject.toml + requirements.txt
-- [ ] Task 2: Makefile
+- [x] Task 1: pyproject.toml + requirements.txt
+- [x] Task 2: Makefile
 
 ### Checkpoint: Foundation
 
-- [ ] `pip install -r requirements.txt` succeeds
-- [ ] `make lint` and `make test` exit green
-- [ ] Review with human before proceeding
+- [x] `pip install -r requirements.txt` succeeds
+- [x] `make lint` and `make test` exit green
+- [x] Review with human before proceeding
 
 ### Phase 2: App Skeleton
 
-- [ ] Task 3: src/ package tree + main.py with health endpoint
-- [ ] Task 4: tests/conftest.py + health smoke test
+- [x] Task 3: src/ package tree + main.py with health endpoint
+- [x] Task 4: tests/conftest.py + health smoke test
 
 ### Checkpoint: App Skeleton
 
-- [ ] `make dev` starts FastAPI
-- [ ] `GET /health` returns `{"status": "ok"}`
-- [ ] `make test` passes the health smoke test
-- [ ] Review with human before proceeding
+- [x] `make dev` starts FastAPI
+- [x] `GET /health` returns `{"status": "ok"}`
+- [x] `make test` passes the health smoke test
+- [x] Review with human before proceeding
 
 ### Phase 3: Containerization
 
-- [ ] Task 5: Dockerfile + docker-compose.yml
-- [ ] Task 6: .env.example + DB connection config
+- [x] Task 5: Dockerfile + docker-compose.yml
+- [x] Task 6: .env.example + DB connection config
 
 ### Checkpoint: Containerization
 
-- [ ] `docker compose up` starts PostgreSQL + app
-- [ ] Healthchecks pass for both containers
-- [ ] `.env.example` lists all required env vars
-- [ ] Review with human before proceeding
+- [x] `docker compose up` starts PostgreSQL + app
+- [x] Healthchecks pass for both containers
+- [x] `.env.example` lists all required env vars
+- [x] Review with human before proceeding
 
 ### Phase 4: Quality Enforcement
 
-- [ ] Task 7: .pre-commit-config.yaml
-- [ ] Task 8: Clean Architecture import rules + CI stub
+- [x] Task 7: .pre-commit-config.yaml
+- [x] Task 8: Clean Architecture import rules + CI stub
 
 ### Checkpoint: Complete
 
-- [ ] All F0 success criteria met
-- [ ] Ready for review
+- [x] All F0 success criteria met
+- [x] Ready for review
 
 ## Risks and Mitigations
 

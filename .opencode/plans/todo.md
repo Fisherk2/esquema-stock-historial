@@ -1,14 +1,16 @@
 # F0 Task List: stock-historial — Preparación
 
+**Status:** COMPLETED (2026-05-14)
+
 ## Task 1: pyproject.toml + requirements.txt
 
 **Description:** Create the project's central configuration file and pin all F0 dependencies.
 
 **Acceptance criteria:**
-- [ ] `pyproject.toml` exists with project metadata, ruff, black, pytest, mypy configs
-- [ ] `requirements.txt` lists all F0 deps pinned: fastapi, uvicorn, pydantic, pydantic-settings, asyncpg, apscheduler, pytest, pytest-asyncio, httpx, testcontainers, ruff, black, freezegun, mypy
-- [ ] `pip install -r requirements.txt` succeeds
-- [ ] `ruff --version` and `black --version` return valid versions
+- [x] `pyproject.toml` exists with project metadata, ruff, black, pytest, mypy configs
+- [x] `requirements.txt` lists all F0 deps pinned: fastapi, uvicorn, pydantic, pydantic-settings, asyncpg, apscheduler, pytest, pytest-asyncio, httpx, testcontainers, ruff, black, freezegun, mypy
+- [x] `pip install -r requirements.txt` succeeds
+- [x] `ruff --version` and `black --version` return valid versions
 
 **Verification:**
 - `pip install -r requirements.txt && ruff check --version && python -c "import fastapi"`
@@ -26,12 +28,12 @@
 **Description:** Replace stub with real developer commands that delegate to pyproject.toml-configured tools.
 
 **Acceptance criteria:**
-- [ ] `make install` installs dependencies
-- [ ] `make lint` runs ruff and exits 0 (no source code yet)
-- [ ] `make format` runs black + ruff fix
-- [ ] `make test` runs pytest and exits 0 (no tests yet)
-- [ ] `make dev` starts uvicorn with src.main:app
-- [ ] `make build`, `make docker-up`, `make docker-down` targets exist
+- [x] `make install` installs dependencies
+- [x] `make lint` runs ruff and exits 0 (no source code yet)
+- [x] `make format` runs black + ruff fix
+- [x] `make test` runs pytest and exits 0 (no tests yet)
+- [x] `make dev` starts uvicorn with src.main:app
+- [x] `make build`, `make docker-up`, `make docker-down` targets exist
 
 **Verification:**
 - `make lint && make test && make format`
@@ -45,9 +47,9 @@
 
 ## Checkpoint: Foundation
 
-- [ ] `pip install -r requirements.txt` succeeds
-- [ ] `make lint` and `make test` exit green
-- [ ] Review with human before proceeding
+- [x] `pip install -r requirements.txt` succeeds
+- [x] `make lint` and `make test` exit green
+- [x] Review with human before proceeding
 
 ---
 
@@ -56,12 +58,12 @@
 **Description:** Add `__init__.py` to every package dir, create FastAPI app factory with health endpoint, and pydantic-settings config.
 
 **Acceptance criteria:**
-- [ ] Every dir under `src/` has `__init__.py`
-- [ ] `src/core/__init__.py` and `src/core/config.py` exist with `Settings` class (pydantic-settings)
-- [ ] `src/main.py` has `create_app()` factory returning a FastAPI instance
-- [ ] `src/adapters/api/routers/health.py` has `GET /health` returning `{"status": "ok"}`
-- [ ] `make dev` starts uvicorn; `curl http://localhost:8000/health` returns 200 + `{"status": "ok"}`
-- [ ] `make lint` passes on new files
+- [x] Every dir under `src/` has `__init__.py`
+- [x] `src/core/__init__.py` and `src/core/config.py` exist with `Settings` class (pydantic-settings)
+- [x] `src/main.py` has `create_app()` factory returning a FastAPI instance
+- [x] `src/adapters/api/routers/health.py` has `GET /health` returning `{"status": "ok"}`
+- [x] `make dev` starts uvicorn; `curl http://localhost:8000/health` returns 200 + `{"status": "ok"}`
+- [x] `make lint` passes on new files
 
 **Verification:**
 - `make dev &` then `curl http://localhost:8000/health`; kill uvicorn
@@ -103,10 +105,10 @@
 **Description:** Create shared test fixtures and a smoke test that verifies the health endpoint via async HTTP client.
 
 **Acceptance criteria:**
-- [ ] `tests/conftest.py` has `async_client` fixture using `httpx.AsyncClient` + `ASGITransport`
-- [ ] `tests/unit/test_health.py` hits `/health` and asserts status 200 + `{"status": "ok"}`
-- [ ] `tests/unit/__init__.py`, `tests/integration/__init__.py`, `tests/e2e/__init__.py` exist
-- [ ] `make test` passes
+- [x] `tests/conftest.py` has `async_client` fixture using `httpx.AsyncClient` + `ASGITransport`
+- [x] `tests/unit/test_health.py` hits `/health` and asserts status 200 + `{"status": "ok"}`
+- [x] `tests/unit/__init__.py`, `tests/integration/__init__.py`, `tests/e2e/__init__.py` exist
+- [x] `make test` passes
 
 **Verification:**
 - `make test`
@@ -124,10 +126,10 @@
 
 ## Checkpoint: App Skeleton
 
-- [ ] `make dev` starts FastAPI
-- [ ] `GET /health` returns `{"status": "ok"}`
-- [ ] `make test` passes the health smoke test
-- [ ] Review with human before proceeding
+- [x] `make dev` starts FastAPI
+- [x] `GET /health` returns `{"status": "ok"}`
+- [x] `make test` passes the health smoke test
+- [x] Review with human before proceeding
 
 ---
 
@@ -136,10 +138,10 @@
 **Description:** Replace stubs with a multi-stage Dockerfile and dev docker-compose with PostgreSQL 16 + app, both with healthchecks.
 
 **Acceptance criteria:**
-- [ ] `Dockerfile` has builder stage (install deps) and runtime stage (copy app, run uvicorn)
-- [ ] `docker-compose.yml` has `db` service (PostgreSQL 16 with healthcheck) and `app` service (with healthcheck hitting `/health`)
-- [ ] `docker compose up -d` starts both containers
-- [ ] `docker compose ps` shows both healthy after ~10s
+- [x] `Dockerfile` has builder stage (install deps) and runtime stage (copy app, run uvicorn)
+- [x] `docker-compose.yml` has `db` service (PostgreSQL 16 with healthcheck) and `app` service (with healthcheck hitting `/health`)
+- [x] `docker compose up -d` starts both containers
+- [x] `docker compose ps` shows both healthy after ~10s
 
 **Verification:**
 - `make docker-up && sleep 10 && docker compose ps && curl http://localhost:8000/health && make docker-down`
@@ -157,10 +159,10 @@
 **Description:** Document all required env vars and create a placeholder asyncpg connection module.
 
 **Acceptance criteria:**
-- [ ] `.env.example` lists: `DATABASE_URL`, `APP_HOST`, `APP_PORT`, `LOG_LEVEL`, `ENVIRONMENT`
-- [ ] `src/infrastructure/db/connection.py` has asyncpg pool placeholder (init on startup, close on shutdown)
-- [ ] App starts with `make dev` reading config from env; no crash if DB unreachable (graceful log)
-- [ ] `make lint` passes on new files
+- [x] `.env.example` lists: `DATABASE_URL`, `APP_HOST`, `APP_PORT`, `LOG_LEVEL`, `ENVIRONMENT`
+- [x] `src/infrastructure/db/connection.py` has asyncpg pool placeholder (init on startup, close on shutdown)
+- [x] App starts with `make dev` reading config from env; no crash if DB unreachable (graceful log)
+- [x] `make lint` passes on new files
 
 **Verification:**
 - `make dev` with `.env` values loads without error
@@ -176,10 +178,10 @@
 
 ## Checkpoint: Containerization
 
-- [ ] `docker compose up` starts PostgreSQL + app
-- [ ] Healthchecks pass for both containers
-- [ ] `.env.example` lists all required env vars
-- [ ] Review with human before proceeding
+- [x] `docker compose up` starts PostgreSQL + app
+- [x] Healthchecks pass for both containers
+- [x] `.env.example` lists all required env vars
+- [x] Review with human before proceeding
 
 ---
 
@@ -188,9 +190,9 @@
 **Description:** Configure pre-commit hooks for automated quality enforcement on every commit.
 
 **Acceptance criteria:**
-- [ ] `.pre-commit-config.yaml` has hooks: ruff (lint + fix), black, trailing-whitespace-fixer, end-of-file-fixer, check-yaml
-- [ ] `pre-commit run --all-files` passes
-- [ ] `git commit` triggers hooks automatically
+- [x] `.pre-commit-config.yaml` has hooks: ruff (lint + fix), black, trailing-whitespace-fixer, end-of-file-fixer, check-yaml
+- [x] `pre-commit run --all-files` passes
+- [x] `git commit` triggers hooks automatically
 
 **Verification:**
 - `pre-commit install && pre-commit run --all-files`
@@ -207,11 +209,11 @@
 **Description:** Enforce and document Clean Architecture layer boundaries, and create a CI workflow stub.
 
 **Acceptance criteria:**
-- [ ] `pyproject.toml` has ruff rule or `import-linter` config to flag domain importing from infrastructure/adapters
-- [ ] `docs/agents/architecture-design.md` updated with enforcement section documenting import rules
-- [ ] `.github/workflows/ci.yml` runs lint + test on push to main and PRs
-- [ ] `make lint` catches a domain file importing from infrastructure (tested with temp violation)
-- [ ] `make lint` passes after removing temp violation
+- [x] `pyproject.toml` has ruff rule or `import-linter` config to flag domain importing from infrastructure/adapters
+- [x] `docs/agents/architecture-design.md` updated with enforcement section documenting import rules
+- [x] `.github/workflows/ci.yml` runs lint + test on push to main and PRs
+- [x] `make lint` catches a domain file importing from infrastructure (tested with temp violation)
+- [x] `make lint` passes after removing temp violation
 
 **Verification:**
 - Create temp file `src/domain/test_violation.py` with `from src.infrastructure.db.connection import pool`, run `make lint`, confirm error. Delete temp file, confirm `make lint` passes.
@@ -228,13 +230,13 @@
 
 ## Checkpoint: Complete
 
-- [ ] `make lint` passes with 0 errors
-- [ ] `make test` exits green
-- [ ] `make dev` starts FastAPI; `GET /health` returns `{"status": "ok"}`
-- [ ] `docker compose up` starts PostgreSQL + app with healthchecks
-- [ ] Pre-commit hooks run ruff + black on commit
-- [ ] `pyproject.toml` configures ruff, black, pytest, mypy
-- [ ] Clean Architecture import rules documented and enforceable
-- [ ] `.env.example` lists all required environment variables
-- [ ] `requirements.txt` has all F0 dependencies pinned
-- [ ] Ready for review
+- [x] `make lint` passes with 0 errors
+- [x] `make test` exits green
+- [x] `make dev` starts FastAPI; `GET /health` returns `{"status": "ok"}`
+- [x] `docker compose up` starts PostgreSQL + app with healthchecks
+- [x] Pre-commit hooks run ruff + black on commit
+- [x] `pyproject.toml` configures ruff, black, pytest, mypy
+- [x] Clean Architecture import rules documented and enforceable
+- [x] `.env.example` lists all required environment variables
+- [x] `requirements.txt` has all F0 dependencies pinned
+- [x] Ready for review
