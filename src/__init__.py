@@ -1,0 +1,1 @@
+# Stock Historial - Domain Layer
