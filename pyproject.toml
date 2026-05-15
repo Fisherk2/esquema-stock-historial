@@ -26,6 +26,16 @@ target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]
+# Categorías de reglas activas:
+# E/W: pycodestyle (estilo PEP 8)
+# F: pyflakes (errores lógicos)
+# I: isort (orden de imports)
+# N: pep8-naming (convenciones de nombres)
+# UP: pyupgrade (sintaxis moderna Python)
+# B: flake8-bugbear (bugs comunes)
+# SIM: flake8-simplify (simplificación de código)
+# TCH: flake8-type-checking (imports TYPE_CHECKING)
+# RUF: reglas específicas de ruff
 select = [
     "E",     # pycodestyle errors
     "W",     # pycodestyle warnings
@@ -45,6 +55,9 @@ known-first-party = ["src"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
 [tool.ruff.lint.flake8-tidy-imports]
+# Prohíbe imports relativos (ej: from ..domain import X).
+# Enforcement de Clean Architecture: los imports entre capas deben ser
+# absolutos para que la dirección de dependencias sea explícita.
 ban-relative-imports = "all"
 
 [tool.black]
@@ -53,13 +66,19 @@ target-version = ["py312"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# pythonpath permite que pytest resuelva imports como "from src.main import ..."
+# sin necesidad de instalar el paquete en modo editable.
 pythonpath = ["."]
+# asyncio_mode="auto" detecta tests async automáticamente sin decorar con
+# @pytest.mark.asyncio en cada uno.
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-v --tb=short"
 
 [tool.mypy]
 python_version = "3.12"
+# strict=false en F0: se activa gradualmente conforme se añadan type hints.
+# En F6 se evaluará subir a strict=true como quality gate.
 strict = false
 warn_return_any = true
 warn_unused_configs = true
@@ -73,9 +92,13 @@ mypy_path = "src"
 
 [tool.coverage.run]
 source = ["src"]
+# branch=true mide cobertura de ramas (if/else), no solo de líneas.
+# Detecta casos donde una línea se ejecuta pero una rama condicional no.
 branch = true
 
 [tool.coverage.report]
+# fail_under=80: el pipeline de CI falla si la cobertura baja de 80%.
+# Umbral base para F0; se incrementará a 85% para domain/application en F6.
 fail_under = 80
 show_missing = true
 skip_empty = true

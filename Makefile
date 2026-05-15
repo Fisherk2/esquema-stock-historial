@@ -1,3 +1,10 @@
+# Makefile — Interfaz unificada de comandos para desarrollo.
+# Centraliza todas las operaciones comunes: instalación, linting,
+# testing, Docker y limpieza de artefactos.
+#
+# Uso: make <comando> (ej: make lint, make test)
+# Ver todos los comandos: make help
+
 .PHONY: help install dev lint format test test-cov build docker-up docker-down clean
 
 help:
@@ -31,6 +38,7 @@ test:
 test-cov:
 	pytest --cov=src --cov-report=term-missing --cov-report=html
 
+# Gate de calidad pre-commit: lint + format + test deben pasar antes de commitear
 build: lint format test
 
 docker-up:
@@ -39,6 +47,8 @@ docker-up:
 docker-down:
 	docker compose down
 
+# Elimina caché y artefactos de build: __pycache__, .pyc, .pytest_cache,
+# reportes de cobertura, caché de mypy/ruff, y directorios de distribución.
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete

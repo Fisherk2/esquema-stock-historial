@@ -1,4 +1,5 @@
 repos:
+  # Ruff: linter rápido con auto-fix para errores y estilo
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.13
     hooks:
@@ -6,12 +7,14 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  # Black: formateo consistente de código Python
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 26.3.1
     hooks:
       - id: black
         language_version: python3.12
 
+  # Hooks misceláneos: whitespace, finales de archivo, YAML, tamaño de archivos
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

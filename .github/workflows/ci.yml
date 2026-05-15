@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # Gate de calidad estática: ruff detecta errores de estilo, imports y bugs
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +21,8 @@ jobs:
       - name: Run ruff
         run: make lint
 
+  # Gate de calidad funcional: tests + coverage con umbral mínimo 80%
+  # Depende de lint: si el linter falla, no se ejecutan los tests
   test:
     runs-on: ubuntu-latest
     needs: lint
@@ -33,5 +36,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run tests
         run: make test
+      # Coverage: falla el pipeline si la cobertura baja de 80%
+      # Umbral base F0; se incrementará a 85% para domain/application en F6
       - name: Run coverage
         run: pytest --cov=src --cov-report=term-missing --cov-fail-under=80
