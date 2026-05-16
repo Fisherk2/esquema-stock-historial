@@ -54,8 +54,8 @@ async def run_seed(pool: asyncpg.Pool) -> None:
 
     sql = SEED_FILE.read_text(encoding="utf-8")
 
-    async with pool.transaction():
-        await pool.execute(sql)
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute(sql)
 
     logger.info("Seed data executed successfully")
 
@@ -65,6 +65,12 @@ async def run_seed_from_settings() -> None:
 
     Función de conveniencia para ejecución independiente (CLI). Crea un
     pool, ejecuta el seed y cierra el pool.
+
+    Ejemplo::
+
+        from src.infrastructure.db.seed import run_seed_from_settings
+
+        await run_seed_from_settings()
     """
     settings = Settings()
     await init_pool(settings)

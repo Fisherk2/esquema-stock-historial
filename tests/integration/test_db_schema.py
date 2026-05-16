@@ -326,3 +326,23 @@ async def test_seed_data_inserts(db_pool: asyncpg.Pool) -> None:
 
     assert product_count >= 10, f"Expected >= 10 products, got {product_count}"
     assert movement_count >= 30, f"Expected >= 30 movements, got {movement_count}"
+
+
+# ── Tests de run_seed() del módulo seed.py ───────────────────────────────
+
+
+async def test_run_seed_from_seed_module(db_pool: asyncpg.Pool) -> None:
+    """Verifica que run_seed() del módulo seed.py ejecuta correctamente.
+
+    Este test reproduce el bug: pool.transaction() no existe en asyncpg.Pool.
+    El método transaction() pertenece a Connection, no a Pool.
+    """
+    if not SEED_FILE.exists():
+        pytest.skip("Seed file not found")
+
+    from src.infrastructure.db.seed import run_seed
+
+    await run_seed(db_pool)
+
+    product_count = await db_pool.fetchval("SELECT COUNT(*) FROM products")
+    assert product_count >= 10, f"Expected >= 10 products, got {product_count}"

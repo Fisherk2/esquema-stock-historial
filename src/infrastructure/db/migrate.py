@@ -131,6 +131,13 @@ async def run_migrations_from_settings() -> list[str]:
 
     Returns:
         list[str]: Lista de migraciones aplicadas en esta ejecución.
+
+    Ejemplo::
+
+        from src.infrastructure.db.migrate import run_migrations_from_settings
+
+        aplicadas = await run_migrations_from_settings()
+        print(f"Migraciones aplicadas: {aplicadas}")
     """
     settings = Settings()
     await init_pool(settings)
