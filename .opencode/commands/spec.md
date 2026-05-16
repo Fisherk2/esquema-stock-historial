@@ -1,6 +1,6 @@
 ---
 description: Start spec-driven development — write a structured specification before writing code
-agent: analysis
+agent: build
 model: nvidia/z-ai/glm-5.1
 ---
 

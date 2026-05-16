@@ -1,6 +1,6 @@
 ---
 description: Break down the spec into small, verifiable tasks with acceptance criteria
-agent: analysis
+agent: build
 model: nvidia/z-ai/glm-5.1
 ---
 
