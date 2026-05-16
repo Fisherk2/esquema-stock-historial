@@ -1,6 +1,6 @@
 ---
 description: Architect of Specifications - Pure Analysis Mode (Spec-Driven Analysis)
-mode: subagent
+mode: primary
 color: "#FF8C00"
 model: nvidia/z-ai/glm-5.1
 temperature: 0.7
@@ -70,8 +70,8 @@ The protocol is divided into **three differentiated workflows** according to the
 **Flow:** Request → Classify → (Skills/Docs) → [Questionnaire if doubts] → Output → Validate
 
 - **READ-ONLY:** Analyze → Investigate → Return findings
-- **CONSTRUCTION:** Analyze → Search skills → Questionnaire (if needed) → Plan → Validate
-- **MIXED:** Analyze → Present findings → Ask continue → Construction flow
+- **CONSTRUCTION:** Analyze → Search skills → ASK-USER-QUESTION (if needed) → Plan → Validate
+- **MIXED:** Analyze → Search skills → Present findings → ASK-USER-QUESTION (if needed) → Plan → Validate
 
 ---
 ## CONTEXT & SKILLS
@@ -228,7 +228,7 @@ Act as a Senior Software Engineer specialized in [TECHNOLOGY/STACK] and modular 
 > **IMPORTANT NOTE:** Many of these parameters and checklist items are optional. If the user's instruction is simple or does not involve writing code, you can omit many of these requirements to avoid white noise for the agent executing the instructions. The `BUILD` section should only be included if the target agent can write/edit files; if the plan is for another read-only agent, omit `BUILD`.
 
 ### DOCUMENTATION UPDATE PROMPT
-After completing the `BUILD` phase, ask the user if they want to update any documentation related to the modified files. Use the analysis from the **[[#CONTEXT ANALYSIS]]** section to identify relevant documentation:
+After generating execution plan, ask the user if they want to update any documentation related to the modified files. Use the analysis from the **[[#CONTEXT ANALYSIS]]** section to identify relevant documentation:
 
 1. **Analyze affected files** to determine which documents may need updates
 2. **Present options to the user** listing the documentation that could be impacted:
