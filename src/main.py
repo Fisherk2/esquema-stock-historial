@@ -5,6 +5,9 @@ de FastAPI con sus routers, middleware y ciclo de vida configurados.
 La función ``create_app()`` es el punto de entrada para el servidor uvicorn
 y para los tests.
 
+El lifespan gestiona el ciclo de vida del pool de conexiones asyncpg:
+inicialización al arranque y cierre al apagar la aplicación.
+
 Ejemplo::
 
     from src.main import create_app
@@ -20,16 +23,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.adapters.api.routers.health import router as health_router
+from src.core.config import Settings
+from src.infrastructure.db.connection import close_pool, init_pool
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle hook para inicialización y limpieza de recursos.
 
-    Se ejecuta al arrancar y al apagar la aplicación. Aquí se integrará
-    la inicialización del pool de conexiones (F1) y el scheduler (F5).
+    Inicializa el pool de conexiones asyncpg al arrancar y lo cierra
+    al apagar la aplicación. En F5 se integrará también el scheduler.
     """
+    settings = Settings()
+    await init_pool(settings)
     yield
+    await close_pool()
 
 
 def create_app() -> FastAPI:

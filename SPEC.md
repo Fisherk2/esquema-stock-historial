@@ -195,3 +195,84 @@ async def record_movement(
 2. Should we use `alembic` for migration management or raw numbered SQL files?
 3. Is `structlog` preferred over stdlib `logging` from day one, or add later?
 4. Should the health endpoint also check DB connectivity (`SELECT 1`) in F0 or defer to F1?
+
+---
+
+# Spec: stock-historial — F1: Infraestructura DB
+
+## Objective
+
+Establecer la infraestructura completa de base de datos: esquema normalizado (3NF),
+migraciones SQL idempotentes, pool de conexiones integrado al lifespan de FastAPI,
+endpoint de health con verificación DB, y datos de prueba para desarrollo.
+
+**F1 success criteria:**
+- `make migrate` ejecuta todas las migraciones idempotentemente
+- `make seed` inserta datos de prueba (~10 productos, ~30 movimientos)
+- `GET /v1/health` retorna `{status, db}` con verificación `SELECT 1`
+- Trigger de inmutabilidad bloquea `UPDATE`/`DELETE` en `movements`
+- Índices compuestos y parciales creados para consultas <100ms
+- Tests de integración validan esquema, constraints, trigger e índices
+
+## Schema
+
+```
+ENUM: movement_type AS ENUM ('IN','OUT','ADJUSTMENT','TRANSFER')
+
+TABLE categories:
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PK
+  name        TEXT NOT NULL UNIQUE
+  description TEXT
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+
+TABLE products:
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PK
+  sku         TEXT NOT NULL UNIQUE
+  name        TEXT NOT NULL
+  description TEXT
+  unit_of_measure TEXT NOT NULL DEFAULT 'unit'
+  category_id BIGINT NOT NULL REFERENCES categories(id) ON DELETE RESTRICT
+  min_stock_threshold INTEGER NOT NULL DEFAULT 0 CHECK (>= 0)
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+
+TABLE movements:
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PK
+  product_id    BIGINT NOT NULL REFERENCES products(id) ON DELETE RESTRICT
+  movement_type movement_type NOT NULL
+  quantity      INTEGER NOT NULL CHECK (quantity > 0)
+  metadata      JSONB DEFAULT '{}'
+  reference     TEXT
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+
+TRIGGER: enforce_movements_immutability (BEFORE UPDATE OR DELETE → RAISE EXCEPTION)
+
+INDEXES:
+  ix_movements_product_created  ON movements (product_id, created_at DESC)
+  ix_movements_type_in|out|adjustment|transfer  (partial indexes)
+  ix_products_category_id       ON products (category_id)
+```
+
+## Commands
+
+```
+Migrate:     make migrate
+Seed:        make seed
+Test:        make test
+Build:       make build
+```
+
+## Files
+
+- `migrations/001_*.sql` — movement_type ENUM
+- `migrations/002_*.sql` — categories table
+- `migrations/003_*.sql` — products table
+- `migrations/004_*.sql` — movements table
+- `migrations/005_*.sql` — immutability trigger
+- `migrations/006_*.sql` — indexes
+- `migrations/007_*.sql` — seed data
+- `src/infrastructure/db/migrate.py` — migration runner
+- `src/infrastructure/db/seed.py` — seed executor
+- `src/infrastructure/db/connection.py` — pool management (lifespan integrated)
+- `src/main.py` — lifespan calls init_pool/close_pool
+- `src/adapters/api/routers/health.py` — health endpoint with SELECT 1
+- `tests/integration/test_db_schema.py` — integration tests (15 cases)

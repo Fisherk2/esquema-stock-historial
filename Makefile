@@ -5,7 +5,7 @@
 # Uso: make <comando> (ej: make lint, make test)
 # Ver todos los comandos: make help
 
-.PHONY: help install dev lint format test test-cov build docker-up docker-down clean
+.PHONY: help install dev lint format test test-cov build docker-up docker-down clean migrate seed
 
 help:
 	@echo "Available commands:"
@@ -19,6 +19,8 @@ help:
 	@echo "  docker-up   Start Docker Compose services"
 	@echo "  docker-down Stop Docker Compose services"
 	@echo "  clean       Remove cache and build artifacts"
+	@echo "  migrate     Run database migrations"
+	@echo "  seed        Insert seed data for development"
 
 install:
 	pip install -r requirements.txt
@@ -55,3 +57,9 @@ clean:
 	find . -type f -name "*.pyo" -delete
 	rm -rf .pytest_cache htmlcov .coverage .mypy_cache .ruff_cache
 	rm -rf dist build *.egg-info
+
+migrate:
+	python -m src.infrastructure.db.migrate
+
+seed:
+	python -m src.infrastructure.db.seed

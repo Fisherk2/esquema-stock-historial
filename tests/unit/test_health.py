@@ -1,8 +1,9 @@
 """Tests unitarios del endpoint de healthcheck.
 
-Valida que ``GET /v1/health`` responda correctamente. Estos tests
-son smoke tests que verifican la infraestructura básica de la app
-(routers, middleware, serialización JSON).
+Valida que ``GET /v1/health`` responda correctamente con verificación
+de conectividad a la base de datos. Estos tests son smoke tests que
+verifican la infraestructura básica de la app (routers, middleware,
+serialización JSON).
 
 Ejemplo::
 
@@ -20,12 +21,18 @@ if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
 
-def test_health_check_returns_ok(client: TestClient) -> None:
-    """Verifica que el endpoint de health responda 200 con status ok.
+def test_health_check_returns_status_and_db(client: TestClient) -> None:
+    """Verifica que el endpoint de health responda 200 con status y db.
+
+    En entorno de test sin DB disponible, el estado es ``degraded``.
 
     Args:
         client: Fixture de conftest que proporciona TestClient configurado.
     """
     response = client.get("/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert "status" in data
+    assert "db" in data
+    assert data["status"] in ("ok", "degraded")
+    assert data["db"] in ("connected", "unavailable")

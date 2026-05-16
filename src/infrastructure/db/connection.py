@@ -1,8 +1,8 @@
 """Gestión del pool de conexiones a PostgreSQL.
 
 Administra el ciclo de vida del pool de conexiones asyncpg: creación,
-obtención y cierre. Usa un singleton a nivel de módulo como placeholder
-hasta F1, donde se integrará al lifespan de FastAPI con Unit of Work.
+obtención y cierre. El pool se inicializa y cierra desde el lifespan
+de FastAPI (``src/main.py``).
 
 Patrón aplicado: Dependency Injection — ``init_pool()`` recibe ``Settings``
 inyectado en lugar de crear la configuración internamente.
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Singleton a nivel de módulo: placeholder hasta integración con lifespan (F1)
+# Singleton a nivel de módulo: gestionado por el lifespan de FastAPI
 _pool: asyncpg.Pool | None = None
 
 
