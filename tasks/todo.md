@@ -1,103 +1,142 @@
-# TODO — F1: Infraestructura DB
+# TODO — F2: Núcleo de Dominio
 
-## Progress: [15/15] ████████████████████ ✅ COMPLETADO
+## Progress: [0/18] ░░░░░░░░░░░░░░░░░░ EN PROGRESO
 
-F1 completada el 2026-05-15. Commits: `57e5ed7` (implementación), `1993eec` (bug fix + docstrings).
+## Phase 1: Foundation (Value Objects + Base Exceptions) [0/3]
 
-## Phase 1: Database Schema (Migrations) [5/5] ✅
+- [ ] **Task 1:** Create DomainError base exception
+  - `src/domain/exceptions/domain_error.py`
+  - `src/domain/exceptions/__init__.py`
+  - Verify: `python -c "from src.domain.exceptions import DomainError"`
 
-- [x] **Task 1:** Create ENUM and categories table
-  - `migrations/001_create_movement_type_enum.sql`
-  - `migrations/002_create_categories.sql`
-  - Verify: Run twice, no error
+- [ ] **Task 2:** Create MovementType enum
+  - `src/domain/value_objects/movement_type.py`
+  - `src/domain/value_objects/__init__.py`
+  - Verify: `python -c "from src.domain.value_objects import MovementType; assert MovementType.IN.value == 'IN'"`
 
-- [x] **Task 2:** Create products and movements tables
-  - `migrations/003_create_products.sql`
-  - `migrations/004_create_movements.sql`
-  - Verify: `\d products`, `\d movements`
+- [ ] **Task 3:** Create Quantity VO + InvalidQuantityError
+  - `src/domain/value_objects/quantity.py`
+  - `src/domain/exceptions/invalid_quantity.py`
+  - Verify: `Quantity(0)` → raises InvalidQuantityError
 
-- [x] **Task 3:** Create immutability trigger
-  - `migrations/005_create_immutability_trigger.sql`
-  - Verify: UPDATE raises exception
-
-- [x] **Task 4:** Create indexes
-  - `migrations/006_create_indexes.sql`
-  - Verify: pg_indexes shows 7+ indexes
-
-- [x] **Task 5:** Create seed data
-  - `migrations/007_seed_data.sql`
-  - Verify: Counts ≈ 10 products, ≈ 30 movements
-
-### Checkpoint: Schema Complete [x]
+### Checkpoint: Foundation [ ]
+- [ ] DomainError + 2 exceptions exist
+- [ ] MovementType has 4 values
+- [ ] Quantity validates > 0
+- [ ] `make lint` passes
 
 ---
 
-## Phase 2: Migration Runner + Seed Script [2/2] ✅
+## Phase 2: Movement Vertical Path [0/5]
 
-- [x] **Task 6:** Create migrate.py
-  - `src/infrastructure/db/migrate.py`
-  - Verify: Run twice, second run skips
+- [ ] **Task 4:** Create InsufficientStockError + ImmutabilityViolationError
+  - `src/domain/exceptions/insufficient_stock.py`
+  - `src/domain/exceptions/immutability_violation.py`
+  - Verify: `InsufficientStockError(1, 10, 5).product_id == 1`
 
-- [x] **Task 7:** Create seed.py
-  - `src/infrastructure/db/seed.py`
-  - Verify: Seed inserts data
+- [ ] **Task 5:** Create Movement entity (frozen dataclass)
+  - `src/domain/entities/movement.py`
+  - Verify: Movement with TRANSFER+empty metadata → ValueError
 
-### Checkpoint: Migration Scripts Complete [x]
+- [ ] **Task 6:** Create Movement business rules
+  - `src/domain/rules/stock_validation.py` (calculate_stock_delta, validate_stock_not_negative)
+  - `src/domain/rules/immutability.py` (enforce_immutability)
+  - `src/domain/rules/movement_consistency.py` (validate_movement_type_consistency)
+  - Verify: `calculate_stock_delta(MovementType.IN, 10) == 10`
 
----
+- [ ] **Task 7:** Create IMovementRepository + IStockQueryRepository ports
+  - `src/domain/ports/movement_repository.py`
+  - `src/domain/ports/stock_query_repository.py`
+  - Verify: No update/delete on IMovementRepository; ISP separation
 
-## Phase 3: FastAPI Integration [3/3] ✅
+- [ ] **Task 8:** Unit tests for Movement path
+  - `tests/unit/domain/test_movement_type.py`
+  - `tests/unit/domain/test_quantity.py`
+  - `tests/unit/domain/test_movement.py`
+  - `tests/unit/domain/test_rules.py`
+  - `tests/unit/domain/test_ports.py`
+  - Verify: `pytest tests/unit/domain/ -v --cov=src/domain`
 
-- [x] **Task 8:** Integrate pool into FastAPI lifespan
-  - `src/main.py`
-  - Verify: App starts with pool
-
-- [x] **Task 9:** Add DB check to health endpoint
-  - `src/adapters/api/routers/health.py`
-  - Verify: Returns {status, db}
-
-- [x] **Task 10:** Update connection.py docstrings
-  - `src/infrastructure/db/connection.py`
-  - Verify: No "placeholder" comments
-
-### Checkpoint: FastAPI Integration Complete [x]
-
----
-
-## Phase 4: Integration Tests [1/1] ✅
-
-- [x] **Task 11:** Create test_db_schema.py
-  - `tests/integration/test_db_schema.py`
-  - Verify: All 17 tests pass (16 schema + 1 seed module)
-
-### Checkpoint: Integration Tests Complete [x]
+### Checkpoint: Movement Path Complete [ ]
+- [ ] Movement is frozen and validates metadata
+- [ ] All 4 rules are pure functions
+- [ ] IMovementRepository has no update/delete
+- [ ] IStockQueryRepository is separate (ISP)
+- [ ] Movement-path tests pass, coverage > 85%
 
 ---
 
-## Phase 5: Documentation + Build Updates [3/3] ✅
+## Phase 3: Product Vertical Path [0/4]
 
-- [x] **Task 12:** Update Makefile
-  - Add `migrate` and `seed` targets
-  - Verify: `make help` lists them
+- [ ] **Task 9:** Create SKU VO + InvalidSKUError
+  - `src/domain/value_objects/sku.py`
+  - `src/domain/exceptions/invalid_sku.py`
+  - Verify: `SKU("PROD-001")` works; `SKU("")` raises InvalidSKUError
 
-- [x] **Task 13:** Update spec-tracking.md
-  - Spec-10/11/12 status changes
-  - Verify: Review file
+- [ ] **Task 10:** Create Product entity
+  - `src/domain/entities/product.py`
+  - Verify: Product with empty name → ValueError
 
-- [x] **Task 14:** Update SPEC.md
-  - Add F1 section
-  - Verify: Review file
+- [ ] **Task 11:** Create IProductRepository port
+  - `src/domain/ports/product_repository.py`
+  - Verify: 5 methods including list_below_threshold
 
-### Checkpoint: Documentation Complete [x]
+- [ ] **Task 12:** Unit tests for Product path
+  - `tests/unit/domain/test_sku.py`
+  - `tests/unit/domain/test_product.py`
+  - `tests/unit/domain/test_product_port.py`
+  - Verify: `pytest tests/unit/domain/test_sku.py tests/unit/domain/test_product.py -v`
+
+### Checkpoint: Product Path Complete [ ]
+- [ ] SKU validates format
+- [ ] Product validates name, threshold, unit
+- [ ] IProductRepository has list_below_threshold
+- [ ] Product-path tests pass
 
 ---
 
-## Phase 6: Final Validation [1/1] ✅
+## Phase 4: Category Vertical Path [0/3]
 
-- [x] **Task 15:** Run make build
-  - Verify: Exit code 0
+- [ ] **Task 13:** Create Category entity
+  - `src/domain/entities/category.py`
+  - Verify: Category with empty name → ValueError
 
-### Checkpoint: F1 Complete [x]
+- [ ] **Task 14:** Create ICategoryRepository port
+  - `src/domain/ports/category_repository.py`
+  - Verify: 3 methods, no pagination
+
+- [ ] **Task 15:** Unit tests for Category path
+  - `tests/unit/domain/test_category.py`
+  - `tests/unit/domain/test_category_port.py`
+  - Verify: `pytest tests/unit/domain/test_category.py -v`
+
+### Checkpoint: Category Path Complete [ ]
+- [ ] Category validates non-empty name
+- [ ] ICategoryRepository has 3 methods
+- [ ] Category-path tests pass
+
+---
+
+## Phase 5: Domain Integration + Documentation [0/3]
+
+- [ ] **Task 16:** Update domain/__init__.py with full re-exports
+  - `src/domain/__init__.py`
+  - Verify: `python -c "from src.domain import Movement, Product, Category"`
+
+- [ ] **Task 17:** Update spec-tracking.md + SPEC.md + WORKFLOW.md
+  - `docs/workflow/spec-tracking.md`
+  - `SPEC.md`
+  - `WORKFLOW.md`
+  - Verify: Review updated files
+
+- [ ] **Task 18:** Run make build (final validation)
+  - Verify: `make build` exit code 0
+
+### Checkpoint: F2 Complete [ ]
+- [ ] All SPEC-20/21/22 acceptance criteria met
+- [ ] `make build` passes
+- [ ] Domain is self-contained (no external imports)
+- [ ] Ready for human review → F3
 
 ---
 
@@ -105,12 +144,17 @@ F1 completada el 2026-05-15. Commits: `57e5ed7` (implementación), `1993eec` (bu
 
 | Phase | Tasks | Completed |
 |-------|-------|-----------|
-| Phase 1: Database Schema | 5 | 5/5 |
-| Phase 2: Migration Runner | 2 | 2/2 |
-| Phase 3: FastAPI Integration | 3 | 3/3 |
-| Phase 4: Integration Tests | 1 | 1/1 |
-| Phase 5: Documentation | 3 | 3/3 |
-| Phase 6: Final Validation | 1 | 1/1 |
-| **Total** | **15** | **15/15** ✅ |
+| Phase 1: Foundation | 3 | 0/3 |
+| Phase 2: Movement Path | 5 | 0/5 |
+| Phase 3: Product Path | 4 | 0/4 |
+| Phase 4: Category Path | 3 | 0/3 |
+| Phase 5: Integration + Docs | 3 | 0/3 |
+| **Total** | **18** | **0/18** |
+
+---
+
+## Resolved Design Decision
+
+**Movement `__hash__` + `dict` metadata:** ~~frozen dataclass auto-generates `__hash__`, but `dict` is unhashable~~ **RESOLVED:** `__hash__ = None` on Movement. Entity identified by `id`, not value. No use case for hashing. Keeps `metadata: dict[str, Any]` for natural JSONB mapping.
 
 ---
