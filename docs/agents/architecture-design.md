@@ -9,38 +9,61 @@ graph TD
     subgraph "Capa Externa (Infraestructura)"
         API[FastAPI Router / Controllers]
         SCHED[APScheduler Background Tasks]
-        DB[(PostgreSQL + asyncpg)]
+        DB[(PostgreSQL 16+)]
     end
 
-    subgraph "Capa de Adaptadores"
-        IRepo[InventoryRepository Protocol]
-        ISched[SchedulerService Protocol]
-        RepoImpl[PostgresRepository Impl]
-        SchedImpl[APScheduler Impl]
+    subgraph "Capa de Adaptadores (infrastructure/repositories/)"
+        IMovRepo[IMovementRepository Protocol]
+        IProdRepo[IProductRepository Protocol]
+        ICatRepo[ICategoryRepository Protocol]
+        IStockRepo[IStockQueryRepository Protocol]
+        MovRepoImpl[PostgresMovementRepository]
+        ProdRepoImpl[PostgresProductRepository]
+        CatRepoImpl[PostgresCategoryRepository]
+        StockRepoImpl[PostgresStockQueryRepository]
+        Mappers[mappers.py — Row → Entity]
     end
 
     subgraph "Capa de Aplicación"
         UseCase[RecordMovementUseCase]
         UseCase2[QueryStockAtDateUseCase]
         DTOs[Pydantic Input/Output DTOs]
+        UoW[PostgresUnitOfWork]
     end
 
     subgraph "Capa de Dominio"
-        Ent[Entity: Product, Movement]
+        Ent[Entity: Product, Movement, Category]
         Rules[Business Rules: StockValidation, Immutability]
         Errs[Domain Exceptions]
+        VOs[Value Objects: SKU, Quantity, MovementType]
     end
 
-    API --> IRepo
+    API --> IMovRepo
+    API --> IProdRepo
     API --> UseCase
-    SCHED --> ISched
-    IRepo -.-> UseCase
-    ISched -.-> UseCase2
+    SCHED --> IStockRepo
+    UseCase --> IMovRepo
+    UseCase --> IStockRepo
     UseCase --> Rules
     UseCase --> DTOs
-    RepoImpl -.-> IRepo
-    SchedImpl -.-> ISched
-    DB -.-> RepoImpl
+    MovRepoImpl -.-> IMovRepo
+    ProdRepoImpl -.-> IProdRepo
+    CatRepoImpl -.-> ICatRepo
+    StockRepoImpl -.-> IStockRepo
+    MovRepoImpl --> Mappers
+    ProdRepoImpl --> Mappers
+    CatRepoImpl --> Mappers
+    StockRepoImpl --> Mappers
+    DB -.-> MovRepoImpl
+    DB -.-> ProdRepoImpl
+    DB -.-> StockRepoImpl
+    UoW --> MovRepoImpl
+    UoW --> ProdRepoImpl
+    UseCase --> UoW
+    Rules --> Errs
+    Rules --> VOs
+    Ent --> VOs
+    Ent --> Errs
 ```
 
 ## Estrategia de Comunicación y Estado
@@ -71,4 +94,14 @@ Las siguientes reglas de importación son obligatorias y se verifican en CI:
 - CI ejecuta `make lint` en cada push/PR
 - Para enforcement estricto por directorio, considerar `import-linter` en fases futuras
 
-**Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/`.
+**Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/repositories/`.
+
+### Mappers (Row → Entity)
+
+Los mappers son **funciones puras** ubicadas en `src/infrastructure/repositories/mappers.py`. Transforman `asyncpg.Record` en entidades de dominio (`@dataclass`). No tienen estado, no acceden a DB, y son determinísticas:
+
+- `_map_category_row(record) -> Category`
+- `_map_product_row(record) -> Product` — construye `SKU` VO desde string
+- `_map_movement_row(record) -> Movement` — parsea `movement_type` string → Enum, `quantity` int → `Quantity` VO, `metadata` JSONB → dict
+
+Esta separación mantiene los repositorios enfocados en I/O y delega la transformación a funciones testeables de forma aislada.

@@ -4,6 +4,8 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
+**Fase actual:** F3 — Adaptadores de Datos
+
 ## Quick Reference
 
 - **Runtime:** Python 3.12+ · `pip install -r requirements.txt`

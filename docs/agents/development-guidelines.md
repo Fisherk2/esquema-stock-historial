@@ -19,10 +19,14 @@
 
 ```
 src/
-├── domain/          # Entidades, excepciones, reglas de negocio puras
+├── domain/          # Entidades, excepciones, reglas de negocio puras, ports (protocols)
 ├── application/     # UseCases, DTOs, Interfaces (Protocols)
-├── infrastructure/  # FastAPI routers, asyncpg wrappers, APScheduler config
-├── adapters/        # Repositorios concretos, mapeo SQL<->DTO
+├── infrastructure/  # DB (connection, uow, migrations, seed), repositories (asyncpg wrappers), scheduler, logging
+│   ├── db/          # connection.py, uow.py, migrate.py, seed.py
+│   ├── repositories/  # movement_repository.py, product_repository.py, category_repository.py, stock_query_repository.py, mappers.py
+│   ├── scheduler/   # APScheduler config
+│   └── logging/     # Logging estructurado
+├── adapters/        # FastAPI routers, controllers, dependency injection
 └── main.py          # DI Container, setup, entrypoint
 tests/
 ├── unit/            # Mocked protocols, pure business logic
