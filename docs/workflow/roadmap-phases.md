@@ -7,8 +7,8 @@
 | Fase | Duración Estimada | Estado | Hitos Clave |
 |------|-------------------|--------|-------------|
 | **F0: Preparación** | 2-3 días | Completado | Estructura de proyecto, `.gitignore`, `.env.example`, `pyproject.toml`, linters, pytest + testcontainers |
-| **F1: Infraestructura DB** | 3-4 días | En Progreso | Esquema normalizado (3NF), migraciones SQL, índices compuestos, seed data |
-| **F2: Núcleo de Dominio** | 4-5 días | Bloqueado | Entidades `Product`/`Movement`, reglas de negocio, protocolos, casos de uso con DI |
+| **F1: Infraestructura DB** | 3-4 días | Completado | Esquema normalizado (3NF), migraciones SQL, índices compuestos, seed data, trigger inmutabilidad |
+| **F2: Núcleo de Dominio** | 4-5 días | En Progreso | Entidades `Product`/`Movement`, reglas de negocio, protocolos, casos de uso con DI |
 | **F3: Adaptadores de Datos** | 3-4 días | Bloqueado | `PostgresRepository` con `asyncpg`, SQL explícito, vistas materializadas |
 | **F4: Capa de Aplicación/API** | 4-5 días | Bloqueado | Rutas FastAPI, validación Pydantic, manejo de errores, OpenAPI |
 | **F5: Scheduler & Concurrencia** | 2-3 días | Bloqueado | APScheduler, política de refresh, optimistic concurrency, logging |

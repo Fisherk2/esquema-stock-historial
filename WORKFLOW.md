@@ -2,12 +2,13 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** En Desarrollo — F1: Infraestructura DB
+**Estado Actual:** En Desarrollo — F2: Núcleo de Dominio
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
 
 > **F0: Preparación** completada el 2026-05-14. Todos los specs (01-04) en estado Completado.
+> **F1: Infraestructura DB** completada el 2026-05-15. Specs Spec-10/11/12 en estado Completado. F2 aprobada para iniciar.
 
 ## Detailed Docs
 
