@@ -1,6 +1,6 @@
 ---
 description: Simplify code for clarity and maintainability — reduce complexity without changing behavior
-agent: build
+agent: implement
 ---
 
 Invoke the @skills/code-simplification/SKILL.md.

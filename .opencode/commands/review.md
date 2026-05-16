@@ -1,7 +1,6 @@
 ---
 description: Conduct a five-axis code review — correctness, readability, architecture, security, performance
 agent: analysis
-model: nvidia/z-ai/glm-5.1
 ---
 
 Invoke the @skills/code-review-and-quality/SKILL.md.

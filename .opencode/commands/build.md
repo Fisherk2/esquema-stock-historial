@@ -1,6 +1,6 @@
 ---
 description: Implement the next task incrementally — build, test, verify, commit
-agent: build
+agent: implement
 ---
 
 Invoke the @skills/incremental-implementation/SKILL.md alongside @skills/test-driven-development/SKILL.md.
