@@ -276,3 +276,78 @@ Build:       make build
 - `src/main.py` — lifespan calls init_pool/close_pool
 - `src/adapters/api/routers/health.py` — health endpoint with SELECT 1
 - `tests/integration/test_db_schema.py` — integration tests (15 cases)
+
+---
+
+# Spec: stock-historial — F2: Núcleo de Dominio
+
+## Objective
+
+Construir el nucleo de dominio puro del sistema: entidades, value objects,
+excepciones, reglas de negocio y protocolos (ports). Cero codigo de
+infraestructura — logica de dominio framework-agnostic.
+
+**F2 success criteria:**
+- `make lint` pasa con 0 errores en `src/domain/`
+- `make test` pasa todos los tests unitarios de dominio
+- Cobertura de `src/domain/` > 85%
+- No hay imports de Pydantic, application o infrastructure en `domain/`
+- Todos los Protocolos son `@runtime_checkable` y satisfacen mocks en tests
+- Entidades validan sus invariantes en `__post_init__`
+- Reglas son funciones puras (sin estado, sin I/O)
+
+## Domain Components
+
+### Entities
+- **Movement** — `@dataclass(frozen=True)`, inmutable, metadatos validados por tipo
+- **Product** — `@dataclass`, SKU value object, validacion de nombre/umbral/unidad
+- **Category** — `@dataclass`, validacion de nombre no vacio
+
+### Value Objects
+- **MovementType** — `Enum` con 4 valores: IN, OUT, ADJUSTMENT, TRANSFER
+- **Quantity** — `@dataclass(frozen=True)`, valida `value > 0`
+- **SKU** — `@dataclass(frozen=True)`, regex `[A-Za-z0-9\-_]{1,50}`
+
+### Exceptions
+- **DomainError** — base exception, todas heredan de esta
+- **InsufficientStockError** — lleva `product_id`, `requested`, `available`
+- **ImmutabilityViolationError** — lleva `entity_type`, `entity_id`
+- **InvalidQuantityError** — para cantidades <= 0
+- **InvalidSKUError** — para formatos de SKU invalidos
+
+### Rules (pure functions)
+- **calculate_stock_delta** — +qty para IN/ADJUSTMENT, -qty para OUT/TRANSFER
+- **validate_stock_not_negative** — lanza InsufficientStockError si stock < 0
+- **enforce_immutability** — bloquea update/delete en Movement
+- **validate_movement_type_consistency** — valida metadata segun tipo
+
+### Ports (typing.Protocol)
+- **IMovementRepository** — create, get_by_id, list_by_product (NO update/delete)
+- **IStockQueryRepository** — get_current_stock, get_stock_at_date
+- **IProductRepository** — create, get_by_id, get_by_sku, list_all, list_below_threshold
+- **ICategoryRepository** — create, get_by_id, list_all (sin paginacion)
+
+## Files Created
+
+- `src/domain/entities/movement.py`, `product.py`, `category.py`
+- `src/domain/value_objects/movement_type.py`, `quantity.py`, `sku.py`
+- `src/domain/exceptions/domain_error.py`, `insufficient_stock.py`,
+  `immutability_violation.py`, `invalid_quantity.py`, `invalid_sku.py`
+- `src/domain/rules/stock_validation.py`, `immutability.py`,
+  `movement_consistency.py`
+- `src/domain/ports/movement_repository.py`, `stock_query_repository.py`,
+  `product_repository.py`, `category_repository.py`
+- `src/domain/__init__.py` — re-export de toda la API publica
+- `tests/unit/domain/` — 80+ tests unitarios
+
+## Architecture Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `@dataclass` natives (no Pydantic) | Dominio framework-agnostic; Pydantic solo para DTOs |
+| `Movement` frozen | Inmutabilidad a nivel de lenguaje |
+| `typing.Protocol` + `@runtime_checkable` | DIP sin acoplamiento por herencia |
+| MovementType como `Enum` | Set cerrado de 4 valores, mapeo 1:1 a PostgreSQL ENUM |
+| FK como `int` (no navegacion) | Entidades serializables, sin lazy-loading |
+| TRANSFER como un solo Movement | Registro atomico con origin/destination en metadata |
+| Reglas como funciones puras | Sin estado, sin I/O, testables facilmente |

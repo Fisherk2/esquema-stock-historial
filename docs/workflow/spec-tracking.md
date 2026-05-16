@@ -11,9 +11,9 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 | Spec-10 | Configuración DB | PostgreSQL 16+, `asyncpg`, connection pooling, healthcheck | Alta | F1 | `src/infrastructure/db/`, `docker-compose.yml` | Spec-02 | [3/3] | Completado |
 | Spec-11 | Esquema y Migraciones | Tablas `products`, `movements`, constraints, FK, 3NF | Alta | F1 | `migrations/`, `specs/` (DDL) | Spec-10 | [6/6] | Completado |
 | Spec-12 | Índices y Optimización Base | Índices compuestos, parciales, `EXPLAIN` baseline, seed data | Media | F1 | `migrations/`, `specs/` (indexes.sql) | Spec-11 | [4/4] | Completado |
-| Spec-20 | Entidades (Domain) | Clases `Product`, `Movement`, value objects, excepciones de dominio | Alta | F2 | `src/domain/entities/`, `src/domain/exceptions/` | Spec-11 | [0/5] | En Progreso |
-| Spec-21 | Reglas de Negocio | Validación inmutabilidad, stock no negativo, transaccionalidad | Alta | F2 | `src/domain/rules/`, `src/domain/protocols/` | Spec-20 | [0/4] | Pend. |
-| Spec-22 | Protocolos/Interfaces | `IMovementRepository`, `IStockQueryRepo`, `IUseCase` | Alta | F2 | `src/domain/ports/`, `specs/` (interfaces.md) | Spec-20 | [0/3] | Pend. |
+| Spec-20 | Entidades (Domain) | Clases `Product`, `Movement`, value objects, excepciones de dominio | Alta | F2 | `src/domain/entities/`, `src/domain/exceptions/` | Spec-11 | [5/5] | Completado |
+| Spec-21 | Reglas de Negocio | Validación inmutabilidad, stock no negativo, transaccionalidad | Alta | F2 | `src/domain/rules/`, `src/domain/protocols/` | Spec-20 | [4/4] | Completado |
+| Spec-22 | Protocolos/Interfaces | `IMovementRepository`, `IStockQueryRepo`, `IUseCase` | Alta | F2 | `src/domain/ports/`, `specs/` (interfaces.md) | Spec-20 | [3/3] | Completado |
 | Spec-30 | Implementación Repositorio | `asyncpg` wrapper, SQL explícito, mapeo DTO<->Row | Alta | F3 | `src/infrastructure/repositories/` | Spec-12, Spec-22 | [0/6] | Bloq. |
 | Spec-31 | Vistas Materializadas | `mv_stock_historical`, `REFRESH CONCURRENTLY`, fallback | Alta | F3 | `migrations/`, `specs/` (materialized.sql) | Spec-12, Spec-30 | [0/5] | Bloq. |
 | Spec-32 | Unit of Work & Transacciones | Context manager `asyncpg.transaction()`, commit/rollback | Media | F3 | `src/infrastructure/db/uow.py` | Spec-30 | [0/3] | Bloq. |

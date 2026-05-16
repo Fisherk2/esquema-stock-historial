@@ -8,7 +8,9 @@
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
 
 > **F0: Preparación** completada el 2026-05-14. Todos los specs (01-04) en estado Completado.
-> **F1: Infraestructura DB** completada el 2026-05-15. Specs Spec-10/11/12 en estado Completado. F2 aprobada para iniciar.
+> **F1: Infraestructura DB** completada el 2026-05-15. Specs Spec-10/11/12 en estado Completado.
+> **F2: Núcleo de Dominio** completada el 2026-05-15. Specs Spec-20/21/22 en estado Completado.
+> F3: Adaptadores de Datos aprobada para iniciar.
 
 ## Detailed Docs
 
