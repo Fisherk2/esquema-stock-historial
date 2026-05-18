@@ -1,8 +1,8 @@
 # TODO — F3: Adaptadores de Datos
 
-## Progress: [0/17] ░░░░░░░░░░░░░░░░░░ EN PROGRESO
+## Progress: [17/17] ████████████████████ COMPLETADO
 
-## Phase 1: Spec-30 — Repositorios + Mappers [0/8]
+## Phase 1: Spec-30 — Repositorios + Mappers [8/8]
 
 - [ ] **Task 1:** Create mapper functions
   - `src/infrastructure/repositories/mappers.py`
@@ -58,7 +58,7 @@
 
 ---
 
-## Phase 2: Spec-31 — Vistas Materializadas [0/4]
+## Phase 2: Spec-31 — Vistas Materializadas [4/4]
 
 - [ ] **Task 9:** Create migration 008 (MV + 3 indexes)
   - `migrations/008_create_mv_stock_historical.sql`
@@ -92,7 +92,7 @@
 
 ---
 
-## Phase 3: Spec-32 — Unit of Work [0/3]
+## Phase 3: Spec-32 — Unit of Work [3/3]
 
 - [ ] **Task 13:** Create IUnitOfWork protocol
   - `src/domain/ports/unit_of_work.py`
@@ -122,7 +122,7 @@
 
 ---
 
-## Phase 4: Final Validation [0/2]
+## Phase 4: Final Validation [2/2]
 
 - [ ] **Task 16:** Full build validation
   - `make lint` → 0 errors
@@ -150,11 +150,11 @@
 
 | Phase | Tasks | Completed |
 |-------|-------|-----------|
-| Phase 1: Spec-30 (Repos + Mappers) | 8 | 0/8 |
-| Phase 2: Spec-31 (MV) | 4 | 0/4 |
-| Phase 3: Spec-32 (UoW) | 3 | 0/3 |
-| Phase 4: Final Validation | 2 | 0/2 |
-| **Total** | **17** | **0/17** |
+| Phase 1: Spec-30 (Repos + Mappers) | 8 | 8/8 |
+| Phase 2: Spec-31 (MV) | 4 | 4/4 |
+| Phase 3: Spec-32 (UoW) | 3 | 3/3 |
+| Phase 4: Final Validation | 2 | 2/2 |
+| **Total** | **17** | **17/17** |
 
 ---
 

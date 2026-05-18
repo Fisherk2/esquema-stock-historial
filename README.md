@@ -80,10 +80,10 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F3 — Adaptadores de Datos 📋 Especificada
+**Fase:** F3 — Adaptadores de Datos ✅ Completada
 
-- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅
-- **F3:** Especificada — lista para implementación (Spec-30/31/32)
+- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅
+- **F3:** Implementada — 4 repositorios, MV, UoW, 25 tests de integración + 8 unitarios
 - **F4:** Capa API (próxima)
 
-Specs activos: Spec-30 (Repositorio), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work) — Open Questions resueltas.
+Specs implementados: Spec-30 (Repositorios+Mappers), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work) — Todos completados.
