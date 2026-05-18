@@ -218,8 +218,10 @@ movement = await repo.create(new_movement)
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. ¿Debe `PostgresUnitOfWork` exponer métodos explícitos `commit()` y `rollback()` además del commit automático, para casos donde se necesite control manual?
-2. ¿Debe el Protocol `IUnitOfWork` incluir los métodos async `commit()` y `rollback()` como parte del contrato, o solo la propiedad `connection`?
-3. ¿Debe existir un `UnitOfWorkFactory` que cree los repositorios ya configurados con la conexión, en lugar de que el caller los instancie manualmente?
+1. **¿Debe `PostgresUnitOfWork` exponer métodos explícitos `commit()` y `rollback()`?** → **Solo automático.** Commit y rollback se manejan exclusivamente vía el context manager (`async with`). Si en el futuro se necesita un punto de guardado intermedio (savepoint), se añade sin romper el patrón existente. Simple y explícito.
+
+2. **¿Debe el Protocol `IUnitOfWork` incluir `commit()` y `rollback()`?** → **Solo la propiedad `connection`.** El Protocol define el contrato mínimo: acceso a la conexión activa de la transacción. Los métodos `commit()`/`rollback()` son detalles de implementación del context manager, no parte del contrato público.
+
+3. **¿Debe existir un `UnitOfWorkFactory`?** → **No.** El caller instancia los repositorios manualmente pasando `uow.connection` al constructor. Este patrón es explícito y fácil de entender. Una factory añadiría una capa de indirección innecesaria sin beneficio tangible.

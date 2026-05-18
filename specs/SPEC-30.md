@@ -515,8 +515,10 @@ class PostgresStockQueryRepository(IStockQueryRepository):
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. ¿Debe `get_current_stock()` retornar `int` o `float`? El esquema DB usa `INTEGER` para quantity, pero el Protocol actual dice `float`.
-2. ¿Debe `PostgresStockQueryRepository` incluir un método `get_stock_for_multiple_products(product_ids: list[int]) -> dict[int, int]` para consultas batch?
-3. ¿Los mappers deben validar las entidades (ej: SKU válido) o asumir que los datos de DB ya son válidos?
+1. **`get_current_stock()` retorna `int` o `float`?** → **`float`**. El port `IStockQueryRepository` define `float` como tipo de retorno. Mantener compatibilidad con el contrato existente (F2). La implementación convierte explícitamente con `float(row["stock"])`. Si en el futuro se necesita un port con `int`, se puede añadir un método separado sin romper este contrato.
+
+2. **Añadir método batch `get_stock_for_multiple_products()`?** → **No en F3 (YAGNI).** No existe un use case que lo requiera actualmente. Los repositorios de F4 pueden hacer consultas individuales. Si en F5/F6 se identifica un cuello de botella real, se añade sin romper la API existente.
+
+3. **¿Los mappers validan entidades o asumen DB válida?** → **Asumen DB válida con validación de tipos.** La base de datos tiene CHECK constraints, FK y trigger de inmutabilidad que protegen la integridad. Los mappers solo transforman tipos (`string → Enum`, `int → Quantity VO`). Si un valor no coincide (ej: `movement_type` no reconocido en Enum), se lanza la excepción nativa (`ValueError`). Si el SKU tiene formato inválido, `SKU()` lanza `InvalidSKUError`. Los mappers no validan invariantes de negocio — eso es responsabilidad de las entidades y la capa de dominio.

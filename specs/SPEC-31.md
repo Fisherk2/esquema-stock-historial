@@ -210,8 +210,10 @@ Aggregate
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. ¿Debería la vista incluir también `category_id` para permitir consultas de stock por categoría sin JOIN?
-2. ¿Debe `refresh_stock_view()` aceptar un parámetro `timeout` para evitar refreshs que tardan demasiado?
-3. ¿Debe haber un endpoint `POST /v1/admin/refresh-stock-view` para refresh manual desde la API?
+1. **¿Incluir `category_id` en la vista materializada?** → **No.** Mínimo viable: `product_id`, `sku`, `product_name`, `current_stock`, `last_movement_at`, `calculated_at`. Si en F5/F6 se necesitan consultas de stock por categoría sin JOIN, se añade en una migración adicional. No rompería los usos existentes ya que solo añade columnas.
+
+2. **¿Añadir `timeout` en `refresh_stock_view()`?** → **No.** `REFRESH CONCURRENTLY` es una operación controlada por PostgreSQL. Si se necesita limitar el tiempo del refresh, se usa `statement_timeout` a nivel de sesión (`SET statement_timeout = '30s'` antes del refresh). Esto se puede configurar en la función si la necesidad surge en F5.
+
+3. **¿Añadir endpoint `POST /v1/admin/refresh-stock-view` para refresh manual?** → **No en F3.** El refresh manual se ejecuta vía la función Python `refresh_stock_view()` o, en F5, mediante APScheduler con política de refresh periódica. Un endpoint admin añade complejidad (auth, access control) que no justifica el beneficio actual.

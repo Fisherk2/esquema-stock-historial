@@ -351,3 +351,233 @@ infraestructura — logica de dominio framework-agnostic.
 | FK como `int` (no navegacion) | Entidades serializables, sin lazy-loading |
 | TRANSFER como un solo Movement | Registro atomico con origin/destination en metadata |
 | Reglas como funciones puras | Sin estado, sin I/O, testables facilmente |
+
+---
+
+# Spec: stock-historial — F3: Adaptadores de Datos
+
+## Objective
+
+Implementar los adaptadores de datos que conectan el dominio puro (F2) con PostgreSQL (F1). Esta fase materializa los 4 ports del dominio como repositorios concretos con `asyncpg` y SQL explícito, añade la vista materializada para consultas de stock <100ms, y establece el patrón Unit of Work para transacciones multi-repositorio.
+
+**Usuarios objetivo:** Los casos de uso de F4 (Application layer) consumirán estos repositorios. Son el puente entre dominio e infraestructura.
+
+**Detalles completos:** Ver los specs individuales para diseño completo con código:
+- [SPEC-30](specs/SPEC-30.md) — Repositorios + Mappers
+- [SPEC-31](specs/SPEC-31.md) — Vistas Materializadas
+- [SPEC-32](specs/SPEC-32.md) — Unit of Work & Transacciones
+
+## Tech Stack
+
+| Componente | Tecnología | Notas |
+|-----------|-----------|-------|
+| DB Driver | asyncpg | Ya en F0 |
+| DB | PostgreSQL 16+ | Ya en F1 |
+| Testing | pytest + testcontainers.postgres | Ya en F0 |
+| **Nuevas dependencias** | Ninguna | F3 no añade dependencias externas |
+
+## Commands
+
+```
+Test:        make test          # Unit + integration tests
+Test (cov):  make test-cov      # Con reporte de cobertura
+Lint:        make lint          # ruff + black --check
+Migrate:     make migrate       # Ejecuta migraciones 001-008
+Build:       make build         # lint + format + test
+```
+
+## Project Structure
+
+**Archivos nuevos que F3 crea:**
+
+```
+src/infrastructure/repositories/
+├── __init__.py              # Re-exports de todos los repositorios
+├── mappers.py               # Funciones puras: Row → Entity
+├── movement_repository.py   # PostgresMovementRepository
+├── product_repository.py    # PostgresProductRepository
+├── category_repository.py   # PostgresCategoryRepository
+└── stock_query_repository.py # PostgresStockQueryRepository
+
+src/infrastructure/db/
+├── refresh.py               # refresh_stock_view() — refresh manual
+└── uow.py                   # PostgresUnitOfWork — context manager
+
+src/domain/ports/
+└── unit_of_work.py          # IUnitOfWork Protocol (nuevo)
+
+migrations/
+└── 008_create_mv_stock_historical.sql  # Vista materializada + índices
+```
+
+## Code Style
+
+Las convenciones de F0 se aplican. F3 añade patrones específicos de repositorios:
+
+```python
+# Patrón de repositorio F3:
+# 1. SQL explícito como constantes de clase (legible, EXPLAIN-friendly)
+# 2. Parámetros posicionales ($1, $2) — NUNCA concatenación
+# 3. Mappers como funciones puras separadas del repositorio
+# 4. Constructor con pool + connection opcional (soporte UoW)
+# 5. Método _get_conn() abstracto: pool o conexión de transacción
+
+from __future__ import annotations
+from typing import TYPE_CHECKING
+import asyncpg
+from src.domain.ports.movement_repository import IMovementRepository
+from src.domain.entities.movement import Movement
+from src.infrastructure.repositories.mappers import map_movement_row
+
+if TYPE_CHECKING:
+    pass
+
+
+class PostgresMovementRepository(IMovementRepository):
+    """Repositorio de movimientos con asyncpg y SQL explícito."""
+
+    _CREATE_SQL = """
+        INSERT INTO movements (product_id, movement_type, quantity, metadata, reference, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, product_id, movement_type, quantity, metadata, reference, created_at
+    """
+
+    def __init__(
+        self,
+        pool: asyncpg.Pool,
+        connection: asyncpg.Connection | None = None,
+    ) -> None:
+        self._pool = pool
+        self._connection = connection
+
+    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
+        return self._connection if self._connection else self._pool
+
+    async def create(self, movement: Movement) -> Movement:
+        row = await self._get_conn().fetchrow(
+            self._CREATE_SQL,
+            movement.product_id,
+            movement.movement_type.value,
+            movement.quantity.value,
+            movement.metadata,
+            movement.reference,
+            movement.created_at,
+        )
+        return map_movement_row(row)
+```
+
+**Convenciones específicas de F3:**
+- SQL: todas las queries como constantes de clase (uppercase, Snake SQL)
+- Mappers: funciones puras en `mappers.py`, sin estado, sin I/O
+- Mappers asumen DB válida (CHECK constraints protegen la integridad) pero lanzan excepciones de dominio si los tipos no coinciden
+- No ORM, no query builders — SQL explícito siempre
+- Cada método de repositorio es un único `fetchrow` o `fetch`
+
+## Testing Strategy
+
+| Level | Location | Framework | Scope |
+|-------|----------|-----------|-------|
+| Unit | `tests/unit/infrastructure/` | pytest | Mappers aislados (mock Records) |
+| Integration | `tests/integration/` | pytest + testcontainers.postgres | SQL real, repositorios, vista materializada, UoW |
+
+**Coverage targets:** infrastructure/repositories/ >70%
+
+**Patrones de test F3:**
+- Fixture `db_pool` existente se reutiliza para todos los tests de integración
+- Cada test de repositorio: `create()` → `get_by_id()` → verificar entidad retornada
+- Mappers: mock `asyncpg.Record` con dict, validar transformación tipos
+- Vista materializada: insertar movimientos → refresh → comparar con cálculo directo
+- UoW: commit (persistir datos), rollback (excepción no persiste), conexión compartida
+- Fallback: si vista no existe, `get_current_stock()` usa cálculo directo
+
+## Boundaries
+
+### Always do
+- SQL explícito con parámetros posicionales (`$1`, `$2`) — cero string concatenation
+- Mappers como funciones puras (sin estado, sin I/O)
+- Los repositorios NO implementan `update()` ni `delete()` para entidades inmutables
+- Connection opcional en constructor para soporte de Unit of Work
+
+### Ask first
+- Cambiar la firma de los ports del dominio (Protocolos en `domain/ports/`)
+- Añadir nuevos métodos a `IUnitOfWork` más allá de `connection`
+- Cambiar el tipo de retorno de `get_current_stock()` (actualmente `float`)
+- Modificar la estructura de la vista materializada `mv_stock_historical`
+- Añadir nuevas dependencias para F3
+
+### Never do
+- Usar ORM o query builders — SQL explícito siempre
+- Concatenar strings en queries (SQL injection risk)
+- Mutar entidades de dominio dentro de los mappers (las entidades son inmutables)
+- Commit manual en UoW — solo commit/rollback automático vía context manager
+- Añadir lógica de negocio en los repositorios — eso es responsabilidad de los use cases
+
+## Implementation Order
+
+```
+Spec-30 (Repositorios + Mappers)
+    ↓
+Spec-31 (Vistas Materializadas)
+    ↓
+Spec-32 (Unit of Work + IUnitOfWork Protocol)
+```
+
+- **Spec-30 primero:** Define los 4 repositorios y sus mappers. Es la base que dependen Spec-31 y Spec-32.
+- **Spec-31 segundo:** Actualiza `PostgresStockQueryRepository` para usar la vista materializada. Requiere los repos de Spec-30.
+- **Spec-32 tercero:** Añade `IUnitOfWork` y `PostgresUnitOfWork`. Requiere que los repos tengan `connection` opcional (ya implementado en Spec-30).
+
+## Success Criteria
+
+### Spec-30: Repositorios + Mappers
+- [ ] Los 4 repositorios implementan sus protocols respectivos
+- [ ] Todo SQL usa parámetros posicionales (`$1`, `$2`) — cero concatenación
+- [ ] Mappers son funciones puras testeables aisladamente
+- [ ] Constructor acepta `connection` opcional para UoW
+- [ ] `PostgresMovementRepository` NO tiene `update()` ni `delete()`
+- [ ] Tests de integración validan CRUD, paginación, cálculo de stock, mapeo de tipos
+
+### Spec-31: Vistas Materializadas
+- [ ] Vista `mv_stock_historical` existe tras migración 008
+- [ ] Índice único `ix_mv_stock_historical_product` existe (REFRESH CONCURRENTLY)
+- [ ] `refresh_stock_view()` ejecuta sin error
+- [ ] `get_current_stock()` usa vista, retorna mismo valor que cálculo directo
+- [ ] `get_stock_at_date()` sigue usando cálculo directo (no usa vista)
+- [ ] Tests validan: creación vista, refresh, consistencia, fallback
+
+### Spec-32: Unit of Work
+- [ ] `PostgresUnitOfWork` funciona como context manager asíncrono
+- [ ] Rollback automático en excepción
+- [ ] Commit automático al salir sin excepción
+- [ ] Conexión compartida entre múltiples repositorios
+- [ ] Conexión siempre liberada al pool
+- [ ] `IUnitOfWork` verificable como Protocol
+- [ ] Tests validan: commit, rollback, conexión compartida, aislamiento
+
+**Aggregate criteria:** `make lint` sin errores en todos los archivos nuevos | Coverage infrastructure/ >70% | `make test` pasa todos los tests
+
+## Resolved Questions
+
+### Específicas de F3
+
+| # | Pregunta | Decisión | Rationale |
+|---|----------|----------|-----------|
+| F3-Q1 | `get_current_stock()` retorna `int` o `float`? | **`float`** | El port ya está definido como `float` en F2. Mantener compatibilidad. La implementación convierte explícitamente. |
+| F3-Q2 | Añadir método batch `get_stock_for_multiple_products()`? | **No en F3** | YAGNI. Se puede añadir en F5/F6 si los use cases lo necesitan. |
+| F3-Q3 | Los mappers validan entidades o asumen DB válida? | **Asumen DB válida** | DB tiene CHECK constraints, FK, trigger. Los mappers solo transforman tipos. Si un tipo no coincide, lanzan excepción de dominio (`InvalidSKUError`, `ValueError`). No validan invariantes de negocio. |
+| F3-Q4 | Incluir `category_id` en vista materializada? | **No** | Mínimo viable. Se puede añadir en migración futura si se necesitan consultas por categoría. |
+| F3-Q5 | Añadir `timeout` en `refresh_stock_view()`? | **No** | Se maneja con `statement_timeout` global de PostgreSQL si se necesita. |
+| F3-Q6 | Añadir endpoint admin `POST /v1/admin/refresh-stock-view`? | **No en F3** | Refresh manual se hace vía función Python o APScheduler en F5. |
+| F3-Q7 | UoW expone `commit()`/`rollback()` explícitos? | **Solo automático** | Commit/rollback solo vía context manager. Simple y explícito. |
+| F3-Q8 | Protocol `IUnitOfWork` incluye `commit()`/`rollback()`? | **Solo `connection`** | El Protocol solo define la propiedad `connection`. |
+| F3-Q9 | Crear `UnitOfWorkFactory`? | **No** | El caller instancia repos manualmente con `uow.connection`. Simple y explícito. |
+
+### Preguntas de F3 (resueltas — ver tabla arriba)
+1. ~~¿`get_current_stock()` retorna `int` o `float`?~~ → Resuelto: `float` (compatibilidad con port F2).
+2. ~~¿Añadir método batch `get_stock_for_multiple_products()`?~~ → Resuelto: No en F3 (YAGNI).
+3. ~~¿Mappers validan entidades o asumen DB válida?~~ → Resuelto: Asumen DB válida con validación de tipos.
+4. ~~¿Incluir `category_id` en vista materializada?~~ → Resuelto: No (mínimo viable).
+5. ~~¿Añadir `timeout` en `refresh_stock_view()`?~~ → Resuelto: No (usa `statement_timeout` global).
+6. ~~¿Añadir endpoint admin de refresh?~~ → Resuelto: No en F3 (F5 con APScheduler).
+7. ~~¿UoW expone `commit()`/`rollback()` explícitos?~~ → Resuelto: Solo automático.
+8. ~~¿Protocol `IUnitOfWork` incluye `commit()`/`rollback()`?~~ → Resuelto: Solo `connection`.
+9. ~~¿Crear `UnitOfWorkFactory`?~~ → Resuelto: No (caller instancia manualmente).

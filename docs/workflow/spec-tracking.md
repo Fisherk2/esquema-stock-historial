@@ -14,9 +14,9 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 | Spec-20 | Entidades (Domain) | Clases `Product`, `Movement`, value objects, excepciones de dominio | Alta | F2 | `src/domain/entities/`, `src/domain/exceptions/` | Spec-11 | [5/5] | Completado |
 | Spec-21 | Reglas de Negocio | Validación inmutabilidad, stock no negativo, transaccionalidad | Alta | F2 | `src/domain/rules/`, `src/domain/protocols/` | Spec-20 | [4/4] | Completado |
 | Spec-22 | Protocolos/Interfaces | `IMovementRepository`, `IStockQueryRepo`, `IUseCase` | Alta | F2 | `src/domain/ports/`, `specs/` (interfaces.md) | Spec-20 | [3/3] | Completado |
-| Spec-30 | Implementación Repositorio | `asyncpg` wrapper, SQL explícito, mapeo DTO<->Row | Alta | F3 | `src/infrastructure/repositories/` | Spec-12, Spec-22 | [0/6] | Pendiente |
-| Spec-31 | Vistas Materializadas | `mv_stock_historical`, `REFRESH CONCURRENTLY`, fallback | Alta | F3 | `migrations/`, `specs/` (materialized.sql) | Spec-12, Spec-30 | [0/5] | Pendiente |
-| Spec-32 | Unit of Work & Transacciones | Context manager `asyncpg.transaction()`, commit/rollback | Media | F3 | `src/infrastructure/db/uow.py` | Spec-30 | [0/3] | Pendiente |
+| Spec-30 | Implementación Repositorio | `asyncpg` wrapper, SQL explícito, mapeo DTO<->Row | Alta | F3 | `src/infrastructure/repositories/` | Spec-12, Spec-22 | [6/6] | Especificado |
+| Spec-31 | Vistas Materializadas | `mv_stock_historical`, `REFRESH CONCURRENTLY`, fallback | Alta | F3 | `migrations/`, `specs/` (materialized.sql) | Spec-12, Spec-30 | [5/5] | Especificado |
+| Spec-32 | Unit of Work & Transacciones | Context manager `asyncpg.transaction()`, commit/rollback | Media | F3 | `src/infrastructure/db/uow.py` | Spec-30 | [3/3] | Especificado |
 | Spec-40 | Casos de Uso (Application) | `CreateMovementUseCase`, `QueryStockAtDateUseCase` | Alta | F4 | `src/application/use_cases/` | Spec-21, Spec-22, Spec-32 | [0/5] | Bloq. |
 | Spec-41 | DTOs & Validación Pydantic | Input/Output models, validación estricta, serialización JSON | Alta | F4 | `src/application/dtos/` | Spec-40 | [0/4] | Bloq. |
 | Spec-42 | Rutas FastAPI /v1/ & OpenAPI | Endpoints REST, dependency injection, error mapping | Alta | F4 | `src/adapters/api/routers/`, `src/main.py` | Spec-40, Spec-41 | [0/5] | Bloq. |

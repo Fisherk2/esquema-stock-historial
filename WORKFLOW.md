@@ -2,7 +2,7 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** En Desarrollo — F3: Adaptadores de Datos
+**Estado Actual:** En Especificación — F3: Adaptadores de Datos
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
@@ -10,7 +10,7 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > **F0: Preparación** completada el 2026-05-14. Todos los specs (01-04) en estado Completado.
 > **F1: Infraestructura DB** completada el 2026-05-15. Specs Spec-10/11/12 en estado Completado.
 > **F2: Núcleo de Dominio** completada el 2026-05-15. Specs Spec-20/21/22 en estado Completado. 89 tests unitarios, 99.56% cobertura de dominio.
-> F3: Adaptadores de Datos en progreso.
+> **F3: Adaptadores de Datos** especificada el 2026-05-18. Specs Spec-30/31/32 con Open Questions resueltas. Lista para implementación.
 
 ## Detailed Docs
 
