@@ -284,5 +284,4 @@ What would you like to build or analyze?
 ---
 ## Composition
 - **Invoke directly when:** You need analysis, design, or planning before writing code; to investigate, compare, or diagnose a technical problem
-- **Invoke via:** A slash command like `/spec` or `/task` that wraps analysis with the spec-driven-development skill
 - **Do not invoke from:** Another persona — composition is the job of slash commands or the user
