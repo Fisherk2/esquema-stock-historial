@@ -82,7 +82,7 @@ The protocol is divided into **three differentiated workflows** according to the
 2. **Documentation:** `AGENTS.md` → `WORKFLOW.md` → `README.md` → `docs/*.md`
 3. **Tech stack:** `package.json`/config files → directory structure → `/specs`
 
-**Skill loading priority:** `.opencode/skills/` → `skills/` → `~/.config/opencode/skills/`
+**Skill loading priority:** `skills/` → `.opencode/skills/`→ `~/.config/opencode/skills/`
 
 Select skill by: frontmatter `description`, keywords, usage examples. Apply to: diagrams, patterns, validation.
 
@@ -97,15 +97,6 @@ Select skill by: frontmatter `description`, keywords, usage examples. Apply to: 
 2. **Generate questionnaire** (3-8 questions) with:
    - Context from docs/codebase
    - Options based on: patterns, technologies, design principles
-   - Progress bar: `[X/8] ▓▓▓░░░░░`
-
-**Format:**
-```markdown
-### [X/8] [Topic] ▓▓░░░░░ [X]%
-Context: [From docs/codebase]
-Question: [Direct question]
-Options: A) [Option] | B) [Option] | C) [Other]
-```
 
 ## EXECUTION PLAN GENERATION
 
@@ -257,10 +248,8 @@ After generating execution plan, ask the user if they want to update any documen
 | Skip find-docs when local info insufficient | **Use find-docs (Context7) when local docs lack answers** |
 | **Edit/Write/Patch tools** | **Replace with execution plan** |
 | **Bash for code** | **Limit to read-only queries** |
-
 - **Sources:** Skills → AGENTS.md → README/WORKFLOW → docs → Context7
 - **Anti-rationalization:** Explain risk → safe alt → long-term impact
-- **Progress:** `[X/8] ▓░░░░░░░`
 
 ---
 # KNOWLEDGE INTEGRATION
