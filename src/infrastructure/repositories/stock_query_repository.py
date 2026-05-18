@@ -1,8 +1,10 @@
 """PostgresStockQueryRepository — implementacion concreta de IStockQueryRepository.
 
-Repositorio de consultas de stock con calculo directo desde la tabla
-movements mediante CASE/SUM. En Spec-31 se optimizara con la vista
-materializada mv_stock_historical.
+Repositorio de consultas de stock. Usa la vista materializada
+mv_stock_historical como fuente primaria para get_current_stock(),
+con fallback a calculo directo si la vista no existe.
+get_stock_at_date() siempre usa calculo directo (la MV solo tiene
+stock actual).
 
 Ejemplo de uso sin transaccion::
 
@@ -18,18 +20,27 @@ Ejemplo de uso con Unit of Work::
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
+
+import asyncpg
 
 from src.domain.ports.stock_query_repository import IStockQueryRepository
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    import asyncpg
+logger = logging.getLogger(__name__)
 
 
 class PostgresStockQueryRepository(IStockQueryRepository):
-    """Repositorio de consultas de stock con calculo directo."""
+    """Repositorio de consultas de stock con MV + fallback directo."""
+
+    _MV_CURRENT_STOCK_SQL = """
+        SELECT current_stock
+        FROM mv_stock_historical
+        WHERE product_id = $1
+    """
 
     _CURRENT_STOCK_SQL = """
         SELECT COALESCE(
@@ -83,7 +94,26 @@ class PostgresStockQueryRepository(IStockQueryRepository):
         return self._connection if self._connection else self._pool
 
     async def get_current_stock(self, product_id: int) -> float:
-        """Calcula el stock actual sumando todos los movimientos del producto."""
+        """Obtiene el stock actual via vista materializada con fallback.
+
+        Intenta primero consultar la vista materializada. Si no existe
+        (migracion 008 no aplicada), usa calculo directo.
+        """
+        try:
+            row = await self._get_conn().fetchrow(
+                self._MV_CURRENT_STOCK_SQL, product_id
+            )
+            if row is not None:
+                return float(row["current_stock"])
+            return 0.0
+        except asyncpg.UndefinedTableError:
+            logger.debug(
+                "mv_stock_historical not found, using direct calculation"
+            )
+            return await self._get_stock_direct(product_id)
+
+    async def _get_stock_direct(self, product_id: int) -> float:
+        """Calculo directo de stock desde la tabla movements."""
         row = await self._get_conn().fetchrow(
             self._CURRENT_STOCK_SQL, product_id
         )

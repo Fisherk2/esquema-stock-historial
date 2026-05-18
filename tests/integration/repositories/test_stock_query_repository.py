@@ -70,6 +70,7 @@ async def test_get_current_stock_zero_for_no_movements(
 
 async def test_get_current_stock_with_movements(db_pool: asyncpg.Pool) -> None:
     """get_current_stock() calcula el stock correctamente."""
+    from src.infrastructure.db.refresh import refresh_stock_view
     from src.infrastructure.repositories.stock_query_repository import (
         PostgresStockQueryRepository,
     )
@@ -106,6 +107,9 @@ async def test_get_current_stock_with_movements(db_pool: asyncpg.Pool) -> None:
         "VALUES ($1, 'ADJUSTMENT', 5)",
         product_id,
     )
+
+    # Refresh MV so it includes the new movements
+    await refresh_stock_view(db_pool)
 
     result = await repo.get_current_stock(product_id)
 
