@@ -80,6 +80,9 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F0 — Preparación ✅ Completada
+**Fase:** F3 — Adaptadores de Datos 🚧 En Progreso
 
-Siguiente fase: F1 — Infraestructura DB (Spec-10)
+- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅
+- **F4:** Capa API (próxima)
+
+Specs activos: Spec-30 (Repositorio), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work)
