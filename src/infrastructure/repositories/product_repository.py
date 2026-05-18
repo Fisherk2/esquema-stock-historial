@@ -148,7 +148,5 @@ class PostgresProductRepository(IProductRepository):
         limit: int = 100,
     ) -> list[Product]:
         """Lista productos con stock por debajo del umbral minimo."""
-        rows = await self._get_conn().fetch(
-            self._LIST_BELOW_THRESHOLD_SQL, limit
-        )
+        rows = await self._get_conn().fetch(self._LIST_BELOW_THRESHOLD_SQL, limit)
         return [map_product_row(r) for r in rows]

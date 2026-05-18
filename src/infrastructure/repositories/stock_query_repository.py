@@ -107,23 +107,15 @@ class PostgresStockQueryRepository(IStockQueryRepository):
                 return float(row["current_stock"])
             return 0.0
         except asyncpg.UndefinedTableError:
-            logger.debug(
-                "mv_stock_historical not found, using direct calculation"
-            )
+            logger.debug("mv_stock_historical not found, using direct calculation")
             return await self._get_stock_direct(product_id)
 
     async def _get_stock_direct(self, product_id: int) -> float:
         """Calculo directo de stock desde la tabla movements."""
-        row = await self._get_conn().fetchrow(
-            self._CURRENT_STOCK_SQL, product_id
-        )
+        row = await self._get_conn().fetchrow(self._CURRENT_STOCK_SQL, product_id)
         return float(row["stock"]) if row else 0.0
 
-    async def get_stock_at_date(
-        self, product_id: int, date: datetime
-    ) -> float:
+    async def get_stock_at_date(self, product_id: int, date: datetime) -> float:
         """Calcula el stock en una fecha especifica."""
-        row = await self._get_conn().fetchrow(
-            self._STOCK_AT_DATE_SQL, product_id, date
-        )
+        row = await self._get_conn().fetchrow(self._STOCK_AT_DATE_SQL, product_id, date)
         return float(row["stock"]) if row else 0.0

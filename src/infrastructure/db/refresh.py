@@ -48,9 +48,7 @@ async def refresh_stock_view(pool: asyncpg.Pool) -> None:
         await pool.execute(_REFRESH_SQL)
         logger.info("mv_stock_historical refreshed successfully")
     except asyncpg.UndefinedTableError:
-        logger.warning(
-            "mv_stock_historical does not exist yet, skipping refresh"
-        )
+        logger.warning("mv_stock_historical does not exist yet, skipping refresh")
     except Exception:
         logger.exception("Failed to refresh mv_stock_historical")
         raise

@@ -10,7 +10,6 @@ Ejemplo de ejecucion::
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from src.infrastructure.db.refresh import refresh_stock_view
@@ -46,7 +45,6 @@ async def test_mv_consistency_with_direct_calculation(
 ) -> None:
     """get_current_stock() via MV retorna el mismo valor que calculo
     directo."""
-    from src.domain.ports.stock_query_repository import IStockQueryRepository
     from src.infrastructure.repositories.stock_query_repository import (
         PostgresStockQueryRepository,
     )

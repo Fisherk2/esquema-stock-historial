@@ -133,14 +133,15 @@ async def test_list_by_product_ordered_desc(db_pool: asyncpg.Pool) -> None:
     product_id = await _get_product_id(db_pool)
     repo = PostgresMovementRepository(db_pool)
 
+    await repo.create(_make_movement(product_id, MovementType.IN, quantity=10))
+    await repo.create(_make_movement(product_id, MovementType.OUT, quantity=3))
     await repo.create(
-        _make_movement(product_id, MovementType.IN, quantity=10)
-    )
-    await repo.create(
-        _make_movement(product_id, MovementType.OUT, quantity=3)
-    )
-    await repo.create(
-        _make_movement(product_id, MovementType.ADJUSTMENT, quantity=1, metadata={"reason": "correction"})
+        _make_movement(
+            product_id,
+            MovementType.ADJUSTMENT,
+            quantity=1,
+            metadata={"reason": "correction"},
+        )
     )
 
     results = await repo.list_by_product(product_id, limit=10)
@@ -166,9 +167,7 @@ async def test_list_by_product_with_pagination(
 
     # Add 3 more
     for _ in range(3):
-        await repo.create(
-            _make_movement(product_id, MovementType.IN, quantity=1)
-        )
+        await repo.create(_make_movement(product_id, MovementType.IN, quantity=1))
 
     # First page
     page1 = await repo.list_by_product(product_id, limit=2, offset=0)
