@@ -11,7 +11,7 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
@@ -25,9 +25,7 @@ from src.application.dtos.movement_dtos import (
     MovementOutput,
 )
 from src.application.use_cases.record_movement import RecordMovementUseCase
-
-if TYPE_CHECKING:
-    from src.domain.ports.movement_repository import IMovementRepository
+from src.domain.ports.movement_repository import IMovementRepository
 
 router = APIRouter(prefix="/movements", tags=["movements"])
 

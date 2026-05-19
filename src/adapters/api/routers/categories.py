@@ -7,7 +7,7 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -20,9 +20,7 @@ from src.application.dtos.category_dtos import (
     CreateCategoryInput,
 )
 from src.application.use_cases.create_category import CreateCategoryUseCase
-
-if TYPE_CHECKING:
-    from src.domain.ports.category_repository import ICategoryRepository
+from src.domain.ports.category_repository import ICategoryRepository
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 

@@ -6,8 +6,9 @@ el pool de conexiones asyncpg. Se usan con ``Depends()`` en los endpoints.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
+import asyncpg
 from fastapi import Depends, HTTPException
 
 from src.application.use_cases.create_category import CreateCategoryUseCase
@@ -16,6 +17,11 @@ from src.application.use_cases.list_products import ListProductsUseCase
 from src.application.use_cases.query_current_stock import QueryCurrentStockUseCase
 from src.application.use_cases.query_stock_at_date import QueryStockAtDateUseCase
 from src.application.use_cases.record_movement import RecordMovementUseCase
+from src.domain.ports.category_repository import ICategoryRepository
+from src.domain.ports.movement_repository import IMovementRepository
+from src.domain.ports.product_repository import IProductRepository
+from src.domain.ports.stock_query_repository import IStockQueryRepository
+from src.domain.ports.unit_of_work import IUnitOfWork
 from src.infrastructure.db.connection import get_pool
 from src.infrastructure.db.uow import PostgresUnitOfWork
 from src.infrastructure.repositories.category_repository import (
@@ -30,15 +36,6 @@ from src.infrastructure.repositories.product_repository import (
 from src.infrastructure.repositories.stock_query_repository import (
     PostgresStockQueryRepository,
 )
-
-if TYPE_CHECKING:
-    import asyncpg
-
-    from src.domain.ports.category_repository import ICategoryRepository
-    from src.domain.ports.movement_repository import IMovementRepository
-    from src.domain.ports.product_repository import IProductRepository
-    from src.domain.ports.stock_query_repository import IStockQueryRepository
-    from src.domain.ports.unit_of_work import IUnitOfWork
 
 # ─── Pool ───────────────────────────────────────────────────────────────
 

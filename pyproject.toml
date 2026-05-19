@@ -63,8 +63,12 @@ ban-relative-imports = "all"
 [tool.ruff.lint.per-file-ignores]
 # Use case imports in adapters are used at runtime (type annotations + Annotated deps),
 # so they cannot be moved to TYPE_CHECKING blocks despite TC001 suggesting it.
-"src/adapters/api/dependencies.py" = ["TC001"]
+# asyncpg is also needed at runtime for FastAPI to resolve Annotated[type, Depends()]
+# when `from __future__ import annotations` stringifies the annotations.
+"src/adapters/api/dependencies.py" = ["TC001", "TC002"]
 "src/adapters/api/routers/*.py" = ["TC001", "B008"]
+# Integration API tests use httpx.AsyncClient as real type (needed by pytest fixtures).
+"tests/integration/api/*.py" = ["TC002"]
 
 [tool.black]
 line-length = 88

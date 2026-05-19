@@ -8,7 +8,7 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
@@ -24,9 +24,7 @@ from src.application.dtos.product_dtos import (
 )
 from src.application.use_cases.create_product import CreateProductUseCase
 from src.application.use_cases.list_products import ListProductsUseCase
-
-if TYPE_CHECKING:
-    from src.domain.ports.product_repository import IProductRepository
+from src.domain.ports.product_repository import IProductRepository
 
 router = APIRouter(prefix="/products", tags=["products"])
 
