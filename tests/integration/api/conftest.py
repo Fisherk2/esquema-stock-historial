@@ -1,12 +1,16 @@
 """Fixtures para tests de integracion de la API.
 
-Proporciona el fixture ``api_client`` que levanta la aplicación FastAPI
-con un pool de testcontainers PostgreSQL, permitiendo tests HTTP reales
+Proporciona el fixture ``api_client`` que levanta la aplicacion FastAPI
+con el pool de testcontainers PostgreSQL, permitiendo tests HTTP reales
 contra endpoints completos con base de datos real.
 
 Se usa ``httpx.AsyncClient`` con ``ASGITransport`` para evitar conflictos
 de event loop entre TestClient (que corre en un thread) y asyncpg pool
 (que corre en el event loop principal del test).
+
+El fixture ``api_client`` depende de ``db_clean`` para garantizar datos
+limpios antes de cada test, mientras usa ``db_pool`` (session-scoped)
+para el override de la dependencia ``get_db_pool``.
 
 Ejemplo de uso::
 
@@ -32,16 +36,22 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-async def api_client(db_pool: asyncpg.Pool) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Fixture que crea un cliente HTTP async contra la app con pool real.
+async def api_client(
+    db_pool: asyncpg.Pool, db_clean: asyncpg.Pool
+) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Fixture que crea un cliente HTTP async contra la app con datos limpios.
 
-    Construye una instancia fresca de la aplicación FastAPI, sobrescribe
+    Construye una instancia fresca de la aplicacion FastAPI, sobrescribe
     la dependencia ``get_db_pool`` para usar el pool de testcontainers
     (con migraciones aplicadas), y devuelve un ``httpx.AsyncClient`` con
     ``ASGITransport`` para hacer requests HTTP contra los endpoints.
 
+    Antes de cada test, ``db_clean`` ejecuta TRUNCATE + re-seed para
+    garantizar datos limpios sin recrear el contenedor.
+
     Args:
-        db_pool: Pool de testcontainers PostgreSQL (migraciones aplicadas).
+        db_pool: Pool session-scoped (contenedor compartido).
+        db_clean: Pool function-scoped (datos limpios por test).
 
     Yields:
         httpx.AsyncClient: Cliente HTTP configurado con la app y pool.
