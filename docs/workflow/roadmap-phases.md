@@ -9,8 +9,8 @@
 | **F0: Preparación** | 2-3 días | Completado | Estructura de proyecto, `.gitignore`, `.env.example`, `pyproject.toml`, linters, pytest + testcontainers |
 | **F1: Infraestructura DB** | 3-4 días | Completado | Esquema normalizado (3NF), migraciones SQL, índices compuestos, seed data, trigger inmutabilidad |
 | **F2: Núcleo de Dominio** | 4-5 días | Completado | Entidades `Product`/`Movement`, reglas de negocio, protocols, tests unitarios (89 tests, 99.56% cobertura) |
-| **F3: Adaptadores de Datos** | 3-4 días | En Progreso | `PostgresRepository` con `asyncpg`, SQL explícito, vistas materializadas |
-| **F4: Capa de Aplicación/API** | 4-5 días | Pendiente | Rutas FastAPI, validación Pydantic, manejo de errores, OpenAPI |
+| **F3: Adaptadores de Datos** | 3-4 días | Completado | 4 repositorios `asyncpg`, 3 mappers, `mv_stock_historical` con refresh concurrente, Unit of Work. 141 tests (100% pass), 96.30% cobertura |
+| **F4: Capa de Aplicación/API** | 4-5 días | En Progreso | Casos de uso, validación Pydantic, rutas FastAPI `/v1/movements`, `/v1/stock`, `/v1/products`, manejo de errores, OpenAPI |
 | **F5: Scheduler & Concurrencia** | 2-3 días | Bloqueado | APScheduler, política de refresh, optimistic concurrency, logging |
 | **F6: Testing Integral** | 3-4 días | Bloqueado | Suite unitaria, integración con Testcontainers, E2E latencia <100ms |
 | **F7: Despliegue & Documentación** | 2-3 días | Bloqueado | Docker multi-stage, docker-compose, README técnico, demo script |
