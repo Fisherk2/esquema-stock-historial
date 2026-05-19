@@ -80,10 +80,10 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F3 — Adaptadores de Datos ✅ Completada
+**Fase:** F4 — Capa API (Casos de Uso + Endpoints) 🚧 En progreso
 
 - F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅
-- **F3:** Implementada — 4 repositorios, MV, UoW, 25 tests de integración + 8 unitarios
-- **F4:** Capa API (próxima)
+- **F3 completada:** 4 repositorios Postgres, vista materializada `mv_stock_historical`, Unit of Work, 98 tests unitarios + 43 tests de integración (100% pass), cobertura 96.30%, documentación 10/10
+- **F4:** Casos de uso, DTOs Pydantic, routers FastAPI `/v1/movements`, `/v1/stock`, `/v1/products`
 
-Specs implementados: Spec-30 (Repositorios+Mappers), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work) — Todos completados.
+Specs implementados: Spec-30 (Repositorios+Mappers), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work) — Todos completados y validados.

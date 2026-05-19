@@ -7,6 +7,27 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [0.4.0] — 2026-05-18 — F3: Adaptadores de Datos (Completado)
+
+#### Agregado
+- **4 Repositorios Postgres:** `PostgresMovementRepository`, `PostgresProductRepository`, `PostgresCategoryRepository`, `PostgresStockQueryRepository` — todos con `asyncpg` y SQL explícito
+- **3 Mappers:** Funciones puras `row_to_product()`, `row_to_category()`, `row_to_movement()` con validación de tipos
+- **Vista Materializada:** Migración 008 crea `mv_stock_historical` con índice único en `product_id` para `REFRESH CONCURRENTLY`
+- **Refresh Function:** `refresh_stock_view()` con `REFRESH CONCURRENTLY`, manejo de errores y métricas de latencia
+- **Unit of Work:** `IUnitOfWork` (Protocol) + `PostgresUnitOfWork` con context manager auto-commit/rollback
+- **Módulo de re-exports:** `src/infrastructure/repositories/__init__.py` con imports centralizados
+
+#### Validación
+- 98 tests unitarios + 43 tests de integración (100% pass)
+- Cobertura de repositorios: 96.30% (target >70%)
+- `make lint` y `black --check` sin errores
+- Documentación auditada: 10/10 (docstrings con Args/Returns/Raises/Examples)
+
+#### Corregido
+- `asyncpg` 0.31.0 con Python 3.14 requiere `json.dumps()` para parámetros JSONB
+- Docstring de `refresh_stock_view()` corregido: capturaba `UndefinedTableError` pero decía que lo lanzaba
+- Docstrings mejorados en 3 archivos: explicación de estrategia MV+fallback, razón de inmutabilidad de movimientos, comentario sobre JSONB quirk
+
 ### [0.1.0] — 2026-05-14 — F0: Preparación (Completado)
 
 #### Agregado

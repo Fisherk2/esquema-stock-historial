@@ -10,7 +10,7 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > **F0: Preparación** completada el 2026-05-14. Todos los specs (01-04) en estado Completado.
 > **F1: Infraestructura DB** completada el 2026-05-15. Specs Spec-10/11/12 en estado Completado.
 > **F2: Núcleo de Dominio** completada el 2026-05-15. Specs Spec-20/21/22 en estado Completado. 89 tests unitarios, 99.56% cobertura de dominio.
-> **F3: Adaptadores de Datos** implementada el 2026-05-18. Specs Spec-30/31/32 completados. 17 tareas, 25 tests de integración, 8 unitarios. Repositorios, MV y UoW operativos.
+> **F3: Adaptadores de Datos** completada el 2026-05-18. Specs Spec-30/31/32 en estado Completado. 17 tareas implementadas, 98 tests unitarios + 43 tests de integración (100% pass), cobertura 96.30%. 4 repositorios Postgres (movement, product, category, stock_query), 3 mappers, vista materializada `mv_stock_historical` con refresh concurrente y fallback, Unit of Work con context manager. Documentación auditada 10/10. Lista para F4.
 
 ## Detailed Docs
 
