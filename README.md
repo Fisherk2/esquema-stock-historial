@@ -40,15 +40,14 @@ make clean         # Eliminar caché y artefactos
 ```
 src/
 ├── domain/              # Entidades, value objects, excepciones, reglas de negocio
-│   ├── entities/        # Product, Movement
-│   ├── value_objects/   # MovementType, SKU, etc.
+│   ├── entities/        # Product, Movement, Category
+│   ├── value_objects/   # MovementType, SKU, Quantity
 │   ├── exceptions/      # InsufficientStockError, ImmutabilityViolationError
 │   ├── rules/           # Validación de stock, inmutabilidad
 │   └── ports/           # Protocolos: IMovementRepository, IStockQueryRepository
-├── application/         # Casos de uso, DTOs, interfaces de aplicación
-│   ├── use_cases/       # RecordMovementUseCase, QueryStockAtDateUseCase
-│   ├── dtos/            # Modelos Pydantic input/output
-│   └── interfaces/      # Protocolos de aplicación
+├── application/         # Casos de uso, DTOs
+│   ├── use_cases/       # CreateMovementUseCase, QueryStockAtDateUseCase, etc.
+│   └── dtos/            # Modelos Pydantic input/output
 ├── infrastructure/      # DB, scheduler, logging
 │   ├── db/              # Pool asyncpg, migraciones, Unit of Work
 │   ├── repositories/    # Implementaciones PostgresRepository
@@ -56,7 +55,7 @@ src/
 │   └── logging/         # Logging estructurado
 ├── adapters/            # Capa HTTP: routers FastAPI, middleware
 │   └── api/
-│       ├── routers/     # /v1/movements, /v1/stock, /v1/products
+│       ├── routers/     # /v1/movements, /v1/stock, /v1/products, /v1/categories
 │       └── middleware/  # Mapeo de errores, rate limiting
 └── main.py              # App factory, entrypoint
 ```
@@ -80,10 +79,10 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F4 — Capa API (Casos de Uso + Endpoints) 🚧 En progreso
+**Fase:** F5 — Scheduler & Concurrencia 🚧 En progreso
 
-- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅
-- **F3 completada:** 4 repositorios Postgres, vista materializada `mv_stock_historical`, Unit of Work, 98 tests unitarios + 43 tests de integración (100% pass), cobertura 96.30%, documentación 10/10
-- **F4:** Casos de uso, DTOs Pydantic, routers FastAPI `/v1/movements`, `/v1/stock`, `/v1/products`
+- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅ | F4: Capa API ✅
+- **F4 completada:** 6 use cases, 5 DTOs, 4 routers (10 endpoints), error mapping middleware, 235 tests (147 unit + 88 integration, 100% pass), testcontainers optimizado (1 contenedor/session, ~20s vs ~20 min)
+- **F5 en progreso:** APScheduler, política de refresh, optimistic concurrency, logging estructurado
 
-Specs implementados: Spec-30 (Repositorios+Mappers), Spec-31 (Vistas Materializadas), Spec-32 (Unit of Work) — Todos completados y validados.
+Fases completadas: 77 de 88 specs implementados.

@@ -7,6 +7,38 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [0.5.0] — 2026-05-19 — F5: Scheduler & Concurrencia (En progreso)
+
+#### Agregado
+- *En desarrollo* — APScheduler, política de refresh, optimistic concurrency, logging
+
+### [0.4.0] — 2026-05-19 — F4: Capa API (Completado)
+
+#### Agregado
+- **6 Use Cases:** `CreateMovementUseCase`, `GetMovementByIdUseCase`, `ListMovementsByProductUseCase`, `GetStockAtDateUseCase`, `GetCurrentStockUseCase`, `CreateCategoryUseCase`, `ListCategoriesUseCase` — Clean Architecture con DI pattern
+- **5 DTOs Pydantic:** Input/Output models con `strict=True`, validación automática, enums con coerción
+- **4 Routers FastAPI:** `/v1/categories`, `/v1/products`, `/v1/movements`, `/v1/stock` — 10 endpoints operativos
+- **Error Mapping Middleware:** Domain exceptions → HTTP status codes (400, 404, 409, 422)
+- **Dependency Injection:** Factory functions en `dependencies.py`, `Annotated[type, Depends()]`
+- **34 API Integration Tests:** End-to-end HTTP contra PostgreSQL real con testcontainers
+- **5 Error Mapping Tests:** Validación de excepción → HTTP status code mapping
+
+#### Optimizado
+- **Testcontainers:** De 88 contenedores/session a **1 contenedor/session** — tiempo de integración de ~20 min a ~20s (~99% menos overhead)
+- `db_pool` session-scoped + `db_clean` function-scoped con TRUNCATE + re-seed
+
+#### Corregido
+- Protocol imports movidos fuera de `TYPE_CHECKING` en adapters para FastAPI `Annotated[type, Depends()]`
+- JSONB string parsing en mappers (asyncpg 0.31 + Python 3.14 devuelve JSONB como string)
+- Materialized view fallback para productos nuevos sin refresh
+- Enum strict mode con `field_validator(mode="before")` para coerción de strings
+- `asyncio_default_fixture_loop_scope` + `test_loop_scope` → `"session"` para compatibilidad con fixtures async session-scoped
+
+#### Validación
+- 235 tests (147 unit + 88 integration, 100% pass, ~20s)
+- `make lint` sin errores
+- 17/24 specs completados, F5 aprobada
+
 ### [0.4.0] — 2026-05-18 — F3: Adaptadores de Datos (Completado)
 
 #### Agregado

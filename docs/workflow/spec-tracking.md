@@ -20,9 +20,9 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 | Spec-40 | Casos de Uso (Application) | `CreateMovementUseCase`, `QueryStockAtDateUseCase` | Alta | F4 | `src/application/use_cases/` | Spec-21, Spec-22, Spec-32 | [5/5] | Completado |
 | Spec-41 | DTOs & Validación Pydantic | Input/Output models, validación estricta, serialización JSON | Alta | F4 | `src/application/dtos/` | Spec-40 | [4/4] | Completado |
 | Spec-42 | Rutas FastAPI /v1/ & OpenAPI | Endpoints REST, dependency injection, error mapping | Alta | F4 | `src/adapters/api/routers/`, `src/main.py` | Spec-40, Spec-41 | [5/5] | Completado |
-| Spec-50 | Integración APScheduler | Cron job interno, política de refresh, isolation de resources | Media | F5 | `src/infrastructure/scheduler/`, `specs/` (scheduler.md) | Spec-31, Spec-42 | [0/4] | Bloq. |
-| Spec-51 | Optimistic Concurrency & Retry | Decorador `@retry`, backoff exponencial, manejo `HTTP 409` | Alta | F5 | `src/application/middleware/`, `src/domain/exceptions/` | Spec-40, Spec-50 | [0/3] | Bloq. |
-| Spec-52 | Logging Estructurado & Errors | `structlog`/`logging` JSON, timeouts, circuit breakers | Media | F5 | `src/core/logging.py`, `src/core/config.py` | Spec-42, Spec-51 | [0/4] | Bloq. |
+| Spec-50 | Integración APScheduler | Cron job interno, política de refresh, isolation de resources | Media | F5 | `src/infrastructure/scheduler/`, `specs/` (scheduler.md) | Spec-31, Spec-42 | [0/4] | **Aprobado** |
+| Spec-51 | Optimistic Concurrency & Retry | Decorador `@retry`, backoff exponencial, manejo `HTTP 409` | Alta | F5 | `src/application/middleware/`, `src/domain/exceptions/` | Spec-40, Spec-50 | [0/3] | **Aprobado** |
+| Spec-52 | Logging Estructurado & Errors | `structlog`/`logging` JSON, timeouts, circuit breakers | Media | F5 | `src/core/logging.py`, `src/core/config.py` | Spec-42, Spec-51 | [0/4] | **Aprobado** |
 | Spec-60 | Tests Unitarios | Cobertura dominio/app, mocks de protocolos, `pytest` | Alta | F6 | `tests/unit/`, `tests/fixtures/` | Spec-21, Spec-22, Spec-40 | [0/5] | Bloq. |
 | Spec-61 | Tests Integración | `testcontainers.postgres`, seed DB, validación SQL real | Alta | F6 | `tests/integration/` | Spec-30, Spec-31, Spec-60 | [0/6] | Bloq. |
 | Spec-62 | Tests E2E & Latencia <100ms | `httpx` client, contratos OpenAPI, load test | Alta | F6 | `tests/e2e/`, `specs/` (performance.md) | Spec-42, Spec-61 | [0/5] | Bloq. |

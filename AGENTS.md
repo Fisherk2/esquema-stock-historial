@@ -4,7 +4,7 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
-**Fase actual:** F4 — Capa API (Casos de Uso + Endpoints)
+**Fase actual:** F5 — Scheduler & Concurrencia (Aprobada)
 
 ## Quick Reference
 
