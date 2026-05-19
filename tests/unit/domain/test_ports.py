@@ -55,6 +55,9 @@ class TestIMovementRepository:
             ) -> list[Movement]:
                 return []
 
+            async def count_by_product(self, product_id: int) -> int:
+                return 0
+
         mock = MockMovementRepository()
         assert isinstance(mock, IMovementRepository)
 

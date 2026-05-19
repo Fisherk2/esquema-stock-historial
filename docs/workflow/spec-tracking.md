@@ -17,9 +17,9 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 | Spec-30 | Implementación Repositorio | `asyncpg` wrapper, SQL explícito, mapeo DTO<->Row | Alta | F3 | `src/infrastructure/repositories/` | Spec-12, Spec-22 | [7/7] | Completado |
 | Spec-31 | Vistas Materializadas | `mv_stock_historical`, `REFRESH CONCURRENTLY`, fallback | Alta | F3 | `migrations/`, `specs/` (materialized.sql) | Spec-12, Spec-30 | [4/4] | Completado |
 | Spec-32 | Unit of Work & Transacciones | Context manager `asyncpg.transaction()`, commit/rollback | Media | F3 | `src/infrastructure/db/uow.py` | Spec-30 | [3/3] | Completado |
-| Spec-40 | Casos de Uso (Application) | `CreateMovementUseCase`, `QueryStockAtDateUseCase` | Alta | F4 | `src/application/use_cases/` | Spec-21, Spec-22, Spec-32 | [0/5] | En Progreso |
-| Spec-41 | DTOs & Validación Pydantic | Input/Output models, validación estricta, serialización JSON | Alta | F4 | `src/application/dtos/` | Spec-40 | [0/4] | En Progreso |
-| Spec-42 | Rutas FastAPI /v1/ & OpenAPI | Endpoints REST, dependency injection, error mapping | Alta | F4 | `src/adapters/api/routers/`, `src/main.py` | Spec-40, Spec-41 | [0/5] | En Progreso |
+| Spec-40 | Casos de Uso (Application) | `CreateMovementUseCase`, `QueryStockAtDateUseCase` | Alta | F4 | `src/application/use_cases/` | Spec-21, Spec-22, Spec-32 | [5/5] | Completado |
+| Spec-41 | DTOs & Validación Pydantic | Input/Output models, validación estricta, serialización JSON | Alta | F4 | `src/application/dtos/` | Spec-40 | [4/4] | Completado |
+| Spec-42 | Rutas FastAPI /v1/ & OpenAPI | Endpoints REST, dependency injection, error mapping | Alta | F4 | `src/adapters/api/routers/`, `src/main.py` | Spec-40, Spec-41 | [5/5] | Completado |
 | Spec-50 | Integración APScheduler | Cron job interno, política de refresh, isolation de resources | Media | F5 | `src/infrastructure/scheduler/`, `specs/` (scheduler.md) | Spec-31, Spec-42 | [0/4] | Bloq. |
 | Spec-51 | Optimistic Concurrency & Retry | Decorador `@retry`, backoff exponencial, manejo `HTTP 409` | Alta | F5 | `src/application/middleware/`, `src/domain/exceptions/` | Spec-40, Spec-50 | [0/3] | Bloq. |
 | Spec-52 | Logging Estructurado & Errors | `structlog`/`logging` JSON, timeouts, circuit breakers | Media | F5 | `src/core/logging.py`, `src/core/config.py` | Spec-42, Spec-51 | [0/4] | Bloq. |

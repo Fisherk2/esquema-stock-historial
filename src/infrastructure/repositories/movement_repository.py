@@ -63,6 +63,10 @@ class PostgresMovementRepository(IMovementRepository):
         LIMIT $2 OFFSET $3
     """
 
+    _COUNT_BY_PRODUCT_SQL = """
+        SELECT COUNT(*) FROM movements WHERE product_id = $1
+    """
+
     def __init__(
         self,
         pool: asyncpg.Pool,
@@ -113,3 +117,8 @@ class PostgresMovementRepository(IMovementRepository):
             self._LIST_BY_PRODUCT_SQL, product_id, limit, offset
         )
         return [map_movement_row(r) for r in rows]
+
+    async def count_by_product(self, product_id: int) -> int:
+        """Cuenta el total de movimientos de un producto."""
+        row = await self._get_conn().fetchrow(self._COUNT_BY_PRODUCT_SQL, product_id)
+        return row["count"] if row else 0

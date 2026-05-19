@@ -32,6 +32,7 @@ def validate_stock_not_negative(
     movement_type: MovementType,
     quantity: int | float,
     current_stock: int | float,
+    product_id: int,
 ) -> None:
     """Valida que un movimiento no resulte en stock negativo.
 
@@ -42,6 +43,7 @@ def validate_stock_not_negative(
         movement_type: Tipo de movimiento.
         quantity: Cantidad del movimiento.
         current_stock: Stock actual disponible del producto.
+        product_id: ID del producto para incluir en el error.
 
     Raises:
         InsufficientStockError: Si el movimiento dejaria el stock
@@ -50,7 +52,7 @@ def validate_stock_not_negative(
     delta = calculate_stock_delta(movement_type, quantity)
     if current_stock + delta < 0:
         raise InsufficientStockError(
-            product_id=0,
+            product_id=product_id,
             requested=quantity,
             available=current_stock,
         )

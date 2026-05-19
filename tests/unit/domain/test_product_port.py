@@ -40,6 +40,9 @@ class TestIProductRepository:
             ) -> list[Product]:
                 return []
 
+            async def count_all(self) -> int:
+                return 0
+
             async def list_below_threshold(self, *, limit: int = 100) -> list[Product]:
                 return []
 

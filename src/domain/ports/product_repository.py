@@ -66,6 +66,14 @@ class IProductRepository(Protocol):
         """
         ...
 
+    async def count_all(self) -> int:
+        """Cuenta el total de productos en el inventario.
+
+        Returns:
+            Total de productos.
+        """
+        ...
+
     async def list_below_threshold(self, *, limit: int = 100) -> list[Product]:
         """Lista productos con stock por debajo del umbral minimo.
 

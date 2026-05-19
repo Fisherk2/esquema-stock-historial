@@ -61,3 +61,14 @@ class IMovementRepository(Protocol):
             Lista de movimientos ordenados por created_at descendente.
         """
         ...
+
+    async def count_by_product(self, product_id: int) -> int:
+        """Cuenta el total de movimientos de un producto.
+
+        Args:
+            product_id: ID del producto.
+
+        Returns:
+            Total de movimientos del producto.
+        """
+        ...

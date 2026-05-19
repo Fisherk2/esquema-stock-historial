@@ -43,12 +43,13 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Construye y configura la instancia de FastAPI.
 
-    Aplica el patrón Factory Method para componer la aplicación a partir
+    Aplica el patron Factory Method para componer la aplicacion a partir
     de routers modulares. Cada router se registra con su prefijo y tag
     de OpenAPI.
 
     Returns:
-        FastAPI: Instancia configurada con lifespan y routers registrados.
+        FastAPI: Instancia configurada con lifespan, routers y error
+            handlers registrados.
 
     Ejemplo::
 
@@ -57,13 +58,28 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="Stock Historial",
-        description="Sistema de gestión de inventario con Source of Truth Inmutable",
-        version="0.1.0",
+        description="Sistema de gestion de inventario con Source of Truth Inmutable",
+        version="0.4.0",
         lifespan=lifespan,
     )
 
-    # Composición modular: cada router se registra con su prefijo /v1
+    # Composicion modular: cada router se registra con su prefijo /v1
     app.include_router(health_router, prefix="/v1")
+
+    # F4: Routers de dominio
+    from src.adapters.api.middleware.error_handler import register_error_handlers
+    from src.adapters.api.routers.categories import router as categories_router
+    from src.adapters.api.routers.movements import router as movements_router
+    from src.adapters.api.routers.products import router as products_router
+    from src.adapters.api.routers.stock import router as stock_router
+
+    app.include_router(movements_router, prefix="/v1")
+    app.include_router(stock_router, prefix="/v1")
+    app.include_router(products_router, prefix="/v1")
+    app.include_router(categories_router, prefix="/v1")
+
+    # F4: Mapeo de excepciones de dominio a respuestas HTTP
+    register_error_handlers(app)
 
     return app
 

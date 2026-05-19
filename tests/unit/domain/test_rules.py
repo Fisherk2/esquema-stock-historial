@@ -63,14 +63,15 @@ class TestValidateStockNotNegative:
         """Verifica que OUT con stock suficiente no lanza excepcion."""
         from src.domain.rules.stock_validation import validate_stock_not_negative
 
-        validate_stock_not_negative(MovementType.OUT, 5, 10)
+        validate_stock_not_negative(MovementType.OUT, 5, 10, product_id=1)
 
     def test_out_with_insufficient_stock_raises(self) -> None:
         """Verifica que OUT con stock insuficiente lanza excepcion."""
         from src.domain.rules.stock_validation import validate_stock_not_negative
 
         with pytest.raises(InsufficientStockError) as exc_info:
-            validate_stock_not_negative(MovementType.OUT, 10, 5)
+            validate_stock_not_negative(MovementType.OUT, 10, 5, product_id=1)
+        assert exc_info.value.product_id == 1
         assert exc_info.value.requested == 10
         assert exc_info.value.available == 5
 
@@ -78,19 +79,27 @@ class TestValidateStockNotNegative:
         """Verifica que OUT con stock exacto no lanza excepcion."""
         from src.domain.rules.stock_validation import validate_stock_not_negative
 
-        validate_stock_not_negative(MovementType.OUT, 10, 10)
+        validate_stock_not_negative(MovementType.OUT, 10, 10, product_id=1)
 
     def test_in_never_raises(self) -> None:
         """Verifica que IN nunca lanza excepcion."""
         from src.domain.rules.stock_validation import validate_stock_not_negative
 
-        validate_stock_not_negative(MovementType.IN, 10, 0)
+        validate_stock_not_negative(MovementType.IN, 10, 0, product_id=1)
 
     def test_adjustment_never_raises(self) -> None:
         """Verifica que ADJUSTMENT nunca lanza excepcion."""
         from src.domain.rules.stock_validation import validate_stock_not_negative
 
-        validate_stock_not_negative(MovementType.ADJUSTMENT, 10, 0)
+        validate_stock_not_negative(MovementType.ADJUSTMENT, 10, 0, product_id=1)
+
+    def test_error_carries_product_id(self) -> None:
+        """Verifica que InsufficientStockError lleva el product_id correcto."""
+        from src.domain.rules.stock_validation import validate_stock_not_negative
+
+        with pytest.raises(InsufficientStockError) as exc_info:
+            validate_stock_not_negative(MovementType.OUT, 10, 5, product_id=42)
+        assert exc_info.value.product_id == 42
 
 
 class TestEnforceImmutability:

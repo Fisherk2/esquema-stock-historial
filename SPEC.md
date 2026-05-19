@@ -581,3 +581,199 @@ Spec-32 (Unit of Work + IUnitOfWork Protocol)
 7. ~~¿UoW expone `commit()`/`rollback()` explícitos?~~ → Resuelto: Solo automático.
 8. ~~¿Protocol `IUnitOfWork` incluye `commit()`/`rollback()`?~~ → Resuelto: Solo `connection`.
 9. ~~¿Crear `UnitOfWorkFactory`?~~ → Resuelto: No (caller instancia manualmente).
+
+---
+
+# Spec: stock-historial — F4: Capa API (Casos de Uso + Endpoints)
+
+## Objective
+
+Implementar la capa de aplicación (6 use cases + DTOs Pydantic) y la capa de adaptadores HTTP (4 routers FastAPI `/v1/`, DI factories, error mapping middleware) que exponen las operaciones del dominio como API REST.
+
+**Usuarios objetivo:** Desarrolladores que consumen la API REST y operadores de inventario.
+
+**F4 success criteria:**
+- `make lint` pasa con 0 errores
+- 6 use cases con `async execute()` implementados
+- 4 routers FastAPI registrados en `/v1/` con 10 endpoints operativos
+- Errores de dominio mapeados a `ErrorResponse` con status codes semánticos
+- OpenAPI (`/docs`) muestra los 10 endpoints con ejemplos
+- Tests unitarios pasan (>85% cobertura en `application/`)
+- Version 0.4.0 en `main.py`
+
+## Tech Stack
+
+| Componente | Tecnología | Notas |
+|-----------|-----------|-------|
+| Runtime | Python 3.12+ | Sin cambios |
+| Framework | FastAPI 0.136+ | Ya en F0 |
+| Validación | Pydantic 2.13+ | DTOs strict mode |
+| **Nuevas dependencias** | Ninguna | F4 no añade deps externas |
+
+## Commands
+
+```
+Install:    pip install -r requirements.txt
+Dev:        make dev
+Lint:       make lint
+Format:     make format
+Test:       make test
+Test (cov): make test-cov
+Build:      make build
+```
+
+## Project Structure
+
+**Archivos creados/modificados en F4:**
+
+```
+# Nuevos archivos
+src/application/use_cases/
+├── record_movement.py          # RecordMovementUseCase
+├── query_current_stock.py      # QueryCurrentStockUseCase
+├── query_stock_at_date.py      # QueryStockAtDateUseCase
+├── create_product.py           # CreateProductUseCase
+├── list_products.py            # ListProductsUseCase (retorna tupla items, total)
+├── create_category.py          # CreateCategoryUseCase
+└── __init__.py
+
+src/application/dtos/
+├── movement_dtos.py            # CreateMovementInput, MovementOutput, MovementListOutput
+├── stock_dtos.py               # CurrentStockOutput, StockAtDateOutput
+├── product_dtos.py             # CreateProductInput, ProductOutput, ProductListOutput
+├── category_dtos.py           # CreateCategoryInput, CategoryOutput
+├── error_dtos.py               # ErrorResponse, ErrorDetail
+└── __init__.py
+
+src/adapters/api/
+├── dependencies.py             # Factory functions: pool → repos → use cases
+├── middleware/error_handler.py # Exception handlers: DomainError → HTTP
+└── routers/
+    ├── movements.py            # POST/GET /v1/movements
+    ├── stock.py                # GET /v1/stock/{id}/current, /at-date
+    ├── products.py             # POST/GET /v1/products
+    └── categories.py           # POST/GET /v1/categories
+
+# Modificaciones
+src/domain/rules/stock_validation.py  # ADD: product_id param
+src/domain/ports/movement_repository.py  # ADD: count_by_product()
+src/domain/ports/product_repository.py   # ADD: count_all()
+src/infrastructure/repositories/movement_repository.py  # ADD: count_by_product()
+src/infrastructure/repositories/product_repository.py   # ADD: count_all()
+src/main.py                      # UPDATE: routers + error handlers + version 0.4.0
+
+# Tests nuevos
+tests/unit/application/use_cases/   # 6 archivos de tests
+tests/unit/application/dtos/        # 5 archivos de tests
+tests/integration/api/              # 5 archivos de tests de endpoints
+```
+
+## Code Style
+
+```python
+# Use Case: clase con DI en __init__, único método async execute()
+class RecordMovementUseCase:
+    def __init__(self, movement_repo, product_repo, stock_query_repo, uow) -> None:
+        self._movement_repo = movement_repo
+        ...
+
+    async def execute(self, product_id: int, movement_type: MovementType, ...) -> Movement:
+        ...
+
+# Router: Annotated[UseCase, Depends(factory)] — patrón FastAPI moderno
+@router.post("", response_model=MovementOutput, status_code=201)
+async def create_movement(
+    body: CreateMovementInput,
+    use_case: Annotated[RecordMovementUseCase, Depends(get_record_movement_use_case)],
+) -> MovementOutput:
+    movement = await use_case.execute(...)
+    return MovementOutput(...)
+```
+
+## Testing Strategy
+
+| Level | Location | Framework | Scope |
+|-------|----------|-----------|-------|
+| Unit | `tests/unit/application/` | pytest + mocks | Use cases y DTOs |
+| Integration | `tests/integration/api/` | pytest + testcontainers + httpx | Endpoints reales |
+
+## Boundaries
+
+### Always do
+- Use cases inyectan Protocolos en `__init__`, no implementaciones concretas
+- Input DTOs usan `ConfigDict(strict=True)`
+- Errores de dominio se propagan sin capturar (adapter los mapea)
+- `validate_stock_not_negative()` recibe `product_id` como parámetro
+
+### Ask first
+- Cambiar firmas de ports del dominio
+- Cambiar mapeo excepciones → HTTP status codes
+- Añadir nuevas dependencias
+
+### Never do
+- Importar de `infrastructure/` en `application/use_cases/`
+- Capturar excepciones de dominio en use cases
+- Mutar datos históricos
+
+## Endpoint Summary
+
+| Método | Ruta | Status | Response |
+|--------|------|--------|----------|
+| POST | `/v1/movements` | 201 | `MovementOutput` |
+| GET | `/v1/movements/{id}` | 200/404 | `MovementOutput` |
+| GET | `/v1/movements?product_id=...` | 200 | `MovementListOutput` |
+| GET | `/v1/stock/{id}/current` | 200 | `CurrentStockOutput` |
+| GET | `/v1/stock/{id}/at-date?date=...` | 200 | `StockAtDateOutput` |
+| POST | `/v1/products` | 201 | `ProductOutput` |
+| GET | `/v1/products` | 200 | `ProductListOutput` |
+| GET | `/v1/products/{id}` | 200/404 | `ProductOutput` |
+| POST | `/v1/categories` | 201 | `CategoryOutput` |
+| GET | `/v1/categories` | 200 | `list[CategoryOutput]` |
+
+## Success Criteria
+
+### Spec-40: Casos de Uso
+- [x] 6 use cases con `async execute()` implementados
+- [x] `RecordMovementUseCase` verifica producto, valida stock, usa UoW
+- [x] `ListProductsUseCase` retorna `(items, total)` tupla
+- [x] Zero imports de `infrastructure/` en use cases
+- [x] Excepciones de dominio propagadas sin capturar
+
+### Spec-41: DTOs
+- [x] Input DTOs con `ConfigDict(strict=True)`
+- [x] `CreateMovementInput` valida metadata via `@model_validator`
+- [x] `CreateProductInput` valida SKU regex
+- [x] Output DTOs con `id` y `created_at`
+- [x] `ErrorResponse` formato consistente
+
+### Spec-42: Routers + Error Mapping
+- [x] 4 routers registrados con prefix `/v1`
+- [x] POST retorna 201, GET retorna 200
+- [x] `InsufficientStockError` → 409, `InvalidSKUError` → 422, `ValueError` → 400
+- [x] OpenAPI `/docs` muestra 10 endpoints
+- [x] `main.py` version 0.4.0
+
+### Domain Fixes
+- [x] `validate_stock_not_negative()` recibe `product_id`
+- [x] `IMovementRepository.count_by_product()` añadido
+- [x] `IProductRepository.count_all()` añadido
+
+### Aggregate
+- [x] `make lint` sin errores
+- [x] 147 unit tests pasan
+- [x] Version 0.4.0
+
+## Resolved Questions
+
+| # | Pregunta | Decisión |
+|---|----------|----------|
+| F4-Q1 | ¿`count_by_product()` ahora o después? | Ahora (paginación exacta) |
+| F4-Q2 | ¿Fix `validate_stock_not_negative()` con `product_id`? | Ahora (errores engañosos) |
+| F4-Q3 | ¿Dónde guardar spec F4? | Append a SPEC.md |
+| F4-Q4 | ¿Testing scope? | Unit + Integration |
+| F4-Q5 | ¿`ListProductsUseCase` retorna total? | Sí, via `count_all()` |
+| F4-Q6 | ¿GET by ID directo a repo? | Sí (CQRS pattern) |
+| F4-Q7 | ¿Use cases como clases o funciones? | Clases (DI, testing) |
+| F4-Q8 | ¿UoW para todos los movimientos? | Solo OUT/TRANSFER |
+| F4-Q9 | ¿API snake_case o camelCase? | snake_case |
+| F4-Q10 | ¿Error mapping middleware o handlers? | Exception handlers |

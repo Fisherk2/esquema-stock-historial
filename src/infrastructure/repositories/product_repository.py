@@ -68,6 +68,10 @@ class PostgresProductRepository(IProductRepository):
         LIMIT $1 OFFSET $2
     """
 
+    _COUNT_ALL_SQL = """
+        SELECT COUNT(*) FROM products
+    """
+
     _LIST_BELOW_THRESHOLD_SQL = """
         SELECT
             p.id, p.sku, p.name, p.description,
@@ -141,6 +145,11 @@ class PostgresProductRepository(IProductRepository):
         """Lista productos con paginacion."""
         rows = await self._get_conn().fetch(self._LIST_ALL_SQL, limit, offset)
         return [map_product_row(r) for r in rows]
+
+    async def count_all(self) -> int:
+        """Cuenta el total de productos en el inventario."""
+        row = await self._get_conn().fetchrow(self._COUNT_ALL_SQL)
+        return row["count"] if row else 0
 
     async def list_below_threshold(
         self,
