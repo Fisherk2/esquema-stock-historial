@@ -17,6 +17,7 @@ Ejemplo de uso::
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from src.domain.entities.category import Category
@@ -89,12 +90,20 @@ def map_movement_row(record: Any) -> Movement:
         InvalidQuantityError: Si quantity <= 0 (no deberia ocurrir con
             CHECK constraint).
     """
+    metadata_raw = record["metadata"]
+    if metadata_raw is None:
+        metadata: dict = {}
+    elif isinstance(metadata_raw, dict):
+        metadata = metadata_raw
+    else:
+        metadata = json.loads(metadata_raw)
+
     return Movement(
         id=record["id"],
         product_id=record["product_id"],
         movement_type=MovementType(record["movement_type"]),
         quantity=Quantity(record["quantity"]),
-        metadata=record["metadata"] or {},
+        metadata=metadata,
         reference=record["reference"],
         created_at=record["created_at"],
     )

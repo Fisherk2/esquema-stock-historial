@@ -111,7 +111,8 @@ class PostgresStockQueryRepository(IStockQueryRepository):
         """Obtiene el stock actual via vista materializada con fallback.
 
         Intenta primero consultar la vista materializada. Si no existe
-        (migracion 008 no aplicada), usa calculo directo.
+        (migracion 008 no aplicada) o el producto no esta en la vista
+        (producto nuevo sin refresh), usa calculo directo.
         """
         try:
             row = await self._get_conn().fetchrow(
@@ -119,7 +120,8 @@ class PostgresStockQueryRepository(IStockQueryRepository):
             )
             if row is not None:
                 return float(row["current_stock"])
-            return 0.0
+            # Producto no encontrado en MV (nuevo o no refrescado)
+            return await self._get_stock_direct(product_id)
         except asyncpg.UndefinedTableError:
             logger.debug("mv_stock_historical not found, using direct calculation")
             return await self._get_stock_direct(product_id)

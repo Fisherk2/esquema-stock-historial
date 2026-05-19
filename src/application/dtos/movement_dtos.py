@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003 — Pydantic needs runtime datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class MovementTypeInput(str, Enum):  # noqa: UP042 — Pydantic serialization needs str mixin
@@ -58,6 +58,21 @@ class CreateMovementInput(BaseModel):
         description="Referencia externa opcional (orden, nota, etc.).",
         json_schema_extra={"examples": ["PO-12345"]},
     )
+
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def coerce_movement_type(
+        cls, v: str | MovementTypeInput,
+    ) -> MovementTypeInput:
+        """Convierte strings a MovementTypeInput enum.
+
+        Con strict=True, Pydantic requiere enum instances, no strings.
+        Este validator permite que la API acepte strings (ej: "IN") y los
+        convierta a enum antes de la validacion estricta.
+        """
+        if isinstance(v, MovementTypeInput):
+            return v
+        return MovementTypeInput(v)
 
     @model_validator(mode="after")
     def validate_movement_metadata(self) -> CreateMovementInput:
