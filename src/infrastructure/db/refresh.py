@@ -22,6 +22,8 @@ import asyncpg
 
 logger = logging.getLogger(__name__)
 
+# REFRESH CONCURRENTLY no bloquea lecturas durante el refresh.
+# Requiere indice unico en product_id (creado en migracion 008).
 _REFRESH_SQL = "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_stock_historical"
 
 

@@ -34,7 +34,21 @@ logger = logging.getLogger(__name__)
 
 
 class PostgresStockQueryRepository(IStockQueryRepository):
-    """Repositorio de consultas de stock con MV + fallback directo."""
+    """Repositorio de consultas de stock con MV + fallback directo.
+
+    Estrategia de dos niveles:
+
+    1. **get_current_stock()**: Intenta primero la vista materializada
+       ``mv_stock_historical`` (Index Scan, <1ms). Si la vista no existe
+       (migracion 008 no aplicada o error), hace fallback automaticamente
+       al calculo directo con CASE/SUM sobre la tabla ``movements``.
+
+    2. **get_stock_at_date()**: Siempre usa calculo directo, ya que la
+       vista materializada solo contiene el stock actual, no historico.
+
+    Esta estrategia garantiza que las consultas funcionen tanto antes
+    como despues de aplicar la migracion 008.
+    """
 
     _MV_CURRENT_STOCK_SQL = """
         SELECT current_stock

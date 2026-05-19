@@ -1,7 +1,9 @@
 """PostgresMovementRepository — implementacion concreta de IMovementRepository.
 
 Repositorio de movimientos con asyncpg y SQL explicito. Los movimientos
-son inmutables: no tiene metodos update() ni delete().
+son inmutables (Source of Truth): este repositorio solo tiene metodos de
+creacion y lectura — **no tiene** update() ni delete() porque los movimientos
+son registros append-only que nunca se alteran.
 
 Ejemplo de uso sin transaccion::
 
@@ -17,7 +19,7 @@ Ejemplo de uso con Unit of Work::
 
 from __future__ import annotations
 
-import json
+import json  # Serializa dict → str para columna JSONB (asyncpg 0.31.0 + Python 3.14)
 from typing import TYPE_CHECKING
 
 from src.domain.ports.movement_repository import IMovementRepository
