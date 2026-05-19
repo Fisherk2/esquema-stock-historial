@@ -1,148 +1,137 @@
-# TODO — F3: Adaptadores de Datos
+# TODO — F4: Capa API (Casos de Uso + Endpoints)
 
-## Progress: [17/17] ████████████████████ COMPLETADO
+## Progress: [0/10] ░░░░░░░░░░ PENDIENTE
 
-## Phase 1: Spec-30 — Repositorios + Mappers [8/8]
+> **Nota:** La implementación preliminar de F4 ya existe (use cases, DTOs, routers, error mapping, DI factories, 147 unit tests). Este TODO cubre los gaps restantes para completar la fase.
 
-- [ ] **Task 1:** Create mapper functions
-  - `src/infrastructure/repositories/mappers.py`
-  - `map_category_row`, `map_product_row`, `map_movement_row`
-  - Verify: `python -c "from src.infrastructure.repositories.mappers import map_category_row"`
+## Phase 1: Foundation [0/2]
 
-- [ ] **Task 2:** Create PostgresCategoryRepository
-  - `src/infrastructure/repositories/category_repository.py`
-  - Implements `ICategoryRepository`: create, get_by_id, list_all
-  - Verify: `isinstance(repo, ICategoryRepository)`
+- [ ] **Task 1:** Crear fixture de cliente HTTP para integración
+  - `tests/integration/api/conftest.py`
+  - Fixture `api_client`: `httpx.AsyncClient` con `ASGITransport`, pool override
+  - Usa fixture existente `db_pool` de `tests/integration/conftest.py`
+  - Verify: `python -c "from tests.integration.api.conftest import *; print('OK')"`
 
-- [ ] **Task 3:** Create PostgresProductRepository
-  - `src/infrastructure/repositories/product_repository.py`
-  - Implements `IProductRepository`: create, get_by_id, get_by_sku, list_all, list_below_threshold
-  - Verify: `isinstance(repo, IProductRepository)`
+- [ ] **Task 2:** Agregar test de integración `count_by_product()`
+  - `tests/integration/repositories/test_movement_repository.py` (append)
+  - `test_count_by_product_returns_correct_count` — 3 movimientos → count = 3
+  - `test_count_by_product_returns_zero_for_no_movements` — sin movimientos → 0
+  - Verify: `pytest tests/integration/repositories/test_movement_repository.py -v -k count`
 
-- [ ] **Task 4:** Create PostgresMovementRepository
-  - `src/infrastructure/repositories/movement_repository.py`
-  - Implements `IMovementRepository`: create, get_by_id, list_by_product (NO update/delete)
-  - Verify: no update/delete methods
-
-- [ ] **Task 5:** Create PostgresStockQueryRepository (direct calculation)
-  - `src/infrastructure/repositories/stock_query_repository.py`
-  - Implements `IStockQueryRepository`: get_current_stock (float), get_stock_at_date (float)
-  - Verify: returns 0.0 for products with no movements
-
-- [ ] **Task 6:** Update repositories `__init__.py`
-  - `src/infrastructure/repositories/__init__.py`
-  - Re-export all 4 repos + 3 mappers
-  - Verify: `from src.infrastructure.repositories import PostgresMovementRepository`
-
-- [ ] **Task 7:** Unit tests for mappers
-  - `tests/unit/infrastructure/repositories/test_mappers.py`
-  - Test: valid records, invalid SKU, None metadata, invalid movement_type
-  - Verify: `pytest tests/unit/infrastructure/repositories/test_mappers.py -v`
-
-- [ ] **Task 8:** Integration tests for repositories
-  - `tests/integration/repositories/test_category_repository.py`
-  - `tests/integration/repositories/test_product_repository.py`
-  - `tests/integration/repositories/test_movement_repository.py`
-  - `tests/integration/repositories/test_stock_query_repository.py`
-  - Verify: `pytest tests/integration/repositories/ -v`
-
-### Checkpoint: Spec-30 Complete [ ]
-- [ ] All 4 repos implement their protocols
-- [ ] All SQL uses `$1`, `$2` — zero string concatenation
-- [ ] Mappers are pure functions
-- [ ] Constructor accepts optional `connection`
-- [ ] Movement repo has no update/delete
-- [ ] `make lint` passes
-- [ ] All repo tests pass
-- [ ] Coverage `src/infrastructure/repositories/` > 70%
+### Checkpoint: Foundation Ready [ ]
+- [ ] API client fixture funciona con DB real
+- [ ] Tests de `count_by_product()` pasan
+- [ ] `make lint` pasa
+- [ ] Listo para escribir endpoint tests
 
 ---
 
-## Phase 2: Spec-31 — Vistas Materializadas [4/4]
+## Phase 2: Endpoint Integration Tests [0/4]
 
-- [ ] **Task 9:** Create migration 008 (MV + 3 indexes)
-  - `migrations/008_create_mv_stock_historical.sql`
-  - View: product_id, sku, product_name, current_stock, last_movement_at, calculated_at
-  - Indexes: unique on product_id, on current_stock, on last_movement_at DESC
-  - Verify: `make migrate` applies successfully
+- [ ] **Task 3:** Tests de categorías
+  - `tests/integration/api/test_categories_api.py`
+  - `test_create_category_returns_201` — POST crea con id y created_at
+  - `test_create_category_empty_name_returns_422` — POST con nombre vacío
+  - `test_list_categories_returns_200` — GET retorna seed data
+  - `test_list_categories_after_create` — POST + GET muestra nueva
+  - Verify: `pytest tests/integration/api/test_categories_api.py -v`
 
-- [ ] **Task 10:** Create refresh_stock_view()
-  - `src/infrastructure/db/refresh.py`
-  - `REFRESH MATERIALIZED VIEW CONCURRENTLY` with UndefinedTableError handling
-  - Verify: `from src.infrastructure.db.refresh import refresh_stock_view`
+- [ ] **Task 4:** Tests de productos
+  - `tests/integration/api/test_products_api.py`
+  - `test_create_product_returns_201` — POST con datos válidos
+  - `test_create_product_invalid_sku_returns_422` — POST con SKU inválido
+  - `test_create_product_nonexistent_category_returns_400` — POST con category_id inexistente
+  - `test_list_products_returns_200_with_pagination` — GET con total paginado
+  - `test_get_product_by_id_returns_200` — GET/{id} retorna producto
+  - `test_get_product_by_id_not_found_returns_404` — GET/99999 → 404
+  - `test_list_products_pagination_works` — limit/offset funciona
+  - Verify: `pytest tests/integration/api/test_products_api.py -v`
 
-- [ ] **Task 11:** Update StockQueryRepo to use MV
-  - `src/infrastructure/repositories/stock_query_repository.py` (modification)
-  - `get_current_stock()` queries MV, fallback to direct calc if view missing
-  - `get_stock_at_date()` unchanged (direct calc)
-  - Verify: consistency test passes — MV value == direct calculation
+- [ ] **Task 5:** Tests de movimientos
+  - `tests/integration/api/test_movements_api.py`
+  - `test_create_in_movement_returns_201` — POST IN
+  - `test_create_out_movement_with_stock_returns_201` — POST OUT con stock
+  - `test_create_out_movement_insufficient_stock_returns_409` — POST OUT sin stock → 409
+  - `test_create_transfer_requires_metadata_returns_400` — POST TRANSFER sin metadata
+  - `test_create_adjustment_requires_reason_returns_400` — POST ADJUSTMENT sin reason
+  - `test_create_movement_invalid_product_returns_400` — POST con producto inexistente
+  - `test_get_movement_by_id_returns_200` — GET/{id} después de POST
+  - `test_get_movement_not_found_returns_404` — GET/99999 → 404
+  - `test_list_movements_by_product_returns_200` — GET?product_id= con paginación
+  - `test_list_movements_pagination` — limit/offset correcto
+  - Verify: `pytest tests/integration/api/test_movements_api.py -v`
 
-- [ ] **Task 12:** Integration tests for MV
-  - `tests/integration/test_mv_stock.py`
-  - Test: MV exists, refresh works, consistency, fallback
-  - Verify: `pytest tests/integration/test_mv_stock.py -v`
+- [ ] **Task 6:** Tests de stock
+  - `tests/integration/api/test_stock_api.py`
+  - `test_get_current_stock_returns_200` — GET current después de IN
+  - `test_get_current_stock_reflects_out_movements` — GET current después de OUT
+  - `test_get_current_stock_no_movements_returns_zero` — sin movimientos → 0.0
+  - `test_get_stock_at_date_returns_200` — GET at-date con fecha válida
+  - `test_get_stock_at_date_with_iso8601_format` — formato ISO 8601 funciona
+  - Verify: `pytest tests/integration/api/test_stock_api.py -v`
 
-### Checkpoint: Spec-31 Complete [ ]
-- [ ] `mv_stock_historical` exists after migration 008
-- [ ] Unique index exists (REFRESH CONCURRENTLY)
-- [ ] `refresh_stock_view()` executes without error
-- [ ] `get_current_stock()` uses MV, matches direct calculation
-- [ ] `get_stock_at_date()` uses direct calculation
-- [ ] All MV tests pass
-
----
-
-## Phase 3: Spec-32 — Unit of Work [3/3]
-
-- [ ] **Task 13:** Create IUnitOfWork protocol
-  - `src/domain/ports/unit_of_work.py`
-  - `src/domain/ports/__init__.py` (update)
-  - Only `connection` property, @runtime_checkable
-  - Verify: `from src.domain.ports import IUnitOfWork`
-
-- [ ] **Task 14:** Create PostgresUnitOfWork
-  - `src/infrastructure/db/uow.py`
-  - Async context manager: auto-commit, auto-rollback, always release
-  - No explicit commit()/rollback() methods
-  - Verify: `from src.infrastructure.db.uow import PostgresUnitOfWork`
-
-- [ ] **Task 15:** Integration tests for UoW
-  - `tests/integration/test_uow.py`
-  - Test: commit, rollback, connection sharing, isolation, connection release
-  - Verify: `pytest tests/integration/test_uow.py -v`
-
-### Checkpoint: Spec-32 Complete [ ]
-- [ ] PostgresUnitOfWork works as async context manager
-- [ ] Rollback automatic on exception
-- [ ] Commit automatic on clean exit
-- [ ] Connection shared between repos
-- [ ] Connection always released
-- [ ] `IUnitOfWork` verifiable as Protocol
-- [ ] All UoW tests pass
+### Checkpoint: Endpoint Tests Complete [ ]
+- [ ] 4 archivos de tests de endpoints pasan
+- [ ] Categories: 4+ tests
+- [ ] Products: 7+ tests
+- [ ] Movements: 10+ tests
+- [ ] Stock: 5+ tests
+- [ ] `make lint` pasa
+- [ ] Listo para error mapping tests
 
 ---
 
-## Phase 4: Final Validation [2/2]
+## Phase 3: Error Mapping Tests [0/1]
 
-- [ ] **Task 16:** Full build validation
-  - `make lint` → 0 errors
-  - `make format` → no changes
-  - `make test` → all green
-  - `make test-cov` → infrastructure/ > 70%
-  - Verify: `make build` exit code 0
+- [ ] **Task 7:** Tests de mapeo de errores
+  - `tests/integration/api/test_error_mapping_api.py`
+  - `test_insufficient_stock_returns_409` — OUT sin stock → 409 con código `INSUFFICIENT_STOCK`
+  - `test_insufficient_stock_includes_details` — 409 incluye product_id, requested, available
+  - `test_invalid_sku_returns_422` — SKU inválido → 422 con código `INVALID_SKU`
+  - `test_immutability_violation_returns_403` — handler registrado para 403
+  - `test_validation_error_returns_400` — TRANSFER sin metadata → 400
+  - `test_error_response_format` — formato `{"error": {"code": "...", "message": "..."}}` consistente
+  - Verify: `pytest tests/integration/api/test_error_mapping_api.py -v`
 
-- [ ] **Task 17:** Update project documentation
-  - `WORKFLOW.md` — F3 status updated
-  - `docs/workflow/spec-tracking.md` — Spec-30/31/32 marked implemented
-  - `README.md` — F3 marked as implemented
-  - Verify: review updated files
+### Checkpoint: Error Mapping Complete [ ]
+- [ ] 6 exception handlers producen respuestas HTTP correctas
+- [ ] Formato `ErrorResponse` consistente
+- [ ] `make lint` pasa
 
-### Checkpoint: F3 Complete [ ]
-- [ ] All SPEC-30/31/32 acceptance criteria met
-- [ ] `make build` passes
-- [ ] Coverage `src/infrastructure/` > 70%
-- [ ] Documentation updated
-- [ ] Ready for human review → F4
+---
+
+## Phase 4: Validación Final [0/3]
+
+- [ ] **Task 8:** Build completo con cobertura
+  - `make lint` → 0 errores
+  - `make test` → todos verdes (unit + integration)
+  - Coverage `src/application/` > 85%
+  - Coverage `src/adapters/` > 70%
+  - OpenAPI `/docs` muestra 10 endpoints
+  - Version 0.4.0 en `main.py`
+  - Verify: `make build` exit code 0; `make test-cov` > 85% application
+
+- [ ] **Task 9:** Actualizar documentación del proyecto
+  - `WORKFLOW.md` — F4 status con conteo de tests de integración
+  - `docs/workflow/spec-tracking.md` — Spec-40/41/42 verificados
+  - `docs/workflow/roadmap-phases.md` — F4 "En Progreso" → "Completado"
+  - `SPEC.md` — F4 success criteria verificados
+  - Verify: revisión de archivos actualizados
+
+- [ ] **Task 10:** Eliminar directorio vacío `application/interfaces/`
+  - `src/application/interfaces/` (eliminar directorio completo)
+  - Verificar: `grep -r "application.interfaces" src/ tests/` retorna nada
+  - Verify: `make lint` pasa; `make test` pasa
+
+### Checkpoint: F4 Complete [ ]
+- [ ] Todos los criterios de Spec-40/41/42 cumplidos
+- [ ] `make build` pasa
+- [ ] Coverage `src/application/` > 85%
+- [ ] Tests de integración para los 10 endpoints pasan
+- [ ] Error mapping validado end-to-end
+- [ ] Documentación actualizada y precisa
+- [ ] Sin código muerto (`application/interfaces/` eliminado)
+- [ ] Listo para revisión humana → F5
 
 ---
 
@@ -150,39 +139,42 @@
 
 | Phase | Tasks | Completed |
 |-------|-------|-----------|
-| Phase 1: Spec-30 (Repos + Mappers) | 8 | 8/8 |
-| Phase 2: Spec-31 (MV) | 4 | 4/4 |
-| Phase 3: Spec-32 (UoW) | 3 | 3/3 |
-| Phase 4: Final Validation | 2 | 2/2 |
-| **Total** | **17** | **17/17** |
+| Phase 1: Foundation | 2 | 0/2 |
+| Phase 2: Endpoint Tests | 4 | 0/4 |
+| Phase 3: Error Mapping | 1 | 0/1 |
+| Phase 4: Final Validation | 3 | 0/3 |
+| **Total** | **10** | **0/10** |
 
 ---
 
 ## Implementation Order Reference
 
 ```
-Task 1 (Mappers)
+Task 1 (API client fixture)
     ↓
-Tasks 2, 3, 4, 5 (Repos — can be parallelized)
+Task 2 (count_by_product test — independent, can parallelize)
     ↓
-Task 6 (__init__.py) → Task 7 (Mapper tests) → Task 8 (Repo tests)
+Tasks 3, 4, 5, 6 (endpoint tests — can be parallelized)
     ↓
-Task 9 (Migration 008) → Task 10 (Refresh) → Task 11 (MV usage) → Task 12 (MV tests)
+Task 7 (error mapping tests — after Task 5 for reference)
     ↓
-Task 13 (IUnitOfWork) → Task 14 (PostgresUnitOfWork) → Task 15 (UoW tests)
+Task 10 (cleanup — independent, can parallelize)
     ↓
-Task 16 (Build validation) → Task 17 (Docs)
+Task 8 (build validation)
+    ↓
+Task 9 (docs update)
 ```
 
-## Resolved Decisions (F3-Q1 through F3-Q9)
+## Resolved Decisions (F4-Q1 through F4-Q10)
 
-All 9 decisions are resolved and reflected in the specs. Key highlights:
-- `get_current_stock()` → `float` (F3-Q1)
-- No batch method (F3-Q2)
-- Mappers assume DB valid, validate types only (F3-Q3)
-- No category_id in MV (F3-Q4)
-- No timeout in refresh (F3-Q5)
-- No admin endpoint (F3-Q6)
-- UoW: auto-only commit/rollback (F3-Q7)
-- IUnitOfWork: only `connection` (F3-Q8)
-- No UnitOfWorkFactory (F3-Q9)
+All 10 decisions from preliminary implementation are confirmed:
+- `count_by_product()` implemented now (F4-Q1)
+- `validate_stock_not_negative()` fixed with `product_id` (F4-Q2)
+- F4 spec appended to SPEC.md (F4-Q3)
+- Unit + Integration testing scope (F4-Q4)
+- `ListProductsUseCase` returns total via `count_all()` (F4-Q5)
+- GET by ID direct to repo (CQRS) (F4-Q6)
+- Use cases as classes with DI (F4-Q7)
+- UoW only for OUT/TRANSFER (F4-Q8)
+- API snake_case (F4-Q9)
+- Exception handlers (not middleware) (F4-Q10)
