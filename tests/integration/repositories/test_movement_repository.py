@@ -203,3 +203,52 @@ async def test_list_by_product_returns_empty_for_no_movements(
     results = await repo.list_by_product(prod_row["id"], limit=10)
 
     assert results == []
+
+
+async def test_count_by_product_returns_correct_count(
+    db_pool: asyncpg.Pool,
+) -> None:
+    """count_by_product() retorna el total exacto de movimientos de un producto."""
+    from src.infrastructure.repositories.movement_repository import (
+        PostgresMovementRepository,
+    )
+
+    product_id = await _get_product_id(db_pool)
+    repo = PostgresMovementRepository(db_pool)
+
+    # Count existing movements before adding
+    count_before = await repo.count_by_product(product_id)
+
+    # Add 5 new movements
+    for _ in range(5):
+        await repo.create(_make_movement(product_id, MovementType.IN, quantity=1))
+
+    count_after = await repo.count_by_product(product_id)
+
+    assert count_after == count_before + 5
+
+
+async def test_count_by_product_returns_zero_for_no_movements(
+    db_pool: asyncpg.Pool,
+) -> None:
+    """count_by_product() retorna 0 para un producto sin movimientos."""
+    from src.infrastructure.repositories.movement_repository import (
+        PostgresMovementRepository,
+    )
+
+    # Create a fresh product with no movements
+    cat_row = await db_pool.fetchrow(
+        "SELECT id FROM categories WHERE name = 'General' LIMIT 1"
+    )
+    await db_pool.execute(
+        "INSERT INTO products (sku, name, category_id) "
+        "VALUES ('COUNT-001', 'Count Test', $1)",
+        cat_row["id"],
+    )
+    prod_row = await db_pool.fetchrow("SELECT id FROM products WHERE sku = 'COUNT-001'")
+
+    repo = PostgresMovementRepository(db_pool)
+
+    count = await repo.count_by_product(prod_row["id"])
+
+    assert count == 0
