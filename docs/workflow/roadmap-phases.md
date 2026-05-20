@@ -11,8 +11,8 @@
 | **F2: Núcleo de Dominio** | 4-5 días | Completado | Entidades `Product`/`Movement`, reglas de negocio, protocols, tests unitarios (89 tests, 99.56% cobertura) |
 | **F3: Adaptadores de Datos** | 3-4 días | Completado | 4 repositorios `asyncpg`, 3 mappers, `mv_stock_historical` con refresh concurrente, Unit of Work. 141 tests (100% pass), 96.30% cobertura |
 | **F4: Capa de Aplicación/API** | 4-5 días | Completado | Casos de uso, validación Pydantic, rutas FastAPI `/v1/movements`, `/v1/stock`, `/v1/products`, manejo de errores, OpenAPI. 235 tests (147 unit + 88 integration, 100% pass). 10 endpoints operativos. Testcontainers optimizado: 1 contenedor/session (~20s vs ~20 min). |
-| **F5: Scheduler & Concurrencia** | 2-3 días | ✅ Aprobada | APScheduler, política de refresh, optimistic concurrency, logging estructurado |
-| **F6: Testing Integral** | 3-4 días | Bloqueado | Suite unitaria, integración con Testcontainers, E2E latencia <100ms |
+| **F5: Scheduler & Concurrencia** | 2-3 días | ✅ Completada | APScheduler, política de refresh, optimistic concurrency, logging estructurado |
+| **F6: Testing Integral** | 3-4 días | ✅ Aprobada — lista para iniciar | Suite unitaria, integración con Testcontainers, E2E latencia <100ms, pruebas de seguridad OWASP |
 | **F7: Despliegue & Documentación** | 2-3 días | Bloqueado | Docker multi-stage, docker-compose, README técnico, demo script |
 
 ## Dependencias entre Fases

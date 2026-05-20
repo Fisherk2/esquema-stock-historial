@@ -23,10 +23,10 @@ Directorio de referencia: `specs/` (cada spec con contratos, ejemplos y SQL vali
 | Spec-50 | Integración APScheduler | Cron job interno, política de refresh, isolation de resources | Media | F5 | `src/infrastructure/scheduler/scheduler.py`, `src/core/config.py`, `src/main.py` | Spec-31, Spec-42 | [6/6] | Completado |
 | Spec-51 | Optimistic Concurrency & Retry | Decorador `@retry`, backoff exponencial, manejo `HTTP 409` | Alta | F5 | `src/core/retry.py`, `src/domain/exceptions/concurrency_conflict.py`, `src/adapters/api/middleware/error_handler.py` | Spec-40, Spec-50 | [7/7] | Completado |
 | Spec-52 | Logging Estructurado & Errors | `logging` JSON, request ID middleware, `statement_timeout` | Media | F5 | `src/infrastructure/logging/config.py`, `src/adapters/api/middleware/request_logging.py`, `src/core/config.py` | Spec-42, Spec-51 | [8/8] | Completado |
-| Spec-60 | Tests Unitarios | Cobertura dominio/app, mocks de protocolos, `pytest` | Alta | F6 | `tests/unit/`, `tests/fixtures/` | Spec-21, Spec-22, Spec-40 | [0/5] | Bloq. |
-| Spec-61 | Tests Integración | `testcontainers.postgres`, seed DB, validación SQL real | Alta | F6 | `tests/integration/` | Spec-30, Spec-31, Spec-60 | [0/6] | Bloq. |
-| Spec-62 | Tests E2E & Latencia <100ms | `httpx` client, contratos OpenAPI, load test | Alta | F6 | `tests/e2e/`, `specs/` (performance.md) | Spec-42, Spec-61 | [0/5] | Bloq. |
-| Spec-63 | Pruebas de Seguridad & OWASP | Inyección SQL, validación inputs, rate limit | Media | F6 | `tests/security/`, `specs/` (security.md) | Spec-42, Spec-52 | [0/4] | Bloq. |
+| Spec-60 | Tests Unitarios | Cobertura dominio/app, mocks de protocolos, `pytest` | Alta | F6 | `tests/unit/`, `tests/fixtures/` | Spec-21, Spec-22, Spec-40 | [0/5] | Aprobado |
+| Spec-61 | Tests Integración | `testcontainers.postgres`, seed DB, validación SQL real | Alta | F6 | `tests/integration/` | Spec-30, Spec-31, Spec-60 | [0/6] | Aprobado |
+| Spec-62 | Tests E2E & Latencia <100ms | `httpx` client, contratos OpenAPI, load test | Alta | F6 | `tests/e2e/`, `specs/` (performance.md) | Spec-42, Spec-61 | [0/5] | Aprobado |
+| Spec-63 | Pruebas de Seguridad & OWASP | Inyección SQL, validación inputs, rate limit | Media | F6 | `tests/security/`, `specs/` (security.md) | Spec-42, Spec-52 | [0/4] | Aprobado |
 | Spec-70 | Dockerfile & Docker Compose Prod | Multi-stage build, `docker-compose.prod.yml`, healthchecks | Alta | F7 | `Dockerfile`, `docker-compose.prod.yml` | Spec-42, Spec-50, Spec-62 | [0/5] | Bloq. |
 | Spec-71 | README Técnico & Demo Script | Instrucciones setup, arquitectura, script demo | Media | F7 | `README.md`, `scripts/demo.sh`, `docs/` | Spec-62, Spec-70 | [0/4] | Bloq. |
 | Spec-72 | CI/CD Pipeline | GitHub Actions: lint, test, coverage, build, deploy | Alta | F7 | `.github/workflows/ci.yml` | Spec-03, Spec-60, Spec-70 | [0/5] | Bloq. |

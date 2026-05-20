@@ -79,10 +79,10 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F5 — Scheduler & Concurrencia 🚧 En progreso
+**Fase:** F5 ✅ Completada | F6 🚧 Aprobada — lista para iniciar
 
-- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅ | F4: Capa API ✅
-- **F4 completada:** 6 use cases, 5 DTOs, 4 routers (10 endpoints), error mapping middleware, 235 tests (147 unit + 88 integration, 100% pass), testcontainers optimizado (1 contenedor/session, ~20s vs ~20 min)
-- **F5 en progreso:** APScheduler, política de refresh, optimistic concurrency, logging estructurado
+- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅ | F4: Capa API ✅ | F5: Scheduler & Concurrencia ✅
+- **F5 completada:** APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id. 282 tests (194 unit + 88 integration, 100% pass).
+- **F6 aprobada:** Testing Integral — Specs 60-63 listos para implementar.
 
-Fases completadas: 77 de 88 specs implementados.
+Fases completadas: 77 de 88 specs implementados. F6 en cola para iniciar.

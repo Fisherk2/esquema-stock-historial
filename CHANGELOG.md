@@ -7,10 +7,21 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
-### [0.5.0] — 2026-05-19 — F5: Scheduler & Concurrencia (En progreso)
+### [0.6.0] — F6: Testing Integral (Aprobada — pendiente de implementación)
+
+- Fase aprobada para iniciar trabajo. Specs 60-63 listos para implementar.
+- Specs incluidos: Tests Unitarios (60), Integración (61), E2E & Latencia (62), Seguridad OWASP (63).
+
+### [0.5.0] — 2026-05-19 — F5: Scheduler & Concurrencia (Completado)
 
 #### Agregado
-- *En desarrollo* — APScheduler, política de refresh, optimistic concurrency, logging
+- **APScheduler:** Cron job interno para refresh de vista materializada, isolation de resources
+- **Retry con Backoff Exponencial:** Decorador `@retry`, manejo de fallos transitorios, `HTTP 409` por confl icto de concurrencia
+- **Logging Estructurado:** Request ID middleware, `logging` JSON, `statement_timeout` configurado
+
+#### Validación
+- 282 tests total (194 unit + 88 integration, 100% pass, ~20s)
+- `make lint` sin errores
 
 ### [0.4.0] — 2026-05-19 — F4: Capa API (Completado)
 
@@ -37,7 +48,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 #### Validación
 - 235 tests (147 unit + 88 integration, 100% pass, ~20s)
 - `make lint` sin errores
-- 17/24 specs completados, F5 aprobada
+- 17/24 specs completados al cierre de F4
 
 ### [0.4.0] — 2026-05-18 — F3: Adaptadores de Datos (Completado)
 

@@ -2,7 +2,7 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** F5 Aprobada — Scheduler & Concurrencia
+**Estado Actual:** F5 Completada — F6 Aprobada
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
@@ -18,7 +18,8 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > `make lint` limpio. Version 0.4.0.
 > **F5: Scheduler & Concurrencia** completada el 2026-05-19. Specs Spec-50/51/52 en estado Completado.
 > APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id.
-> 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio.
+> 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio. Version 0.5.0.
+> **F6: Testing Integral** aprobada — lista para iniciar. Specs Spec-60/61/62/63 pendientes de implementación.
 
 ## Detailed Docs
 
