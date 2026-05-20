@@ -2,7 +2,7 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** F5 Completada — F6 Aprobada
+**Estado Actual:** F6 Specs Aprobados ✅ — Listo para Phase 2 (PLAN)
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
@@ -19,7 +19,7 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > **F5: Scheduler & Concurrencia** completada el 2026-05-19. Specs Spec-50/51/52 en estado Completado.
 > APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id.
 > 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio. Version 0.5.0.
-> **F6: Testing Integral** aprobada — lista para iniciar. Specs Spec-60/61/62/63 pendientes de implementación.
+> **F6: Testing Integral** specs aprobados ✅ — SPEC-60 (Hypothesis+mypy strict), SPEC-61 (Integration edge cases), SPEC-62 (E2E+latencia<100ms), SPEC-63 (Security SQLi+input validation). F6 section en SPEC.md. Spec-tracking actualizado. Listo para Phase 2 (PLAN). Decisiones: 4 capas SQLi, SLA gate pytest hook, error leakage body-only.
 
 ## Detailed Docs
 

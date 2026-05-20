@@ -1005,3 +1005,273 @@ Spec-50 (Scheduler con retry aplicado)
 | F5-Q9 | ¿El decorador retry debe ser sync o async? | **Async** | Todas las operaciones que necesitan retry son async en este proyecto |
 | F5-Q10 | ¿Los logs deben ir a archivo además de stdout? | **Solo stdout** | En contenedores Docker, stdout es capturado por el runtime |
 
+---
+
+# Spec: stock-historial — F6: Testing Integral
+
+## Objective
+
+Consolidar y expandir la suite de tests del sistema con cuatro objetivos complementarios: (1) **property-based testing** con Hypothesis y **mypy strict** como quality gate de tipos (Spec-60); (2) **edge cases de integración** contra PostgreSQL real con testcontainers (Spec-61); (3) **tests E2E de latencia** que validan el SLA core de `<100ms` con pytest-benchmark (Spec-62); (4) **pruebas de seguridad** que validan inmunidad a SQL injection y solidez de input validation (Spec-63).
+
+**F6 success criteria:**
+- Hypothesis con `max_examples=100` y `--hypothesis-seed=0` para reproducibilidad
+- `mypy src/ --strict` pasa sin errores; tests quedan con `strict=false`
+- Edge cases de integración en archivos separados (`*_edge.py`), 0 regresiones en 97 tests existentes
+- Latencia de stock queries en p95 < 100ms (SLA gate con pytest-benchmark)
+- SQL injection payloads (OWASP) rechazados en todas las capas de entrada
+- Input validation boundary tests: tipos incorrectos, rangos, campos extra, payloads malformados
+- Error responses no exponen stack traces ni SQL internals
+- Movimientos son inmutables: PUT/PATCH/DELETE → 405
+- Coverage: domain/ ≥90%, application/ ≥85%, infrastructure/ ≥70%, global ≥80%
+- `make lint` pasa con 0 errores
+- 0 regresiones en 291 tests existentes
+
+## Tech Stack
+
+| Componente | Tecnología | Notas |
+|-----------|-----------|-------|
+| Property-Based Testing | Hypothesis 6.x+ | Dev dependency. Strategies composables, `max_examples=100` CI / 1000 dev |
+| Type Checking | mypy `--strict` | Solo en `src/`. Tests con `strict=false` |
+| Latency Benchmark | pytest-benchmark | In-process, sin servidor externo. SLA gate p95 < 100ms |
+| Security Testing | httpx + pytest | Payloads OWASP Testing Guide v4. Sin herramientas externas |
+| **Nuevas dependencias (dev)** | hypothesis, pytest-benchmark | Solo dev dependencies. Cero nuevas deps de producción |
+
+## Commands
+
+```
+Install: pip install -r requirements.txt
+Dev: make dev
+Lint: make lint
+Typecheck: make typecheck
+Format: make format
+Test: make test
+Test (cov): make test-cov
+Test (E2E): pytest tests/e2e/ -v
+Test (Security): pytest tests/security/ -v
+Test (Benchmark only): pytest tests/e2e/ --benchmark-only
+Build: make build
+```
+
+## Project Structure
+
+**Archivos nuevos que F6 crea:**
+
+```
+tests/unit/
+├── strategies.py                          # Hypothesis strategies centralizadas
+├── domain/
+│   ├── test_quantity.py                   # UPDATE: + property-based tests
+│   ├── test_sku.py                        # UPDATE: + property-based tests
+│   └── test_rules.py                      # UPDATE: + property-based tests
+└── application/use_cases/
+    ├── test_record_movement.py            # UPDATE: + edge cases
+    ├── test_create_product.py             # UPDATE: + edge cases
+    ├── test_list_products.py              # UPDATE: + edge cases
+    ├── test_query_current_stock.py        # UPDATE: + edge cases
+    ├── test_query_stock_at_date.py        # UPDATE: + edge cases
+    └── test_create_category.py            # UPDATE: + edge cases
+
+tests/integration/
+├── helpers.py                             # Batch insert helper
+├── repositories/
+│   ├── test_movement_repository_edge.py   # NEW: edge cases
+│   ├── test_product_repository_edge.py    # NEW: edge cases
+│   ├── test_category_repository_edge.py   # NEW: edge cases
+│   └── test_stock_query_repository_edge.py # NEW: edge cases
+├── test_mv_stock_edge.py                  # NEW: MV con datos masivos
+├── test_uow_edge.py                       # NEW: UoW edge cases
+└── api/
+    ├── test_movements_api_edge.py         # NEW: API edge cases
+    ├── test_stock_api_edge.py             # NEW: API edge cases
+    ├── test_products_api_edge.py          # NEW: API edge cases
+    └── test_categories_api_edge.py        # NEW: API edge cases
+
+tests/e2e/
+├── conftest.py                            # NEW: fixtures + benchmark config + SLA gate
+├── test_stock_latency.py                  # NEW: SLA <100ms benchmarks
+├── test_full_flows.py                     # NEW: flujos HTTP end-to-end
+└── test_openapi_contracts.py              # NEW: validación contra Pydantic DTOs
+
+tests/security/
+├── __init__.py                            # NEW: package marker
+├── conftest.py                            # NEW: fixtures compartidos
+├── test_sql_injection.py                  # NEW: OWASP SQL injection payloads
+├── test_input_validation.py               # NEW: boundary & malformed payload tests
+└── test_error_leakage.py                  # NEW: error leakage + immutability tests
+```
+
+**Archivos de spec detallados:**
+
+- [SPEC-60](specs/SPEC-60.md) — Tests Unitarios: Hypothesis + mypy strict
+- [SPEC-61](specs/SPEC-61.md) — Tests de Integración: Edge Cases & Escenarios Extendidos
+- [SPEC-62](specs/SPEC-62.md) — Tests E2E & Latencia <100ms
+- [SPEC-63](specs/SPEC-63.md) — Pruebas de Seguridad: SQL Injection + Input Validation
+
+**Archivos existentes que F6 modifica:**
+
+```
+pyproject.toml     # mypy strict=true, Hypothesis config, addopts seed, markers
+requirements.txt   # +hypothesis, +pytest-benchmark
+Makefile           # +typecheck command
+src/**/*.py        # Type hints para mypy strict (annotations only)
+```
+
+## Code Style
+
+- **Hypothesis strategies:** módulo centralizado `tests/unit/strategies.py`. Strategies nombradas con `_strategy` suffix
+- **Edge case tests:** archivos separados `*_edge.py`, no modificar tests existentes
+- **Security tests:** directorio separado `tests/security/`. Payloads parametrizados con `@pytest.mark.parametrize`
+- **Benchmark tests:** marcados con `@pytest.mark.benchmark(group="...")`. SLA gate implementado como pytest hook
+- **Type annotations:** `# type: ignore[xxx]` solo con comentario explicativo. mypy strict en `src/` únicamente
+
+## Testing Strategy
+
+| Level | Location | Framework | Scope |
+|-------|----------|-----------|-------|
+| Unit (PBT) | `tests/unit/` | pytest + Hypothesis | Domain value objects, rules, use case edge cases |
+| Unit (Types) | `src/` | mypy --strict | Type safety gate en CI |
+| Integration (Edge) | `tests/integration/*_edge.py` | pytest + testcontainers | Repository edge cases, MV masivos, UoW, API boundary |
+| E2E (Latency) | `tests/e2e/test_stock_latency.py` | pytest-benchmark | SLA p95 < 100ms para stock queries |
+| E2E (Flows) | `tests/e2e/test_full_flows.py` | pytest + httpx | Flujos HTTP completos end-to-end |
+| E2E (Contracts) | `tests/e2e/test_openapi_contracts.py` | pytest + Pydantic | Respuestas validan contra DTOs |
+| Security (SQLi) | `tests/security/test_sql_injection.py` | pytest + httpx + asyncpg | OWASP SQL injection payloads |
+| Security (Input) | `tests/security/test_input_validation.py` | pytest + httpx | Boundary, malformed, Unicode |
+| Security (Leakage) | `tests/security/test_error_leakage.py` | pytest + httpx | No stack traces, no SQL, immutability |
+
+**Coverage targets:** domain/ ≥90%, application/ ≥85%, infrastructure/ ≥70%, global ≥80%
+
+**Patrones de test F6:**
+- Hypothesis: `@given(qty=valid_quantity_strategy)` para property-based tests. Seed fijo en CI
+- Edge cases: tablas de test con descripción, expected behavior, y resultado
+- Benchmark: `benchmark(lambda: asyncio.run(api_client.get(...)))` con SLA gate hook
+- Security: `@pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)` para cobertura sistemática
+- Contratos: `MovementOutput.model_validate(resp.json())` para validar contra Pydantic
+
+## Boundaries
+
+### Always do
+- Hypothesis strategies en módulo centralizado (`tests/unit/strategies.py`)
+- Edge case tests en archivos separados (`*_edge.py`), nunca modificar tests existentes
+- `--hypothesis-seed=0` en CI para reproducibilidad
+- mypy `strict=true` solo en `src/`; tests con `strict=false`
+- SLA gate: p95 < 100ms (no max, no p99)
+- Security tests usan OWASP payloads estándar
+- `# type: ignore[xxx]` con comentario explicativo obligatorio
+- Coverage por paquete: domain ≥90%, application ≥85%, infrastructure ≥70%
+
+### Ask first
+- Cambiar `max_examples` de Hypothesis (default 100 CI / 1000 dev)
+- Añadir nuevos tipos de security tests (más allá de SQLi + input validation)
+- Cambiar el percentil SLA (p95 → p99)
+- Añadir timing attack tests
+- Modificar fixtures de integración existentes (`db_pool`, `db_clean`, `api_client`)
+- Añadir dependencias de producción nuevas
+
+### Never do
+- Modificar tests existentes (291 unit + integration) — crear archivos nuevos
+- Usar Locust/k6 para benchmarks (son load testing, no in-process)
+- Usar `sqlmap` u herramientas externas no-deterministas
+- Activar mypy strict en `tests/` (mocks y fixtures no se benefician)
+- Añadir dependencias de producción en F6 (solo dev deps)
+- Commit secrets o datos sensibles en payloads de test
+- Añadir auth/authorization/rate-limiting tests (fuera de scope F6)
+
+## Implementation Order
+
+```
+Spec-60 (Unit: Hypothesis + mypy strict + edge cases)
+↓ (dependencia: type hints, strategies)
+Spec-61 (Integration: edge cases contra DB real)
+↓ (dependencia: fixtures, helpers, DB real)
+Spec-62 (E2E: latencia + flujos + contratos)
+↓ (dependencia: API completa funcionando)
+Spec-63 (Security: SQLi + input validation)
+```
+
+- **Spec-60 primero:** Establece la base de type safety (mypy strict) y property-based testing (Hypothesis). Los type hints añadidos benefician a todos los specs siguientes.
+- **Spec-61 segundo:** Extiende integración con edge cases. Requiere que los type hints y strategies de Spec-60 estén listos para que los edge case tests sean type-safe.
+- **Spec-62 tercero:** Mide latencia y valida flujos E2E. Depende de que la integración completa funcione (validado por Spec-61).
+- **Spec-63 último:** Valida seguridad. Requiere que todos los endpoints y validaciones estén completos (validado por Spec-60/61/62).
+
+> **Nota:** Los specs se implementan secuencialmente porque cada uno construye sobre la confianza del anterior. Spec-60 añade type safety → Spec-61 valida contra DB real → Spec-62 mide rendimiento → Spec-63 valida seguridad.
+
+## Success Criteria
+
+### Spec-60: Tests Unitarios — Hypothesis + mypy strict
+- [ ] Hypothesis añadido a `requirements.txt` y `pyproject.toml`
+- [ ] `tests/unit/strategies.py` con strategies reutilizables para Quantity, SKU, MovementType
+- [ ] Property-based tests para: `Quantity` (boundary), `SKU` (regex), `calculate_stock_delta` (signo), `validate_stock_not_negative` (dominio)
+- [ ] Edge cases añadidos en use cases: producto inexistente, categoría duplicada, movimiento con metadata inválida, stock=0, fecha futura, offset>total
+- [ ] `mypy src/ --strict` pasa sin errores
+- [ ] `pyproject.toml` actualizado: `strict = true`, overrides para `tests.*`
+- [ ] Coverage `domain/` ≥90%, `application/` ≥85%
+- [ ] 0 regresiones en tests existentes (291 → 291+)
+- [ ] `make lint` pasa sin errores
+- [ ] `--hypothesis-seed=0` configurado en `addopts` para reproducibilidad
+
+### Spec-61: Tests de Integración — Edge Cases
+- [ ] Edge cases en repositorios: producto sin movimientos, stock_at_date con fecha futura, paginación con offset > total, get_by_id not found, count=0
+- [ ] Edge cases en API: content-type inválido, body vacío, campos extra, query params inválidos, IDs inexistentes, fechas inválidas, duplicados
+- [ ] Tests de MV: refresh con datos masivos (100+ movimientos), consistencia MV vs cálculo directo, lectura durante refresh
+- [ ] Tests de UoW: rollback en segundo repositorio, conexión compartida, conexión liberada tras excepción
+- [ ] Coverage `infrastructure/` ≥70%
+- [ ] 0 regresiones en 97 tests de integración existentes
+- [ ] Todos los edge case tests pasan contra testcontainers PostgreSQL real
+- [ ] `make lint` pasa sin errores
+
+### Spec-62: Tests E2E & Latencia <100ms
+- [ ] `pytest-benchmark` añadido a `requirements.txt` y `pyproject.toml`
+- [ ] `tests/e2e/conftest.py` con fixture `api_client` + benchmark config + SLA gate hook
+- [ ] Tests de latencia: `/v1/stock/{id}/current` p95 < 100ms
+- [ ] Tests de latencia: `/v1/stock/{id}/at-date` p95 < 100ms
+- [ ] Tests de latencia: producto sin movimientos también < 100ms
+- [ ] Tests de flujos completos: categoría → producto → movimiento → stock
+- [ ] Tests de flujos completos: OUT con stock insuficiente → 409
+- [ ] Tests de flujos completos: consistencia histórica entre fechas
+- [ ] Tests de contratos OpenAPI: respuestas validan contra Pydantic DTOs
+- [ ] SLA gate falla si p95 > 100ms en benchmarks de stock
+- [ ] 0 regresiones en tests existentes
+- [ ] `make lint` pasa sin errores
+
+### Spec-63: Pruebas de Seguridad
+- [ ] `tests/security/` directory con 3 archivos de test + conftest + __init__
+- [ ] SQL injection tests: path params, query params, body fields, repository-level
+- [ ] SQL injection tests: payloads OWASP Testing Guide v4 (mínimo 7 path payloads, 13 string payloads)
+- [ ] SQL injection tests: ningún payload causa SQL syntax error o data modification
+- [ ] Input validation tests: tipos incorrectos, rangos, campos requeridos, campos extra, metadata anidada
+- [ ] Input validation tests: payloads malformados (JSON inválido, body vacío, content-type incorrecto, null, array)
+- [ ] Input validation tests: Unicode edge cases (null bytes, emojis, strings largos)
+- [ ] Error leakage tests: ningún error expone stack trace, SQL, rutas de archivos, versiones internas
+- [ ] Immutability enforcement: PUT/PATCH/DELETE en /v1/movements/ → 405
+- [ ] 0 regresiones en tests existentes
+- [ ] `make lint` pasa sin errores
+
+### Aggregate
+- [ ] `make lint` sin errores en todos los archivos nuevos
+- [ ] `make test` pasa todos los tests (no rompe tests existentes de F0-F5)
+- [ ] `make typecheck` pasa (mypy strict en src/)
+- [ ] Coverage global ≥80%
+- [ ] `pyproject.toml` actualizado con Hypothesis + mypy config
+- [ ] `requirements.txt` actualizado con +hypothesis +pytest-benchmark
+- [ ] `Makefile` actualizado con +typecheck command
+- [ ] 0 regresiones en 291 tests existentes
+
+## Resolved Questions
+
+| # | Pregunta | Decisión | Rationale |
+|---|----------|----------|-----------|
+| F6-Q1 | ¿Herramienta de benchmark? | **pytest-benchmark** | In-process, sin servidor externo. Determinista. Se integra con pytest. Locust/k6 son para load testing externo |
+| F6-Q2 | ¿Percentil SLA? | **p95 < 100ms** | Permite 5% de outliers por overhead de testcontainers. max y p99 son demasiado estrictos para CI con contenedores |
+| F6-Q3 | ¿Hypothesis max_examples en CI? | **100** | Balance cobertura vs velocidad. 100 ejemplos detecta la mayoría de bugs. Profile dev con 1000 para local |
+| F6-Q4 | ¿Hypothesis seed fijo? | **Sí, `--hypothesis-seed=0`** | Reproducibilidad total en CI. Si falla, se reproduce localmente con el mismo seed |
+| F6-Q5 | ¿mypy strict scope? | **Solo `src/`** | Tests usan mocks, AsyncMock, fixtures dinámicas. Strict en tests añade fricción sin beneficio claro |
+| F6-Q6 | ¿Scope de seguridad? | **SQL injection + input validation** | No hay auth en el sistema. Rate limiting y CORS son de F7+. Timing attacks requieren infraestructura fuera de scope |
+| F6-Q7 | ¿Timing attack tests? | **No** | Requieren miles de muestras, análisis estadístico, y control del entorno de ejecución |
+| F6-Q8 | ¿Nuevas dependencias de producción? | **Ninguna** | Solo dev dependencies (hypothesis, pytest-benchmark). Cero impacto en producción |
+| F6-Q9 | ¿Coverage domain/ threshold? | **≥90%** (subido de >85%) | Con Hypothesis se generan más caminos de código; el umbral sube para reflejar mayor confianza |
+| F6-Q10 | ¿Modificar tests existentes? | **No** — crear archivos `*_edge.py` | Los 291 tests existentes son happy paths validados. Modificarlos arriesga regresiones |
+| F6-Q11 | ¿`type: ignore` permitido? | **Solo con justificación** | `# type: ignore[xxx] # Reason: ...` — nunca sin comentario explicativo |
+| F6-Q12 | ¿Usar `sqlmap` para security tests? | **No** — tests manuales con pytest | `sqlmap` requiere servidor corriendo y es no-determinista. Los tests de pytest son deterministas, reproducibles, y se integran en CI |
+| F6-Q13 | ¿Error leakage como test de seguridad? | **Sí** | Exponer stack traces o SQL en errores es una vulnerabilidad de información que facilita ataques |
+| F6-Q14 | ¿Contratos OpenAPI con schema JSON o Pydantic? | **Pydantic model_validate()** | Los DTOs ya existen. Validar contra ellos es más directo y mantiene una sola fuente de verdad |
+
