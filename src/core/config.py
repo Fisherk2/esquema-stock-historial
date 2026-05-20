@@ -64,5 +64,13 @@ class Settings(BaseSettings):
     log_format: str = "text"
     api_statement_timeout_seconds: int = 5
 
+    # F7: Docker Compose Prod (solo para docker-compose, no usadas directamente por la app)
+    postgres_user: str = "stock_user"
+    postgres_password: str = ""
+    postgres_db: str = "stock_historial"
+
+    # F7: Demo Script
+    demo_base_url: str = "http://localhost:8000"
+
     # Estrategia de carga: .env → env vars del sistema → defaults de la clase
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

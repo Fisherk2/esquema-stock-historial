@@ -5,7 +5,7 @@
 # Uso: make <comando> (ej: make lint, make test)
 # Ver todos los comandos: make help
 
-.PHONY: help install dev lint format test test-cov build docker-up docker-down clean migrate seed typecheck
+.PHONY: help install dev lint format test test-cov build docker-up docker-down docker-prod-up docker-prod-down clean migrate seed typecheck demo
 
 help:
 	@echo "Available commands:"
@@ -22,6 +22,9 @@ help:
 	@echo "  migrate     Run database migrations"
 	@echo "  seed        Insert seed data for development"
 	@echo "  typecheck   Run mypy strict type checking"
+	@echo "  demo        Run demo script (scripts/demo.sh)"
+	@echo "  docker-prod-up  Start Docker Compose production stack"
+	@echo "  docker-prod-down Stop Docker Compose production stack"
 
 install:
 	pip install -r requirements.txt
@@ -67,3 +70,12 @@ migrate:
 
 seed:
 	python -m src.infrastructure.db.seed
+
+demo:
+	bash scripts/demo.sh
+
+docker-prod-up:
+	docker compose -f docker-compose.prod.yml up -d
+
+docker-prod-down:
+	docker compose -f docker-compose.prod.yml down

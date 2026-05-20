@@ -10,7 +10,7 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
-**Fase actual:** F7 — Despliegue & Documentación (Aprobada)
+**Fase actual:** F7 — Despliegue & Documentación ✅ Completada
 
 ---
 
@@ -107,7 +107,7 @@ Clean:        make clean
 | **F4** | Capa API — use cases, DTOs, routers, error mapping | [SPEC-40](specs/SPEC-40.md) · [SPEC-41](specs/SPEC-41.md) · [SPEC-42](specs/SPEC-42.md) | ✅ Completada |
 | **F5** | Scheduler & Concurrencia — APScheduler, retry, logging | [SPEC-50](specs/SPEC-50.md) · [SPEC-51](specs/SPEC-51.md) · [SPEC-52](specs/SPEC-52.md) | ✅ Completada |
 | **F6** | Testing Integral — Hypothesis, mypy strict, E2E, security | [SPEC-60](specs/SPEC-60.md) · [SPEC-61](specs/SPEC-61.md) · [SPEC-62](specs/SPEC-62.md) · [SPEC-63](specs/SPEC-63.md) | ✅ Completada |
-| **F7** | Despliegue & Documentación — Docker prod, docs, CI/CD | [SPEC-70](specs/SPEC-70.md) · [SPEC-71](specs/SPEC-71.md) · [SPEC-72](specs/SPEC-72.md) | 🔵 Aprobada |
+| **F7** | Despliegue & Documentación — Docker prod, docs, CI/CD | [SPEC-70](specs/SPEC-70.md) · [SPEC-71](specs/SPEC-71.md) · [SPEC-72](specs/SPEC-72.md) | ✅ Completada |
 
 ---
 
@@ -130,10 +130,10 @@ graph LR
     style F4 fill:#4CAF50,color:#fff
     style F5 fill:#4CAF50,color:#fff
     style F6 fill:#4CAF50,color:#fff
-    style F7 fill:#2196F3,color:#fff
+    style F7 fill:#4CAF50,color:#fff
 ```
 
-> **Leyenda:** 🟢 Completada · 🔵 Aprobada (pendiente implementación)
+> **Leyenda:** 🟢 Completada
 > Los DAGs detallados con dependencias cross-phase están en [docs/workflow/spec-tracking.md](docs/workflow/spec-tracking.md).
 
 ---
@@ -204,4 +204,4 @@ stock-historial/
 | 0.4.0 | F4 — Capa API | 2026-05-16 |
 | 0.5.0 | F5 — Scheduler & Concurrencia | 2026-05-17 |
 | 0.6.0 | F6 — Testing Integral | 2026-05-18 |
-| 1.0.0 | F7 — Despliegue & Documentación | _Pendiente_ |
+| 1.0.0 | F7 — Despliegue & Documentación | 2026-05-20 |

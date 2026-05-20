@@ -13,6 +13,7 @@ import pytest
 from httpx import ASGITransport
 
 # Re-importar fixtures de integracion para que pytest los encuentre
+from tests.integration.conftest import db_clean, db_pool  # noqa: F401
 from src.main import create_app
 
 if TYPE_CHECKING:

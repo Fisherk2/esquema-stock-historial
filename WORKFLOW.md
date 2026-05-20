@@ -2,7 +2,7 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** F6 Completada ✅ — F7 Aprobada y lista para Phase 2 (PLAN)
+**Estado Actual:** F7 Completada ✅ — Version 1.0.0 (producción)
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
@@ -21,6 +21,18 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio. Version 0.5.0.
 > **F6: Testing Integral** completada el 2026-05-20. Specs Spec-60/61/62/63 en estado Completado.
 > 205 tests unitarios pasando (99.34% cobertura global). Hypothesis PBT (property-based testing) con max_examples=100, seed=0. mypy --strict limpio en 74 archivos de src/. Domain coverage 99.60%, application 99.01%. Edge cases de integración en archivos separados (*_edge.py). E2E tests con SLA gate p95<100ms via pytest-benchmark. Pruebas de seguridad OWASP: SQL injection en 4 capas (path, query, body, repo), input validation boundary tests, error leakage tests, inmutabilidad enforcement (405). Version 0.6.0.
+> **F7: Despliegue & Documentación** completada el 2026-05-20. Specs Spec-70/71/72 en estado Completado.
+> Dockerfile hardened: non-root USER app, OCI labels, --chown. .dockerignore con 15+ patrones.
+> docker-compose.prod.yml: app + db, PostgreSQL no expuesto, restart policies, .env vars.
+> .env.example: 17 variables F0-F7. Makefile: demo, docker-prod-up, docker-prod-down.
+> scripts/demo.sh: 9 pasos de flujo completo. README v1.0.0 con badges y quick start.
+> docs/ARCHITECTURE.md: 3 diagramas Mermaid, import rules, patrones.
+> docs/API_REFERENCE.md: 11 endpoints con curl + error examples.
+> docs/SETUP.md: prereqs, dev/prod Docker, tabla 17 env vars, troubleshooting.
+> CONTRIBUTING.md: guía para contribuidores con convenciones y flujo PR.
+> CI/CD: 5 gates secuenciales (lint → typecheck → test → coverage → docker-build).
+> 457 tests pasando (100% pass). Coverage global 90.98%, domain 100%, application 100%.
+> **Version 1.0.0 — lista para producción.**
 
 ## Detailed Docs
 
