@@ -1275,3 +1275,305 @@ Spec-63 (Security: SQLi + input validation)
 | F6-Q13 | ¿Error leakage como test de seguridad? | **Sí** | Exponer stack traces o SQL en errores es una vulnerabilidad de información que facilita ataques |
 | F6-Q14 | ¿Contratos OpenAPI con schema JSON o Pydantic? | **Pydantic model_validate()** | Los DTOs ya existen. Validar contra ellos es más directo y mantiene una sola fuente de verdad |
 
+---
+
+# Spec: stock-historial — F7: Despliegue & Documentación
+
+## Objective
+
+Preparar el sistema para producción con tres entregables complementarios: (1) **Dockerfile optimizado + `docker-compose.prod.yml`** self-contained con PostgreSQL persistente para despliegue local/demo (Spec-70); (2) **Documentación técnica completa** — reescribir todos los stubs (`ARCHITECTURE.md`, `API_REFERENCE.md`, `SETUP.md`), actualizar `README.md` a v1.0.0, y crear un **demo script funcional** que ejercite el flujo completo del sistema (Spec-71); (3) **CI/CD pipeline robusto** — extender `ci.yml` con mypy strict, Docker build validation, y quality gates completos (Spec-72).
+
+**Usuarios objetivo:** Desarrolladores que despliegan localmente, equipos de ops que configuran el entorno, y evaluadores que necesitan una demo funcional del sistema.
+
+**F7 success criteria:**
+- `docker compose -f docker-compose.prod.yml up` levanta app + PostgreSQL con datos persistidos y healthchecks verdes
+- `make demo` ejecuta el script de demostración completo end-to-end (categoría → producto → movimiento → stock)
+- `docs/ARCHITECTURE.md` documenta Clean Architecture con diagramas Mermaid, reglas de importación, y justificación técnica
+- `docs/API_REFERENCE.md` documenta los 10 endpoints con ejemplos `curl`, tablas de parámetros, y códigos de error
+- `docs/SETUP.md` documenta setup paso a paso (prerequisitos → install → dev → prod → demo)
+- `README.md` actualizado a v1.0.0 con badges, tabla de features, y links a documentación
+- `.env.example` actualizado con todas las variables de F0-F7
+- CI/CD pipeline: lint → typecheck → test → coverage → Docker build (5 gates, 0 deploy)
+- `make lint` pasa con 0 errores
+- Version 1.0.0 en `main.py`
+
+## Tech Stack
+
+| Componente | Tecnología | Notas |
+|-----------|-----------|-------|
+| Containerización | Docker + Docker Compose | Dockerfile multi-stage (ya existe), `docker-compose.prod.yml` nuevo |
+| CI/CD | GitHub Actions | Extender `ci.yml` existente con typecheck + Docker build |
+| Documentación | Markdown + Mermaid | Diagramas de arquitectura en `docs/ARCHITECTURE.md` |
+| Demo Script | Bash + `curl` | `scripts/demo.sh` — flujo completo contra API local |
+| **Nuevas dependencias** | Ninguna | F7 no añade deps de producción ni de desarrollo |
+
+## Commands
+
+```
+Install: pip install -r requirements.txt
+Dev: make dev
+Lint: make lint
+Typecheck: make typecheck
+Format: make format
+Test: make test
+Test (cov): make test-cov
+Build: make build
+Docker up (dev): make docker-up
+Docker down: make docker-down
+Docker up (prod): docker compose -f docker-compose.prod.yml up -d
+Docker down (prod): docker compose -f docker-compose.prod.yml down
+Demo: make demo
+Clean: make clean
+```
+
+## Project Structure
+
+**Archivos nuevos que F7 crea:**
+
+```
+docker-compose.prod.yml # NEW: producción self-contained (app + PostgreSQL persistente)
+scripts/demo.sh # NEW: demo script — flujo completo curl contra API
+
+docs/
+├── ARCHITECTURE.md # REWRITE: Clean Architecture + diagramas Mermaid + reglas de importación
+├── API_REFERENCE.md # REWRITE: 10 endpoints documentados con ejemplos curl
+└── SETUP.md # REWRITE: setup paso a paso (prereqs → install → dev → prod → demo)
+```
+
+**Archivos existentes que F7 modifica:**
+
+```
+Dockerfile # UPDATE: optimización (non-root user, .dockerignore, labels)
+.dockerignore # NEW: excluir archivos innecesarios del contexto Docker
+README.md # UPDATE: v1.0.0, badges, features, links a docs
+.env.example # UPDATE: todas las variables F0-F7
+.github/workflows/ci.yml # UPDATE: +typecheck job, +Docker build job
+Makefile # UPDATE: +demo, +docker-prod-up/down commands
+src/main.py # UPDATE: version 1.0.0
+WORKFLOW.md # UPDATE: F7 completada, versión 1.0.0
+AGENTS.md # UPDATE: F7 completada
+CHANGELOG.md # UPDATE: entrada v1.0.0
+docs/workflow/spec-tracking.md # UPDATE: Spec-70/71/72 completados
+```
+
+**Archivos de spec detallados:**
+
+- [SPEC-70](specs/SPEC-70.md) — Dockerfile & Docker Compose Prod
+- [SPEC-71](specs/SPEC-71.md) — README Técnico & Demo Script & Documentación Completa
+- [SPEC-72](specs/SPEC-72.md) — CI/CD Pipeline
+
+## Code Style
+
+```bash
+#!/usr/bin/env bash
+# scripts/demo.sh — Demo script del sistema Stock Historial
+# Ejecuta el flujo completo: categoría → producto → movimiento → stock
+#
+# Uso: make demo
+# Con URL custom: DEMO_BASE_URL=http://staging:8000 make demo
+# Prerequisitos: servidor corriendo en localhost:8000
+
+set -euo pipefail
+
+BASE_URL="${DEMO_BASE_URL:-http://localhost:8000}"
+HEALTH_URL="${BASE_URL}/v1/health"
+
+# 1. Verificar que el servidor está vivo
+echo "🔍 Verificando salud del servidor..."
+curl -sf "${HEALTH_URL}" | python3 -m json.tool
+
+# 2. Crear categoría
+echo "\n📦 Creando categoría 'Electrónica'..."
+CATEGORY=$(curl -sf -X POST "${BASE_URL}/v1/categories" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Electrónica", "description": "Dispositivos electrónicos"}')
+echo "$CATEGORY" | python3 -m json.tool
+CATEGORY_ID=$(echo "$CATEGORY" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+# 3. Crear producto
+echo "\n📱 Creando producto 'Monitor 27\"'..."
+PRODUCT=$(curl -sf -X POST "${BASE_URL}/v1/products" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"sku\": \"MON-27-4K\",
+    \"name\": \"Monitor 27 4K\",
+    \"description\": \"Monitor IPS 4K 27 pulgadas\",
+    \"unit_of_measure\": \"unit\",
+    \"category_id\": ${CATEGORY_ID},
+    \"min_stock_threshold\": 5
+  }")
+echo "$PRODUCT" | python3 -m json.tool
+PRODUCT_ID=$(echo "$PRODUCT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+# 4. Registrar entrada de stock
+echo "\n📥 Registrando IN de 50 unidades..."
+MOVEMENT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"product_id\": ${PRODUCT_ID},
+    \"movement_type\": \"IN\",
+    \"quantity\": 50,
+    \"reference\": \"PO-2026-001\"
+  }")
+echo "$MOVEMENT" | python3 -m json.tool
+
+# 5. Consultar stock actual
+echo "\n📊 Consultando stock actual..."
+STOCK=$(curl -sf "${BASE_URL}/v1/stock/${PRODUCT_ID}/current")
+echo "$STOCK" | python3 -m json.tool
+
+# 6. Registrar salida
+echo "\n📤 Registrando OUT de 10 unidades..."
+OUT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"product_id\": ${PRODUCT_ID},
+    \"movement_type\": \"OUT\",
+    \"quantity\": 10,
+    \"reference\": \"SO-2026-001\"
+  }")
+echo "$OUT" | python3 -m json.tool
+
+# 7. Consultar stock actualizado
+echo "\n📊 Stock después de la salida..."
+STOCK2=$(curl -sf "${BASE_URL}/v1/stock/${PRODUCT_ID}/current")
+echo "$STOCK2" | python3 -m json.tool
+
+echo "\n✅ Demo completada exitosamente!"
+```
+
+**Convenciones específicas de F7:**
+- Demo script: `set -euo pipefail`, `curl -sf`, `python3 -m json.tool` para formateo, `DEMO_BASE_URL` env var para URL base
+- Docker compose prod: variables de entorno en `.env`, no hardcodeadas en YAML
+- Documentación: diagramas Mermaid embebidos, ejemplos `curl` ejecutables, tablas de referencia
+- `.dockerignore`: excluir `.venv/`, `.git/`, `__pycache__/`, `.mypy_cache/`, `htmlcov/`, `docs/ai-agent-setup/`, `.opencode/`, `skills/`, `agents/`, `references/`, `specs/`
+- CI/CD: cada job independiente, Docker build cacheado vía GitHub Actions cache (`type=gha`)
+
+## Testing Strategy
+
+| Level | Location | Framework | Scope |
+|-------|----------|-----------|-------|
+| Docker Build | CI (GitHub Actions) | Docker | Validar que `docker build .` completa sin errores |
+| Demo Script | Local | Bash + curl | Flujo E2E contra API local (manual) |
+
+**F7 no añade tests unitarios ni de integración nuevos** — el objetivo es validar que la infraestructura de despliegue funciona, no añadir lógica de negocio. Los 205+ tests existentes (F0-F6) deben seguir pasando sin regresiones.
+
+**Patrones de validación F7:**
+- Docker build: `docker build -t stock-historial:latest .` en CI — exit code 0 = pass
+- Docker compose prod: `docker compose -f docker-compose.prod.yml up -d` → `curl -sf http://localhost:8000/v1/health` → `{"status": "ok"}` → `docker compose -f docker-compose.prod.yml down`
+- Demo script: `make demo` ejecuta sin errores contra servidor local
+- CI: los 5 gates pasan (lint → typecheck → test → coverage → Docker build)
+
+## Boundaries
+
+### Always do
+- Dockerfile usa multi-stage build con `python:3.12-slim` (ya existe, optimizar)
+- `docker-compose.prod.yml` es self-contained (app + PostgreSQL + volumen persistente)
+- `.env.example` documenta TODAS las variables del sistema (F0-F7)
+- Demo script usa `set -euo pipefail` y `curl -sf` para fallo rápido
+- CI/CD: cada job es independiente (sin acoplamiento entre gates)
+- Documentación usa diagramas Mermaid (embebidos, sin herramientas externas)
+
+### Ask first
+- Añadir deploy automático (staging/prod) al CI/CD — fuera de scope F7 pero se puede añadir después
+- Cambiar la imagen base de Docker (`python:3.12-slim` → `python:3.12-alpine` u otra)
+- Añadir autenticación/API keys — la infraestructura está preparada pero no se implementa en F7
+- Añadir reverse proxy (nginx/traefik) al stack de producción
+- Cambiar el registry de Docker (Docker Hub → GHCR → ECR)
+- Añadir monitoreo (Prometheus, Grafana) al stack de producción
+
+### Never do
+- Hardcodear credenciales en `docker-compose.prod.yml` (usar `.env`)
+- Añadir dependencias de producción nuevas en F7
+- Exponer puertos de PostgreSQL en producción (remover `ports: - "5432:5432"`)
+- Ejecutar contenedor como root — usar `USER app` en Dockerfile runtime
+- Modificar tests existentes (205+ tests de F0-F6)
+- Añadir lógica de negocio nueva — F7 es solo infraestructura y documentación
+- Incluir archivos de desarrollo en el contexto Docker (usar `.dockerignore`)
+
+## Implementation Order
+
+```
+Spec-70 (Dockerfile & Docker Compose Prod)
+↓ (dependencia: contenedor funcional para demo y CI)
+Spec-71 (README + Documentación + Demo Script)
+↓ (dependencia: demo script necesita API documentada)
+Spec-72 (CI/CD Pipeline)
+```
+
+- **Spec-70 primero:** Optimiza el Dockerfile y crea `docker-compose.prod.yml`. Es la base que valida que el contenedor funciona. Spec-71 necesita un stack funcional para el demo script, y Spec-72 necesita un Dockerfile que compile para el Docker build gate.
+- **Spec-71 segundo:** Reescribe la documentación y crea el demo script. Requiere que el stack Docker funcione (validado por Spec-70) para probar el demo script contra una instancia real.
+- **Spec-72 tercero:** Extiende el CI/CD pipeline. Requiere que el Dockerfile compile (validado por Spec-70) para que el Docker build gate funcione en CI.
+
+## Success Criteria
+
+### Spec-70: Dockerfile & Docker Compose Prod
+- [ ] Dockerfile optimizado: non-root user `app`, `.dockerignore` excluye archivos de desarrollo
+- [ ] `docker build -t stock-historial:latest .` completa sin errores
+- [ ] `docker-compose.prod.yml` incluye servicios `app` + `db` con volumen persistente y `restart: unless-stopped`
+- [ ] `docker compose -f docker-compose.prod.yml up -d` levanta ambos servicios
+- [ ] Healthcheck de app pasa: `curl -sf http://localhost:8000/v1/health` retorna `{"status": "ok"}`
+- [ ] Puerto de PostgreSQL NO expuesto al host en producción (sin `ports: - "5432:5432"`)
+- [ ] Variables de entorno en `.env`, no hardcodeadas en YAML
+- [ ] Contenedor runtime ejecuta como usuario `app` (no root)
+- [ ] Dockerfile incluye `LABEL` metadata OCI (title, description, version, source, licenses)
+- [ ] `.env.example` actualizado con todas las variables F0-F7 (incluyendo scheduler, logging, timeouts)
+
+### Spec-71: README Técnico & Demo Script & Documentación Completa
+- [ ] `README.md` actualizado a v1.0.0 con: badges (CI, coverage, Python version, license), tabla de features, arquitectura resumida, links a docs, comandos, y estado del proyecto
+- [ ] `docs/ARCHITECTURE.md` documenta: Clean Architecture con diagrama Mermaid, capas (domain → application → infrastructure → adapters), reglas de importación, justificación técnica (SQL explícito, asyncpg, APScheduler), patrones (Repository, UoW, CQRS, MV), y decisiones clave
+- [ ] `docs/API_REFERENCE.md` documenta: los 10 endpoints con método, ruta, descripción, parámetros, request body, response body, códigos de error, ejemplos `curl` ejecutables, y ejemplos de error por endpoint (400, 404, 409, 422, 405)
+- [ ] `docs/SETUP.md` documenta: prerequisitos, instalación, desarrollo local, Docker dev, Docker prod, demo, troubleshooting, y variables de entorno
+- [ ] `scripts/demo.sh` ejecuta flujo completo: health → categoría → producto → IN → stock → OUT → stock actualizado
+- [ ] Demo script soporta `DEMO_BASE_URL` env var (default `http://localhost:8000`)
+- [ ] `make demo` ejecuta `scripts/demo.sh`
+- [ ] Demo script usa `set -euo pipefail` y falla si el servidor no está disponible
+- [ ] Demo script muestra output formateado con `python3 -m json.tool`
+
+### Spec-72: CI/CD Pipeline
+- [ ] `ci.yml` tiene 5 gates secuenciales: lint → typecheck → test → coverage → Docker build
+- [ ] Gate typecheck: `make typecheck` (mypy strict en `src/`)
+- [ ] Gate Docker build: `docker build -t stock-historial:latest .` exit code 0 (con GitHub Actions cache `type=gha`)
+- [ ] Coverage gate: `--cov-fail-under=80` (existente, mantener)
+- [ ] Cada job usa `actions/setup-python@v5` con Python 3.12
+- [ ] Docker build job usa `docker/build-push-action` con `cache_from: type=gha` y `cache_to: type=gha`
+- [ ] Pipeline falla si cualquier gate falla (0 tolerancia a warnings en lint)
+- [ ] No hay deploy automático — solo validación continua
+
+### Aggregate
+- [ ] `make lint` sin errores
+- [ ] `make test` pasa sin regresiones (205+ tests)
+- [ ] `make typecheck` pasa (mypy strict en `src/`)
+- [ ] `make demo` ejecuta exitosamente contra servidor local
+- [ ] `docker compose -f docker-compose.prod.yml up -d` funciona end-to-end
+- [ ] CI/CD pipeline pasa en GitHub Actions
+- [ ] Version 1.0.0 en `main.py`
+- [ ] `WORKFLOW.md` actualizado a F7 completada
+- [ ] `CHANGELOG.md` actualizado con entrada v1.0.0
+- [ ] `AGENTS.md` actualizado a F7 completada
+- [ ] `docs/workflow/spec-tracking.md` actualizado: Spec-70/71/72 en estado Completado
+
+## Resolved Questions
+
+| # | Pregunta | Decisión | Rationale |
+|---|----------|----------|-----------|
+| F7-Q1 | ¿Objetivo de despliegue? | **Docker local + demo** | No se requiere cloud. El sistema se valida localmente con Docker Compose. |
+| F7-Q2 | ¿CI/CD scope? | **Lint + Test + Typecheck + Docker Build** | 5 gates de validación continua sin deploy automático. Deploy es manual. |
+| F7-Q3 | ¿Alcance de documentación? | **Completo: reescribir todos los stubs** | Los 3 stubs (ARCHITECTURE, API_REFERENCE, SETUP) deben tener contenido productivo. |
+| F7-Q4 | ¿PostgreSQL en docker-compose.prod.yml? | **Self-contained** | Un solo comando levanta todo. Facilita demo y evaluación. |
+| F7-Q5 | ¿Actualizar .env.example? | **Sí, completo** | Documentar todas las variables F0-F7 para que nuevos desarrolladores tengan referencia completa. |
+| F7-Q6 | ¿Añadir autenticación? | **No** | El sistema permanece como API abierta. La infraestructura Docker/CI no depende de auth. |
+| F7-Q7 | ¿Reverse proxy (nginx)? | **No en F7** | El contenedor uvicorn es suficiente para demo/local. Se puede añadir en el futuro. |
+| F7-Q8 | ¿Ejecutar contenedor como root? | **No — usuario `app`** | Best practice de seguridad. El Dockerfile runtime usa `USER app`. |
+| F7-Q9 | ¿Exponer puerto PostgreSQL en prod? | **No** | Solo comunicación interna entre contenedores app↔db. Exponer el puerto es riesgo de seguridad. |
+| F7-Q10 | ¿Nuevas dependencias? | **Ninguna** | F7 es infraestructura y documentación. Cero impacto en requirements.txt. |
+| F7-Q11 | ¿`restart: unless-stopped` en prod compose? | **Sí** | Los servicios se reinician automáticamente tras crash o reboot del host. Solo se detienen con `docker compose down`. |
+| F7-Q12 | ¿Dockerfile con `LABEL` metadata OCI? | **Sí, labels completos** | org.opencontainers.image.* labels mejoran descubrimiento y auditoría en registries. |
+| F7-Q13 | ¿Caché de Docker layers en CI? | **Sí, GitHub Actions cache (`type=gha`)** | Reduce build time de ~2min a ~30s en runs subsecuentes. Usar `docker/build-push-action` con `cache_from`/`cache_to`. |
+| F7-Q14 | ¿URL base en demo.sh? | **Sí, via `DEMO_BASE_URL` env var** | Consistente con el patrón `.env` del proyecto. Default `http://localhost:8000`. |
+| F7-Q15 | ¿Ejemplos de error en API_REFERENCE? | **Sí, errores por endpoint** | Cada endpoint muestra 1-2 ejemplos de error más comunes (400, 404, 409, 422, 405). Más útil para consumidores de la API. |
+
+## Open Questions
+
+_Ninguna — todas las preguntas de F7 han sido resueltas (F7-Q1 a F7-Q15)._
+
