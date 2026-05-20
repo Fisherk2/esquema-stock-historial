@@ -1,177 +1,227 @@
-# TODO — F5: Scheduler & Concurrencia
+# TODO — F6: Testing Integral
 
-## Progress: [0/11] ░░░░░░░░░░░ PENDIENTE
+## Progress: [0/20] ░░░░░░░░░░░░░░░░░░░░ PENDIENTE
 
-## Phase 1: Foundation [0/2]
+## Phase 1: Foundation — Dependencies & Config [0/1]
 
-- [ ] **Task 1:** Extender Settings con 6 campos F5
-  - `src/core/config.py` — añadir: `scheduler_enabled`, `scheduler_refresh_interval_minutes`, `scheduler_misfire_grace_time_seconds`, `scheduler_statement_timeout_seconds`, `log_format`, `api_statement_timeout_seconds`
-  - `.env.example` — añadir 6 variables con comentarios
-  - Docstrings actualizados en Settings
-  - Verify: `python -c "from src.core.config import Settings; s = Settings(); print(s.scheduler_enabled)"`
+- [ ] **Task 1:** Añadir dev dependencies + pyproject.toml config
+  - `requirements.txt` — +hypothesis, +pytest-benchmark
+  - `pyproject.toml` — `[tool.hypothesis] max_examples=100`, addopts `--hypothesis-seed=0`, markers benchmark/e2e/security
+  - Verify: `pip install -r requirements.txt` OK, `python -c "import hypothesis; import pytest_benchmark"` OK
 
-- [ ] **Task 2:** Crear ConcurrencyConflictError
-  - `src/domain/exceptions/concurrency_conflict.py` — hereda DomainError, attrs `operation`, `detail`
-  - `src/domain/exceptions/__init__.py` — re-export
-  - `src/domain/__init__.py` — re-export + `__all__`
-  - Verify: `from src.domain import ConcurrencyConflictError; assert issubclass(ConcurrencyConflictError, DomainError)`
+---
 
-### Checkpoint: Foundation Ready [ ]
-- [ ] 6 campos Settings accesibles
-- [ ] ConcurrencyConflictError instanciable y hereda DomainError
-- [ ] `.env.example` con todas las variables nuevas
+## Phase 2: SPEC-60 — Unit Tests + Hypothesis + mypy strict [0/4]
+
+- [ ] **Task 2:** Crear módulo de Hypothesis strategies
+  - `tests/unit/strategies.py` — 7 strategies + 2 profiles (ci=100, dev=1000)
+  - `valid_quantity_strategy`, `invalid_quantity_strategy`, `valid_sku_strategy`, `invalid_sku_strategy`
+  - `movement_type_strategy`, `stock_delta_strategy`, `product_id_strategy`, `current_stock_strategy`
+  - Verify: `from tests.unit.strategies import valid_quantity_strategy; print('OK')`
+
+- [ ] **Task 3:** Añadir property-based tests para domain value objects + rules
+  - `tests/unit/domain/test_quantity.py` — +2 PBT tests (valid values, rejects non-positive)
+  - `tests/unit/domain/test_sku.py` — +2 PBT tests (valid format, rejects invalid)
+  - `tests/unit/domain/test_rules.py` — +3 PBT tests (delta sign, never zero, insufficient stock)
+  - Verify: `pytest tests/unit/domain/ -v` — 7 new + 194 existing pass
+
+- [ ] **Task 4:** Añadir edge case tests para use cases
+  - `tests/unit/application/use_cases/test_record_movement.py` — +3 (product not found, stock=0, TRANSFER sin metadata)
+  - `tests/unit/application/use_cases/test_create_product.py` — +2 (duplicate SKU, nonexistent category)
+  - `tests/unit/application/use_cases/test_list_products.py` — +2 (offset>total, limit=0)
+  - `tests/unit/application/use_cases/test_query_current_stock.py` — +1 (sin movimientos → 0.0)
+  - `tests/unit/application/use_cases/test_query_stock_at_date.py` — +1 (fecha futura → 0.0)
+  - `tests/unit/application/use_cases/test_create_category.py` — +1 (nombre duplicado)
+  - Verify: `pytest tests/unit/application/use_cases/ -v` — 10 new pass
+
+- [ ] **Task 5:** Activar mypy strict en src/ + Makefile typecheck
+  - `pyproject.toml` — `strict = true`, overrides `tests.*` strict=false
+  - `src/**/*.py` — type annotations para pasar mypy strict
+  - `Makefile` — `typecheck: mypy src/ --strict`
+  - Verify: `make typecheck` exit 0, `pytest tests/ -v` still passes
+
+### Checkpoint: SPEC-60 Complete [ ]
+- [ ] Hypothesis configurado (seed=0, max_examples=100)
+- [ ] 7 PBT tests en domain
+- [ ] 10 edge case tests en use cases
+- [ ] mypy strict pasa
+- [ ] Coverage domain/ ≥90%, application/ ≥85%
+- [ ] 0 regresiones en 291 tests existentes
 - [ ] `make lint` pasa
 
 ---
 
-## Phase 2: Core Infrastructure [0/2]
+## Phase 3: SPEC-61 — Integration Edge Cases [0/5]
 
-- [ ] **Task 3:** Implementar @retry_with_backoff + tests
-  - `src/core/retry.py` — decorador factory async con backoff exponencial + jitter
-  - `src/core/__init__.py` — re-export `retry_with_backoff`
-  - `tests/unit/core/__init__.py` — nuevo
-  - `tests/unit/core/test_retry.py` — 5+ tests (éxito, reintento, fallo final, no-retryable, delay pattern)
-  - Mock `asyncio.sleep` para tests rápidos
-  - Verify: `pytest tests/unit/core/test_retry.py -v`
+- [ ] **Task 6:** Crear módulo de integration helpers
+  - `tests/integration/helpers.py` — `insert_batch_movements()`, `_create_test_product()`, `_create_test_movement()`
+  - Verify: `from tests.integration.helpers import insert_batch_movements; print('OK')`
 
-- [ ] **Task 4:** Implementar logging + tests
-  - `src/infrastructure/logging/config.py` — `JSONFormatter` + `setup_logging()`
-  - `src/infrastructure/logging/__init__.py` — re-export `setup_logging`
-  - `tests/unit/infrastructure/logging/__init__.py` — nuevo
-  - `tests/unit/infrastructure/logging/test_config.py` — 4+ tests (JSON válido, request_id, exception, setup_logging)
-  - Verify: `pytest tests/unit/infrastructure/logging/test_config.py -v`
+- [ ] **Task 7:** Añadir repository edge case tests (4 archivos)
+  - `tests/integration/repositories/test_movement_repository_edge.py` — 6 tests
+  - `tests/integration/repositories/test_product_repository_edge.py` — 5 tests
+  - `tests/integration/repositories/test_category_repository_edge.py` — 3 tests
+  - `tests/integration/repositories/test_stock_query_repository_edge.py` — 6 tests
+  - Verify: `pytest tests/integration/repositories/ -v` — 20 new + 97 existing pass
 
-### Checkpoint: Core Infrastructure Ready [ ]
-- [ ] Retry decorator funciona y tests pasan
-- [ ] JSON formatter produce JSON válido con todos los campos
-- [ ] `setup_logging` configura logger root correctamente
+- [ ] **Task 8:** Añadir MV edge case tests
+  - `tests/integration/test_mv_stock_edge.py` — 5 tests (100 movements, concurrent refresh, truncate, multi-product, 500 batch)
+  - Verify: `pytest tests/integration/test_mv_stock_edge.py -v` — 5 pass
+
+- [ ] **Task 9:** Añadir UoW edge case tests
+  - `tests/integration/test_uow_edge.py` — 4 tests (rollback, shared connection, nested, connection released)
+  - Verify: `pytest tests/integration/test_uow_edge.py -v` — 4 pass
+
+- [ ] **Task 10:** Añadir API edge case tests (4 archivos)
+  - `tests/integration/api/test_movements_api_edge.py` — 6 tests
+  - `tests/integration/api/test_stock_api_edge.py` — 3 tests
+  - `tests/integration/api/test_products_api_edge.py` — 5 tests
+  - `tests/integration/api/test_categories_api_edge.py` — 3 tests
+  - Verify: `pytest tests/integration/api/ -v` — 17 new pass
+
+### Checkpoint: SPEC-61 Complete [ ]
+- [ ] Integration helpers con batch insert
+- [ ] 20 repository edge tests (4 archivos)
+- [ ] 5 MV edge tests
+- [ ] 4 UoW edge tests
+- [ ] 17 API edge tests (4 archivos)
+- [ ] Coverage infrastructure/ ≥70%
+- [ ] 0 regresiones en 97 tests de integración existentes
 - [ ] `make lint` pasa
 
 ---
 
-## Phase 3: HTTP Layer [0/2]
+## Phase 4: SPEC-62 — E2E & Latencia <100ms [0/4]
 
-- [ ] **Task 5:** Implementar RequestLoggingMiddleware + tests integración
-  - `src/adapters/api/middleware/request_logging.py` — `request_id_ctx`, `RequestLoggingMiddleware`, `get_request_id()`
-  - Excluye `/v1/health` y `/health`
-  - UUID4 + contextvars + `X-Request-ID` header + timing
-  - `tests/integration/api/test_request_logging.py` — 3 tests (X-Request-ID presente, health excluido, unique per request)
-  - Verify: `pytest tests/integration/api/test_request_logging.py -v`
+- [ ] **Task 11:** Crear E2E conftest + SLA gate hook
+  - `tests/e2e/conftest.py` — api_client fixture + `STOCK_SLA_MS=100.0` + `pytest_benchmark_compare_stats` hook
+  - Verify: `pytest tests/e2e/ --co -q` — no import errors
 
-- [ ] **Task 6:** Actualizar error handler
-  - `src/adapters/api/middleware/error_handler.py` — handler `ConcurrencyConflictError` → HTTP 409 `CONCURRENCY_CONFLICT`
-  - Handler registrado **ANTES** de `DomainError` genérico
-  - `request_id` de `get_request_id()` en respuestas de error
-  - Tests de ConcurrencyConflictError añadidos
-  - Verify: `pytest tests/unit/domain/test_exceptions.py -v` (o archivo apropiado)
+- [ ] **Task 12:** Crear stock latency benchmark tests
+  - `tests/e2e/test_stock_latency.py` — 3 benchmark tests (current, at-date, no movements)
+  - Helper `_setup_product_with_movements(client)`
+  - Verify: `pytest tests/e2e/test_stock_latency.py -v --benchmark-only` — p95 < 100ms
 
-### Checkpoint: HTTP Layer Ready [ ]
-- [ ] RequestLoggingMiddleware añade X-Request-ID a respuestas
-- [ ] Health endpoints excluidos del logging
-- [ ] ConcurrencyConflictError handler retorna 409
-- [ ] `request_id` incluido en respuestas de error
+- [ ] **Task 13:** Crear full flow E2E tests
+  - `tests/e2e/test_full_flows.py` — 3 tests (happy path, insufficient stock, historical consistency)
+  - Verify: `pytest tests/e2e/test_full_flows.py -v` — 3 pass
+
+- [ ] **Task 14:** Crear OpenAPI contract validation tests
+  - `tests/e2e/test_openapi_contracts.py` — 4 tests (movement, stock, product list, category)
+  - Uses `model_validate()` against Pydantic DTOs
+  - Verify: `pytest tests/e2e/test_openapi_contracts.py -v` — 4 pass
+
+### Checkpoint: SPEC-62 Complete [ ]
+- [ ] SLA gate hook falla si p95 > 100ms
+- [ ] 3 benchmark tests — p95 < 100ms
+- [ ] 3 full flow tests
+- [ ] 4 contract validation tests
+- [ ] 0 regresiones
 - [ ] `make lint` pasa
 
 ---
 
-## Phase 4: Scheduler & Integration [0/3]
+## Phase 5: SPEC-63 — Security Tests [0/4]
 
-- [ ] **Task 7:** Configurar statement_timeout
-  - `src/infrastructure/db/connection.py` — `init_pool()` ejecuta `SET statement_timeout`
-  - Valor: `settings.api_statement_timeout_seconds * 1000` (ms)
-  - Default 5000ms, fallback graceful con log warning
-  - Verify: `python -c "from src.infrastructure.db.connection import init_pool; ..."`
+- [ ] **Task 15:** Crear security test conftest
+  - `tests/security/__init__.py` — package marker
+  - `tests/security/conftest.py` — reutiliza api_client + db_pool fixtures
+  - Verify: `pytest tests/security/ --co -q` — no import errors
 
-- [ ] **Task 8:** Implementar scheduler module + tests
-  - `src/infrastructure/scheduler/scheduler.py` — `_RETRYABLE_EXCEPTIONS`, `_refresh_job()` con `@retry_with_backoff`, `create_scheduler()`, `start_scheduler()`, `shutdown_scheduler()`
-  - `_refresh_job` usa `pool.acquire() + conn.transaction()` para `SET LOCAL statement_timeout`
-  - `src/infrastructure/scheduler/__init__.py` — re-exports
-  - `tests/unit/infrastructure/scheduler/__init__.py` — nuevo
-  - `tests/unit/infrastructure/scheduler/test_scheduler.py` — 5+ tests (create, job params, enabled/disabled, shutdown, refresh)
-  - Todos los tests con mocks
-  - Verify: `pytest tests/unit/infrastructure/scheduler/test_scheduler.py -v`
+- [ ] **Task 16:** Crear SQL injection tests (OWASP 4 capas)
+  - `tests/security/test_sql_injection.py` — 4 test classes
+  - 7 path payloads + 13 string payloads
+  - Path params (4×7=28 cases), query params (4), body fields (2×13=26 cases), repo level (3)
+  - Verify: `pytest tests/security/test_sql_injection.py -v` — all pass, `movements` table still exists
 
-- [ ] **Task 9:** Integrar en main.py + aislamiento de tests
-  - `src/main.py` — `setup_logging()` antes de `init_pool()`, `RequestLoggingMiddleware` en `create_app()`, scheduler en lifespan, version 0.5.0
-  - `tests/conftest.py` — `SCHEDULER_ENABLED=false` via monkeypatch
-  - Todos los tests F0-F4 siguen pasando
-  - Verify: `pytest tests/ -v --co -q` sin errores de import
+- [ ] **Task 17:** Crear input validation tests
+  - `tests/security/test_input_validation.py` — 5 test classes
+  - Movement validation (12), product validation (4), category validation (3), malformed (5), Unicode (3)
+  - Verify: `pytest tests/security/test_input_validation.py -v` — 27 tests pass
 
-### Checkpoint: Integration Complete [ ]
-- [ ] Scheduler inicia y para con lifecycle de la app
-- [ ] Logging configurado al startup
-- [ ] Request middleware activo
-- [ ] `SCHEDULER_ENABLED=false` previene scheduler en tests
+- [ ] **Task 18:** Crear error leakage + immutability tests
+  - `tests/security/test_error_leakage.py` — 2 test classes
+  - Error leakage (3) + immutability 405 (3)
+  - 8 leakage patterns + 9 SQL leakage patterns
+  - Verify: `pytest tests/security/test_error_leakage.py -v` — 6 tests pass
+
+### Checkpoint: SPEC-63 Complete [ ]
+- [ ] SQL injection: 4 capas validadas (path, query, body, repo)
+- [ ] Input validation: 27 tests
+- [ ] Error leakage: body-only checks, 6 tests
+- [ ] Immutability: PUT/PATCH/DELETE → 405
+- [ ] 0 regresiones
 - [ ] `make lint` pasa
 
 ---
 
-## Phase 5: Validación & Documentación [0/2]
+## Phase 6: Validación & Documentación [0/2]
 
-- [ ] **Task 10:** Build completo con cobertura
+- [ ] **Task 19:** Build completo con coverage gates
   - `make lint` → 0 errores
-  - `make test` → todos verdes (F0-F5)
-  - Coverage `src/core/retry.py` > 80%
-  - Coverage `src/infrastructure/scheduler/` > 70%
-  - Coverage `src/infrastructure/logging/` > 70%
-  - Total tests: 255+ (235 existentes + 20+ nuevos)
-  - Version 0.5.0 en `main.py`
-  - Verify: `make build` exit code 0; `make test-cov` targets cumplidos
+  - `make typecheck` → 0 errores
+  - `make test` → todos verdes (F0-F6)
+  - Coverage domain/ ≥90%, application/ ≥85%, infrastructure/ ≥70%, global ≥80%
+  - Total tests: 370+ (291 existentes + 80+ nuevos)
+  - Verify: `make build` exit 0
 
-- [ ] **Task 11:** Actualizar documentación del proyecto
-  - `WORKFLOW.md` — F5 status con descripción precisa
-  - `docs/workflow/spec-tracking.md` — Spec-50/51/52 verificados
-  - `docs/workflow/roadmap-phases.md` — F5 status "Completado"
+- [ ] **Task 20:** Actualizar documentación del proyecto
+  - `WORKFLOW.md` — F6 status "Completada"
+  - `docs/workflow/spec-tracking.md` — SPEC-60/61/62/63 verificados
+  - `SPEC.md` — F6 success criteria verificados
   - `AGENTS.md` — Fase actualizada
-  - `SPEC.md` — F5 success criteria verificados
   - Verify: revisión de archivos actualizados
 
-### Checkpoint: F5 Complete [ ]
-- [ ] Todos los criterios de Spec-50/51/52 cumplidos
+### Checkpoint: F6 Complete [ ]
+- [ ] Todos los criterios de SPEC-60/61/62/63 cumplidos
 - [ ] `make build` pasa
-- [ ] Coverage targets cumplidos para todos los módulos nuevos
-- [ ] 20+ nuevos tests pasan
-- [ ] Sin regresiones en tests F0-F4 existentes
+- [ ] Coverage targets cumplidos para todas las capas
+- [ ] 80+ nuevos tests pasan
+- [ ] Sin regresiones en tests F0-F5 existentes (291)
+- [ ] `mypy src/ --strict` pasa
+- [ ] SLA p95 < 100ms validado
+- [ ] Security regression suite pasando
 - [ ] Documentación actualizada y precisa
-- [ ] Listo para revisión humana → F6
+- [ ] Listo para revisión humana → F7
 
 ---
 
 ## Summary
 
-| Phase | Tasks | Completed |
-|-------|-------|-----------|
-| Phase 1: Foundation | 2 | 0/2 |
-| Phase 2: Core Infrastructure | 2 | 0/2 |
-| Phase 3: HTTP Layer | 2 | 0/2 |
-| Phase 4: Scheduler & Integration | 3 | 0/3 |
-| Phase 5: Validación & Docs | 2 | 0/2 |
-| **Total** | **11** | **0/11** |
+| Phase | Tasks | Completed | New Tests |
+|-------|-------|-----------|-----------|
+| Phase 1: Foundation | 1 | 0/1 | 0 |
+| Phase 2: SPEC-60 Unit+Hypothesis+mypy | 4 | 0/4 | 17+ |
+| Phase 3: SPEC-61 Integration Edges | 5 | 0/5 | 46+ |
+| Phase 4: SPEC-62 E2E+Latency | 4 | 0/4 | 10+ |
+| Phase 5: SPEC-63 Security | 4 | 0/4 | 61+ |
+| Phase 6: Validation+Docs | 2 | 0/2 | 0 |
+| **Total** | **20** | **0/20** | **134+** |
 
 ---
 
 ## Implementation Order Reference
 
 ```
-Tasks 1, 2 (parallel)
-    ↓
-Tasks 3, 4, 5, 7 (parallel after T1+T2)
-    ↓
-Task 6 (after T2+T5)
-    ↓
-Task 8 (after T3+T7)
-    ↓
-Task 9 (after T1+T4+T5+T8)
-    ↓
-Task 10 (after T9)
-    ↓
-Task 11 (after T10)
+Task 1 (deps + config)
+↓
+Task 2 (strategies) ←── also Task 5 (mypy) can start here
+↓
+Tasks 3, 4 (parallel: domain PBT + use case edges)
+↓
+Task 6 (integration helpers)
+↓
+Tasks 7, 8, 9, 10 (parallel: repo + MV + UoW + API edges)
+↓
+Task 11 (E2E conftest)
+↓
+Tasks 12, 13, 14 (parallel: latency + flows + contracts)
+↓
+Task 15 (security conftest)
+↓
+Tasks 16, 17, 18 (parallel: SQLi + input + leakage)
+↓
+Task 19 (full build validation)
+↓
+Task 20 (documentation)
 ```
-
-## Resolved Decisions (F5-Q11 through F5-Q14)
-
-All 4 decisions from the implementation questionnaire are confirmed:
-- `SET LOCAL` scoped via `pool.acquire() + conn.transaction()` in `_refresh_job` (F5-Q11)
-- `SCHEDULER_ENABLED=false` in `tests/conftest.py` via monkeypatch (F5-Q12)
-- Overwrite F4 plan/todo files (historical) (F5-Q13)
-- Retry only on `_refresh_job`, not on use cases (F5-Q14)
