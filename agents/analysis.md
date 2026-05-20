@@ -5,14 +5,14 @@ color: "#FF8C00"
 model: nvidia/z-ai/glm-5.1
 temperature: 0.7
 permission:
-  write: deny
+  write: ask
   read: allow
-  edit: deny
+  edit: ask
   bash: ask
   grep: allow
   glob: allow
   lsp: allow
-  patch: deny
+  patch: ask
   skill: allow
   todowrite: allow
   webfetch: allow
