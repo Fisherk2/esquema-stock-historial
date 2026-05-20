@@ -4,7 +4,7 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
-**Fase actual:** F6 — Testing Integral (Completada)
+**Fase actual:** F7 — Despliegue & Documentación (Aprobada)
 
 ## Quick Reference
 

@@ -2,7 +2,7 @@
 
 **Nombre del Proyecto:** Inventario Histórico & Stock por Fecha
 **Versión:** 1.0.0
-**Estado Actual:** F6 Specs Aprobados ✅ — Listo para Phase 2 (PLAN)
+**Estado Actual:** F6 Completada ✅ — F7 Aprobada y lista para Phase 2 (PLAN)
 **Responsable:** Fisherk2 (Desarrollador Principal / Arquitecto)
 
 Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stock histórico en `<100ms`.
@@ -19,7 +19,8 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > **F5: Scheduler & Concurrencia** completada el 2026-05-19. Specs Spec-50/51/52 en estado Completado.
 > APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id.
 > 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio. Version 0.5.0.
-> **F6: Testing Integral** specs aprobados ✅ — SPEC-60 (Hypothesis+mypy strict), SPEC-61 (Integration edge cases), SPEC-62 (E2E+latencia<100ms), SPEC-63 (Security SQLi+input validation). F6 section en SPEC.md. Spec-tracking actualizado. Listo para Phase 2 (PLAN). Decisiones: 4 capas SQLi, SLA gate pytest hook, error leakage body-only.
+> **F6: Testing Integral** completada el 2026-05-20. Specs Spec-60/61/62/63 en estado Completado.
+> 205 tests unitarios pasando (99.34% cobertura global). Hypothesis PBT (property-based testing) con max_examples=100, seed=0. mypy --strict limpio en 74 archivos de src/. Domain coverage 99.60%, application 99.01%. Edge cases de integración en archivos separados (*_edge.py). E2E tests con SLA gate p95<100ms via pytest-benchmark. Pruebas de seguridad OWASP: SQL injection en 4 capas (path, query, body, repo), input validation boundary tests, error leakage tests, inmutabilidad enforcement (405). Version 0.6.0.
 
 ## Detailed Docs
 

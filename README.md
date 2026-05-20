@@ -30,6 +30,7 @@ make format        # Ejecutar black formatter
 make test          # Ejecutar pytest
 make test-cov      # Ejecutar pytest con reporte de cobertura
 make build         # lint + format + test
+make typecheck     # Ejecutar mypy --strict
 make docker-up     # Iniciar PostgreSQL + app con Docker Compose
 make docker-down   # Detener servicios Docker
 make clean         # Eliminar caché y artefactos
@@ -79,10 +80,10 @@ Ver [docs/agents/architecture-design.md](docs/agents/architecture-design.md) par
 
 ## Estado Actual
 
-**Fase:** F5 ✅ Completada | F6 🚧 Aprobada — lista para iniciar
+**Fase:** F6 ✅ Completada | F7 🚧 Aprobada — lista para iniciar
 
-- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅ | F4: Capa API ✅ | F5: Scheduler & Concurrencia ✅
-- **F5 completada:** APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id. 282 tests (194 unit + 88 integration, 100% pass).
-- **F6 aprobada:** Testing Integral — Specs 60-63 listos para implementar.
+- F0: Preparación ✅ | F1: Infraestructura DB ✅ | F2: Núcleo de Dominio ✅ | F3: Adaptadores de Datos ✅ | F4: Capa API ✅ | F5: Scheduler & Concurrencia ✅ | F6: Testing Integral ✅
+- **F6 completada:** 205 tests unitarios pasando (99.34% cobertura). Hypothesis PBT con max_examples=100, seed=0. mypy --strict limpio (74 archivos). Edge cases de integración, E2E con SLA p95<100ms, pruebas de seguridad OWASP (SQL injection + input validation). Version 0.6.0.
+- **F7 aprobada:** Despliegue & Documentación — Docker multi-stage, CI/CD pipeline, README técnico y demo script.
 
-Fases completadas: 77 de 88 specs implementados. F6 en cola para iniciar.
+Fases completadas: 81 de 88 specs implementados. F7 en cola para iniciar.

@@ -7,10 +7,27 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
-### [0.6.0] — F6: Testing Integral (Aprobada — pendiente de implementación)
+### [0.6.0] — 2026-05-20 — F6: Testing Integral (Completado)
 
-- Fase aprobada para iniciar trabajo. Specs 60-63 listos para implementar.
-- Specs incluidos: Tests Unitarios (60), Integración (61), E2E & Latencia (62), Seguridad OWASP (63).
+#### Agregado
+- **Hypothesis Property-Based Testing:** Strategies centralizadas (`tests/unit/strategies.py`) para Quantity, SKU, MovementType, stock_delta. `max_examples=100` con `--hypothesis-seed=0` para reproducibilidad. Profiles `ci` (100) y `dev` (1000).
+- **mypy strict:** Activado `strict=true` en `pyproject.toml` para `src/`. Tests con override `strict=false`. 74 archivos sin errores.
+- **Edge Cases de Integración:** Archivos `*_edge.py` separados para cada repositorio, MV con datos masivos (100+ movimientos), UoW edge cases (rollback, conexión compartida, release), API boundary tests (IDs inexistentes, parámetros inválidos, duplicados).
+- **E2E Tests con SLA:** `pytest-benchmark` para medir latencia. SLA gate p95<100ms en `/v1/stock/{id}/current` y `/v1/stock/{id}/at-date`. Flujos HTTP completos (categoría → producto → movimiento → stock). Contratos OpenAPI con Pydantic `model_validate()`.
+- **Pruebas de Seguridad OWASP:** SQL injection en 4 capas (path params, query params, body fields, repository-level). Input validation boundary tests (tipos incorrectos, rangos, campos extra, metadata anidada, payloads malformados, Unicode). Error leakage tests (verificación de patrones de stack trace, SQL, file paths). Inmutabilidad enforcement (PUT/PATCH/DELETE → 405).
+
+#### Validación
+- 205 tests unitarios pasando (100% pass)
+- Domain coverage: 99.60% (target ≥90%)
+- Application coverage: 99.01% (target ≥85%)
+- Global coverage: 99.34% (target ≥80%)
+- `make lint` sin errores (41 errores corregidos)
+- `make typecheck` (mypy --strict) limpio: 74 archivos
+- Version actualizada a 0.6.0
+
+#### Corregido
+- 41 errores de ruff corregidos (E402, I001, F401, F811, TC002/3/4, UP037, E501, RUF003)
+- Black formatting aplicado a 7 archivos
 
 ### [0.5.0] — 2026-05-19 — F5: Scheduler & Concurrencia (Completado)
 
