@@ -77,6 +77,8 @@ class PostgresUnitOfWork(IUnitOfWork):
         exc_tb: object | None,
     ) -> None:
         """Commit si no hay excepcion, rollback si la hay."""
+        if self._transaction is None:
+            return
         try:
             if exc_type is None:
                 await self._transaction.commit()

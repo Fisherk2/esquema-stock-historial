@@ -52,11 +52,12 @@ async def create_movement(
         metadata=body.metadata,
         reference=body.reference,
     )
+    assert movement.id is not None
     return MovementOutput(
         id=movement.id,
         product_id=movement.product_id,
         movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,
+        quantity=movement.quantity.value,  # type: ignore[arg-type]
         metadata=movement.metadata,
         reference=movement.reference,
         created_at=movement.created_at,
@@ -79,10 +80,10 @@ async def get_movement(
 
         raise HTTPException(status_code=404, detail="Movement not found")
     return MovementOutput(
-        id=movement.id,
+        id=movement.id,  # type: ignore[arg-type]
         product_id=movement.product_id,
         movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,
+        quantity=movement.quantity.value,  # type: ignore[arg-type]
         metadata=movement.metadata,
         reference=movement.reference,
         created_at=movement.created_at,
@@ -106,10 +107,10 @@ async def list_movements(
     return MovementListOutput(
         items=[
             MovementOutput(
-                id=m.id,
+                id=m.id,  # type: ignore[arg-type]
                 product_id=m.product_id,
                 movement_type=m.movement_type.value,
-                quantity=m.quantity.value,
+                quantity=m.quantity.value,  # type: ignore[arg-type]
                 metadata=m.metadata,
                 reference=m.reference,
                 created_at=m.created_at,

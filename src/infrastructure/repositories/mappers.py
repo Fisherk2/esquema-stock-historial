@@ -92,7 +92,7 @@ def map_movement_row(record: Any) -> Movement:
     """
     metadata_raw = record["metadata"]
     if metadata_raw is None:
-        metadata: dict = {}
+        metadata: dict[str, object] = {}
     elif isinstance(metadata_raw, dict):
         metadata = metadata_raw
     else:

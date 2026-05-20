@@ -50,6 +50,7 @@ async def create_product(
         description=body.description,
         min_stock_threshold=body.min_stock_threshold,
     )
+    assert product.id is not None
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,
@@ -77,7 +78,7 @@ async def list_products(
     return ProductListOutput(
         items=[
             ProductOutput(
-                id=p.id,
+                id=p.id,  # type: ignore[arg-type]
                 sku=p.sku.value,
                 name=p.name,
                 description=p.description,
@@ -109,6 +110,7 @@ async def get_product(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Product not found")
+    assert product.id is not None
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,

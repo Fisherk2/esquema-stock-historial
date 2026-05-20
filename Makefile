@@ -5,7 +5,7 @@
 # Uso: make <comando> (ej: make lint, make test)
 # Ver todos los comandos: make help
 
-.PHONY: help install dev lint format test test-cov build docker-up docker-down clean migrate seed
+.PHONY: help install dev lint format test test-cov build docker-up docker-down clean migrate seed typecheck
 
 help:
 	@echo "Available commands:"
@@ -39,6 +39,9 @@ test:
 
 test-cov:
 	pytest --cov=src --cov-report=term-missing --cov-report=html
+
+typecheck:
+	mypy src/ --strict
 
 # Gate de calidad pre-commit: lint + format + test deben pasar antes de commitear
 build: lint format test

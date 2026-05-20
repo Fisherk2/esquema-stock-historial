@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -21,7 +23,7 @@ class ErrorDetail(BaseModel):
         description="Codigo de error machine-readable (UPPER_SNAKE_CASE)."
     )
     message: str = Field(description="Mensaje legible para humanos.")
-    details: dict[str, str | int | float] | None = Field(
+    details: dict[str, Any] | None = Field(
         default=None,
         description="Contexto adicional del error (opcional).",
     )

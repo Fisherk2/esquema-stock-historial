@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.application.dtos.error_dtos import ErrorDetail, ErrorResponse
@@ -31,7 +32,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(InsufficientStockError)
     async def handle_insufficient_stock(
-        request, exc: InsufficientStockError
+        request: Request, exc: InsufficientStockError
     ) -> JSONResponse:
         """Mapea InsufficientStockError a HTTP 409 Conflict."""
         return JSONResponse(
@@ -50,7 +51,9 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(InvalidSKUError)
-    async def handle_invalid_sku(request, exc: InvalidSKUError) -> JSONResponse:
+    async def handle_invalid_sku(
+        request: Request, exc: InvalidSKUError
+    ) -> JSONResponse:
         """Mapea InvalidSKUError a HTTP 422 Unprocessable Entity."""
         return JSONResponse(
             status_code=422,
@@ -64,7 +67,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(InvalidQuantityError)
     async def handle_invalid_quantity(
-        request, exc: InvalidQuantityError
+        request: Request, exc: InvalidQuantityError
     ) -> JSONResponse:
         """Mapea InvalidQuantityError a HTTP 422 Unprocessable Entity."""
         return JSONResponse(
@@ -79,7 +82,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ImmutabilityViolationError)
     async def handle_immutability_violation(
-        request, exc: ImmutabilityViolationError
+        request: Request, exc: ImmutabilityViolationError
     ) -> JSONResponse:
         """Mapea ImmutabilityViolationError a HTTP 403 Forbidden."""
         return JSONResponse(
@@ -94,10 +97,10 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ConcurrencyConflictError)
     async def handle_concurrency_conflict(
-        request, exc: ConcurrencyConflictError
+        request: Request, exc: ConcurrencyConflictError
     ) -> JSONResponse:
         """Mapea ConcurrencyConflictError a HTTP 409 Conflict."""
-        details: dict[str, str] = {"operation": exc.operation}
+        details: dict[str, str | int] = {"operation": exc.operation}
         if exc.detail is not None:
             details["detail"] = exc.detail
 
@@ -113,7 +116,9 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(DomainError)
-    async def handle_domain_error(request, exc: DomainError) -> JSONResponse:
+    async def handle_domain_error(
+        request: Request, exc: DomainError
+    ) -> JSONResponse:
         """Mapea DomainError (base) a HTTP 500 Internal Server Error.
 
         Este handler captura cualquier DomainError no manejado por los
@@ -130,7 +135,9 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(ValueError)
-    async def handle_value_error(request, exc: ValueError) -> JSONResponse:
+    async def handle_value_error(
+        request: Request, exc: ValueError
+    ) -> JSONResponse:
         """Mapea ValueError a HTTP 400 Bad Request.
 
         Se usa para errores de validacion de input (metadata inconsistente,

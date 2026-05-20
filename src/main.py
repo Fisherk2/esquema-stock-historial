@@ -18,6 +18,7 @@ Ejemplo::
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,7 +29,7 @@ from src.infrastructure.db.connection import close_pool, init_pool
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle hook para inicialización y limpieza de recursos.
 
     Inicializa el logging, el pool de conexiones asyncpg y el scheduler

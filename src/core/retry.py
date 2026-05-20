@@ -24,12 +24,13 @@ import asyncio
 import functools
 import logging
 import random
-from collections.abc import Callable
-from typing import TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-F = TypeVar("F", bound=Callable)
+# TypeVar para funcion callable async con tipo de retorno generico
+T = TypeVar("T")
 
 
 def retry_with_backoff(
@@ -38,7 +39,7 @@ def retry_with_backoff(
     max_delay: float = 30.0,
     jitter: float = 0.5,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-) -> Callable[[F], F]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorador de reintentos con backoff exponencial y jitter.
 
     Reintenta la funcion decorada hasta ``max_retries`` veces cuando
@@ -69,9 +70,11 @@ def retry_with_backoff(
             ...
     """
 
-    def decorator(func: F) -> F:
+    def decorator(
+        func: Callable[..., Awaitable[T]],
+    ) -> Callable[..., Awaitable[T]]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception: Exception | None = None
 
             for attempt in range(max_retries + 1):
@@ -102,8 +105,10 @@ def retry_with_backoff(
                             exc,
                         )
 
+            # last_exception is guaranteed to be set here because we only
+            # reach this point after catching at least one exception
             raise last_exception  # type: ignore[misc]
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator

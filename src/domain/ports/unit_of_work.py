@@ -32,3 +32,16 @@ class IUnitOfWork(Protocol):
     def connection(self) -> asyncpg.Connection | None:
         """La conexion activa dentro de la transaccion."""
         ...
+
+    async def __aenter__(self) -> "IUnitOfWork":
+        """Adquiere conexion e inicia transaccion."""
+        ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
+        """Commit si no hay excepcion, rollback si la hay."""
+        ...

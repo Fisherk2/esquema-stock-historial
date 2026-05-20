@@ -206,3 +206,23 @@ class TestRecordMovementUseCase:
                 quantity=10,
                 metadata={"origin": "A", "destination": "B"},
             )
+
+    async def test_out_with_zero_stock_raises(
+        self,
+        use_case: RecordMovementUseCase,
+        product_repo: AsyncMock,
+        stock_query_repo: AsyncMock,
+    ) -> None:
+        """Edge case: OUT con stock=0 lanza InsufficientStockError."""
+        product_repo.get_by_id = AsyncMock(return_value=MagicMock())
+        stock_query_repo.get_current_stock = AsyncMock(return_value=0.0)
+
+        with pytest.raises(InsufficientStockError) as exc_info:
+            await use_case.execute(
+                product_id=1,
+                movement_type=MovementType.OUT,
+                quantity=1,
+                metadata={},
+            )
+        assert exc_info.value.available == 0.0
+        assert exc_info.value.requested == 1

@@ -40,6 +40,7 @@ async def create_category(
         name=body.name,
         description=body.description,
     )
+    assert category.id is not None
     return CategoryOutput(
         id=category.id,
         name=category.name,
@@ -60,7 +61,7 @@ async def list_categories(
     categories = await repo.list_all()
     return [
         CategoryOutput(
-            id=c.id,
+            id=c.id,  # type: ignore[arg-type]
             name=c.name,
             description=c.description,
             created_at=c.created_at,

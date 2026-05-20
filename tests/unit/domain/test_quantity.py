@@ -74,3 +74,34 @@ class TestInvalidQuantityError:
 
         with pytest.raises(DomainError):
             raise InvalidQuantityError("test")
+
+
+# ── Property-Based Tests (Hypothesis) ─────────────────────────────────────
+
+from hypothesis import given
+
+from tests.unit.strategies import (
+    invalid_quantity_strategy,
+    valid_quantity_strategy,
+)
+
+
+class TestQuantityPropertyBased:
+    """Property-based tests para Quantity con Hypothesis."""
+
+    @given(qty=valid_quantity_strategy)
+    def test_quantity_accepts_all_positive_integers(self, qty: int) -> None:
+        """Property: todo entero positivo crea un Quantity válido."""
+        from src.domain.value_objects.quantity import Quantity
+
+        q = Quantity(value=qty)
+        assert q.value == qty
+
+    @given(qty=invalid_quantity_strategy)
+    def test_quantity_rejects_all_non_positive_integers(self, qty: int) -> None:
+        """Property: ningún entero ≤ 0 debe crear un Quantity válido."""
+        from src.domain.exceptions.invalid_quantity import InvalidQuantityError
+        from src.domain.value_objects.quantity import Quantity
+
+        with pytest.raises(InvalidQuantityError):
+            Quantity(value=qty)

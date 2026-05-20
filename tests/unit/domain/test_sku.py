@@ -88,3 +88,31 @@ class TestInvalidSKUError:
         from src.domain.exceptions.invalid_sku import InvalidSKUError
 
         assert issubclass(InvalidSKUError, DomainError)
+
+
+# ── Property-Based Tests (Hypothesis) ─────────────────────────────────────
+
+from hypothesis import given
+
+from tests.unit.strategies import invalid_sku_strategy, valid_sku_strategy
+
+
+class TestSKUPropertyBased:
+    """Property-based tests para SKU con Hypothesis."""
+
+    @given(raw=valid_sku_strategy)
+    def test_sku_accepts_all_valid_format_strings(self, raw: str) -> None:
+        """Property: todo string que cumpla el regex crea un SKU válido."""
+        from src.domain.value_objects.sku import SKU
+
+        sku = SKU(value=raw)
+        assert sku.value == raw
+
+    @given(raw=invalid_sku_strategy)
+    def test_sku_rejects_all_invalid_format_strings(self, raw: str) -> None:
+        """Property: strings fuera del regex son rechazados."""
+        from src.domain.exceptions.invalid_sku import InvalidSKUError
+        from src.domain.value_objects.sku import SKU
+
+        with pytest.raises(InvalidSKUError):
+            SKU(value=raw)

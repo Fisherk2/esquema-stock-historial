@@ -199,3 +199,80 @@ class TestValidateMovementTypeConsistency:
         )
 
         validate_movement_type_consistency(MovementType.OUT, {})
+
+
+# ── Property-Based Tests (Hypothesis) ─────────────────────────────────────
+
+from hypothesis import given
+
+from tests.unit.strategies import (
+    current_stock_strategy,
+    movement_type_strategy,
+    product_id_strategy,
+    valid_quantity_strategy,
+)
+
+
+class TestCalculateStockDeltaPropertyBased:
+    """Property-based tests para calculate_stock_delta con Hypothesis."""
+
+    @given(
+        mtype=movement_type_strategy,
+        qty=valid_quantity_strategy,
+    )
+    def test_delta_sign_matches_movement_type(
+        self, mtype: MovementType, qty: int
+    ) -> None:
+        """Property: IN/ADJUSTMENT → delta positivo, OUT/TRANSFER → negativo."""
+        from src.domain.rules.stock_validation import calculate_stock_delta
+
+        delta = calculate_stock_delta(mtype, qty)
+        if mtype in (MovementType.IN, MovementType.ADJUSTMENT):
+            assert delta > 0
+            assert delta == qty
+        else:
+            assert delta < 0
+            assert delta == -qty
+
+    @given(qty=valid_quantity_strategy)
+    def test_delta_never_zero_for_valid_quantity(self, qty: int) -> None:
+        """Property: con cantidad válida (>0), el delta nunca es cero."""
+        from src.domain.rules.stock_validation import calculate_stock_delta
+
+        for mtype in MovementType:
+            delta = calculate_stock_delta(mtype, qty)
+            assert delta != 0
+
+
+class TestValidateStockNotNegativePropertyBased:
+    """Property-based tests para validate_stock_not_negative."""
+
+    @given(
+        mtype=movement_type_strategy,
+        qty=valid_quantity_strategy,
+        current=current_stock_strategy,
+        pid=product_id_strategy,
+    )
+    def test_in_and_adjustment_never_raise(
+        self, mtype: MovementType, qty: int, current: int, pid: int
+    ) -> None:
+        """Property: IN y ADJUSTMENT nunca lanzan InsufficientStockError."""
+        from src.domain.rules.stock_validation import validate_stock_not_negative
+
+        if mtype in (MovementType.IN, MovementType.ADJUSTMENT):
+            validate_stock_not_negative(mtype, qty, current, pid)
+
+    @given(
+        qty=valid_quantity_strategy,
+        current=current_stock_strategy,
+        pid=product_id_strategy,
+    )
+    def test_out_raises_when_quantity_exceeds_stock(
+        self, qty: int, current: int, pid: int
+    ) -> None:
+        """Property: OUT con qty > current_stock siempre lanza error."""
+        from src.domain.rules.stock_validation import validate_stock_not_negative
+
+        if qty > current:
+            with pytest.raises(InsufficientStockError):
+                validate_stock_not_negative(MovementType.OUT, qty, current, pid)
