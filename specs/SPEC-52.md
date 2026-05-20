@@ -30,7 +30,8 @@ Configurar un sistema de logging estructurado que proporcione visibilidad comple
 | Colored output en development | Legibilidad para desarrolladores. `logging` con formatter custom |
 | Request ID via middleware | Correlación de logs por request. UUID4 por request, pasado a los handlers via contextvars |
 | `contextvars` para request_id | Thread-safe y async-safe. Propagación automática dentro del mismo request |
-| DB `statement_timeout` configurado | Prevenir queries infinitas. 5s para queries analíticas, 30s para refresh |
+| DB `statement_timeout` configurado | Prevenir queries infinitas. Configurable via Settings: 5s para API, 30s para refresh |
+| Excluir `/v1/health` del request logging | Los health checks son frecuentes (K8s/Docker) y no aportan valor a los logs |
 | Log level por módulo | `uvicorn` en WARNING (verbose), `asyncpg` en WARNING, app modules en INFO/DEBUG |
 
 ---
@@ -42,9 +43,16 @@ Añadir campo de configuración de logging en `src/core/config.py`:
 ```python
 # Campo de logging (añadir a la clase Settings existente)
 log_format: str = "text"  # "text" | "json"
+
+# Campos de timeout (añadir a la clase Settings existente)
+api_statement_timeout_seconds: int = 5  # Timeout para queries de API
 ```
 
-Variable de entorno: `LOG_FORMAT=text|json`
+Variables de entorno:
+- `LOG_FORMAT=text|json`
+- `API_STATEMENT_TIMEOUT_SECONDS=5`
+
+> **Nota:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` se define en Spec-50.
 
 ---
 
@@ -177,11 +185,20 @@ request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware que loggea cada request con request_id y duracion."""
+    """Middleware que loggea cada request con request_id y duracion.
+
+    Excluye rutas de health check para reducir ruido en logs.
+    """
+
+    EXCLUDED_PATHS: set[str] = {"/v1/health", "/health"}
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> None:
+        # Excluir health checks del logging
+        if request.url.path in self.EXCLUDED_PATHS:
+            return await call_next(request)
+
         start_time = time.monotonic()
         req_id = str(uuid.uuid4())
         request_id_ctx.set(req_id)
@@ -228,18 +245,22 @@ def get_request_id() -> str | None:
 
 ### Actualización de `src/infrastructure/db/connection.py`
 
-Configurar `statement_timeout` al adquirir conexiones del pool:
+Configurar `statement_timeout` al inicializar el pool, usando el valor configurable de Settings:
 
 ```python
 # En la funcion init_pool(), despues de crear el pool:
-await pool.execute("SET statement_timeout = '5000'")  # 5s default para queries
-
-# Para el refresh (operacion mas larga), usar un timeout mayor:
-# Esto se puede hacer en el job del scheduler:
-# await pool.execute("SET statement_timeout = '30000'")
-# await refresh_stock_view(pool)
-# await pool.execute("SET statement_timeout = '5000'")  # Restaurar
+# Timeout para queries de API (configurable via API_STATEMENT_TIMEOUT_SECONDS)
+await pool.execute(f"SET statement_timeout = '{settings.api_statement_timeout_seconds * 1000}'")
 ```
+
+### Timeout por operación
+
+| Operación | Timeout | Configuración |
+|-----------|---------|---------------|
+| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` |
+| Refresh de vista materializada | 30s (default) | `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` (ver Spec-50) |
+
+El refresh job usa `SET LOCAL statement_timeout` dentro de su transacción para elevar el timeout temporalmente, sin afectar otras conexiones del pool.
 
 ---
 
@@ -344,10 +365,11 @@ async def handle_insufficient_stock(
 
 | File | Description |
 |------|-------------|
-| `src/core/config.py` | Añadir campo `log_format` |
+| `src/core/config.py` | Añadir campos `log_format`, `api_statement_timeout_seconds` |
 | `src/infrastructure/logging/config.py` | Logging setup + JSON formatter |
 | `src/infrastructure/logging/__init__.py` | Re-exports públicos |
-| `src/adapters/api/middleware/request_logging.py` | Request ID middleware |
+| `src/adapters/api/middleware/request_logging.py` | Request ID middleware (excluye `/v1/health`) |
+| `src/infrastructure/db/connection.py` | Configurar `statement_timeout` con Settings |
 | `src/main.py` | Integrar logging setup en lifespan |
 | `src/adapters/api/middleware/error_handler.py` | Añadir request_id a errores |
 
@@ -361,7 +383,8 @@ async def handle_insufficient_stock(
 - [ ] `RequestLoggingMiddleware` genera un `request_id` único por request
 - [ ] `request_id` se incluye en los headers de respuesta (`X-Request-ID`)
 - [ ] `request_id` se propaga a todos los logs del request via `contextvars`
-- [ ] `statement_timeout=5s` se configura en conexiones del pool
+- [ ] `/v1/health` se excluye del request logging (no genera logs ni request_id)
+- [ ] `statement_timeout` se configura en el pool usando `API_STATEMENT_TIMEOUT_SECONDS`
 - [ ] Loggers de terceros (uvicorn.access, asyncio) se silencian a WARNING
 - [ ] Tests unitarios validan JSON formatter output
 - [ ] Tests de integración validan que `X-Request-ID` se devuelve en responses
@@ -419,3 +442,5 @@ def test_json_formatter_produces_valid_json():
 4. **¿Los logs deben ir a archivo además de stdout?** → **Solo stdout.** En contenedores Docker, stdout es capturado por el runtime (Docker, K8s) y dirigido al sistema de logging centralizado. Escribir a archivo añade complejidad de rotación y gestión de espacio.
 
 5. **¿Debe loggearse el body de los requests?** → **No.** Riesgo de loggear datos sensibles. Solo se loggea método, path, status code, duración y request_id. Si se necesita debugging de payloads, se usa el request_id para buscar en el tracing.
+
+6. **¿Debe excluirse `/v1/health` del request logging?** → **Sí.** Los health checks son muy frecuentes (cada 10-30s en K8s/Docker) y no aportan valor diagnóstico. Se excluyen del middleware de request logging para reducir ruido. La ruta sigue funcionando normalmente, solo no genera logs.

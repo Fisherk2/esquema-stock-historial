@@ -45,12 +45,14 @@ Añadir campos de configuración del scheduler en `src/core/config.py`:
 scheduler_enabled: bool = True
 scheduler_refresh_interval_minutes: int = 5
 scheduler_misfire_grace_time_seconds: int = 60
+scheduler_statement_timeout_seconds: int = 30  # Timeout para refresh (operación larga)
 ```
 
 Variables de entorno correspondientes:
 - `SCHEDULER_ENABLED=true|false`
 - `SCHEDULER_REFRESH_INTERVAL_MINUTES=5`
 - `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS=60`
+- `SCHEDULER_STATEMENT_TIMEOUT_SECONDS=30`
 
 ---
 
@@ -86,14 +88,21 @@ _logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
 
 
-async def _refresh_job(pool: Pool) -> None:
-    """Job que refresca la vista materializada."""
+async def _refresh_job(pool: Pool, statement_timeout: int = 30) -> None:
+    """Job que refresca la vista materializada.
+
+    Usa un statement_timeout elevado (30s por defecto) porque
+    REFRESH CONCURRENTLY puede tardar más que las queries normales.
+    Restaura el timeout original tras completar.
+    """
     from src.infrastructure.db.refresh import refresh_stock_view
     import time
 
     start = time.monotonic()
     _logger.info("Starting mv_stock_historical refresh")
     try:
+        # Timeout elevado para refresh
+        await pool.execute(f"SET LOCAL statement_timeout = '{statement_timeout * 1000}'")
         await refresh_stock_view(pool)
         elapsed = time.monotonic() - start
         _logger.info("mv_stock_historical refreshed in %.2fs", elapsed)
@@ -106,6 +115,7 @@ def create_scheduler(
     pool: Pool,
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
+    statement_timeout: int = 30,
 ) -> AsyncIOScheduler:
     """Crea y configura el AsyncIOScheduler.
 
@@ -113,6 +123,7 @@ def create_scheduler(
         pool: Pool de conexiones asyncpg para el refresh.
         refresh_interval_minutes: Intervalo entre refreshes de la vista.
         misfire_grace_time: Tolerancia en segundos para jobs retrasados.
+        statement_timeout: Timeout en segundos para el refresh job.
 
     Returns:
         AsyncIOScheduler configurado y listo para iniciar.
@@ -123,11 +134,11 @@ def create_scheduler(
         _refresh_job,
         trigger="interval",
         minutes=refresh_interval_minutes,
-        args=[pool],
+        args=[pool, statement_timeout],
         id="refresh_stock_view",
         replace_existing=True,
         misfire_grace_time=misfire_grace_time,
-        max_instances=1,  # Solo una instancia del job a la vez
+        max_instances=1, # Solo una instancia del job a la vez
     )
 
     return scheduler
@@ -138,6 +149,7 @@ async def start_scheduler(
     enabled: bool = True,
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
+    statement_timeout: int = 30,
 ) -> None:
     """Inicializa y arranca el scheduler.
 
@@ -146,6 +158,7 @@ async def start_scheduler(
         enabled: Si False, no arranca el scheduler (utile en tests).
         refresh_interval_minutes: Intervalo entre refreshes.
         misfire_grace_time: Tolerancia para jobs retrasados.
+        statement_timeout: Timeout en segundos para el refresh job.
     """
     global _scheduler
 
@@ -153,7 +166,9 @@ async def start_scheduler(
         _logger.info("Scheduler disabled (SCHEDULER_ENABLED=false)")
         return
 
-    _scheduler = create_scheduler(pool, refresh_interval_minutes, misfire_grace_time)
+    _scheduler = create_scheduler(
+        pool, refresh_interval_minutes, misfire_grace_time, statement_timeout
+    )
     _scheduler.start()
     _logger.info(
         "Scheduler started — refresh every %d minutes",
@@ -200,6 +215,7 @@ async def lifespan(app: FastAPI):
         enabled=settings.scheduler_enabled,
         refresh_interval_minutes=settings.scheduler_refresh_interval_minutes,
         misfire_grace_time=settings.scheduler_misfire_grace_time_seconds,
+        statement_timeout=settings.scheduler_statement_timeout_seconds,
     )
 
     try:
@@ -223,6 +239,7 @@ El scheduler ejecuta `REFRESH MATERIALIZED VIEW CONCURRENTLY` cada N minutos (co
 | `SCHEDULER_ENABLED` | `true` | Habilitar/deshabilitar scheduler |
 | `SCHEDULER_REFRESH_INTERVAL_MINUTES` | `5` | Minutos entre refreshes |
 | `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | `60` | Tolerancia de retraso |
+| `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | `30` | Timeout en segundos para el refresh job |
 
 ### Futuras Mejoras (F6+)
 

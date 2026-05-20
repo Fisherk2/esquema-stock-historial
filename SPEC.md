@@ -777,3 +777,231 @@ async def create_movement(
 | F4-Q8 | ¿UoW para todos los movimientos? | Solo OUT/TRANSFER |
 | F4-Q9 | ¿API snake_case o camelCase? | snake_case |
 | F4-Q10 | ¿Error mapping middleware o handlers? | Exception handlers |
+
+---
+
+# Spec: stock-historial — F5: Scheduler & Concurrencia
+
+## Objective
+
+Integrar tres componentes de infraestructura que dotan al sistema de resiliencia y observabilidad: (1) APScheduler como motor de tareas en background para el refresh periódico de la vista materializada `mv_stock_historical`, (2) decorador de reintentos con backoff exponencial para manejar conflictos transaccionales, y (3) logging estructurado con request correlation y timeouts de DB configurables.
+
+**Usuarios objetivo:** Operadores de inventario que necesitan datos frescos, y equipos de ops que necesitan visibilidad del comportamiento de la aplicación.
+
+**F5 success criteria:**
+- `AsyncIOScheduler` se inicia en el lifespan de FastAPI con refresh configurable
+- `SCHEDULER_ENABLED=false` deshabilita el scheduler sin error
+- `_refresh_job` usa retry con 3 reintentos + backoff exponencial + jitter
+- `RequestLoggingMiddleware` genera `request_id` único por request y lo propaga via `contextvars`
+- `/v1/health` se excluye del request logging
+- JSON format en producción, formato legible en desarrollo
+- `statement_timeout` configurable: 5s para API, 30s para refresh
+- `make lint` pasa con 0 errores
+- Tests unitarios y de integración validan scheduler, retry, y logging
+- Version 0.5.0 en `main.py`
+
+## Tech Stack
+
+| Componente | Tecnología | Notas |
+|-----------|-----------|-------|
+| Scheduler | APScheduler 3.11.2 | Ya en requirements.txt (F0). Se usa `AsyncIOScheduler` |
+| Retry | Decorador custom | Sin dependencia nueva — backoff exponencial + jitter |
+| Logging | Python `logging` estándar | Sin `structlog` en F5. JSON formatter custom |
+| **Nuevas dependencias** | Ninguna | F5 no añade deps externas |
+
+## Commands
+
+```
+Install:    pip install -r requirements.txt
+Dev:        make dev
+Lint:       make lint
+Format:     make format
+Test:       make test
+Test (cov): make test-cov
+Build:      make build
+```
+
+## Project Structure
+
+**Archivos nuevos que F5 crea:**
+
+```
+src/core/
+├── retry.py                      # Decorador @retry_with_backoff
+└── config.py                     # UPDATE: campos scheduler, logging, timeouts
+
+src/infrastructure/scheduler/
+├── __init__.py                   # UPDATE: re-exports públicos
+└── scheduler.py                  # AsyncIOScheduler integration
+
+src/infrastructure/logging/
+├── __init__.py                   # UPDATE: re-exports
+└── config.py                     # Logging setup + JSON formatter
+
+src/adapters/api/middleware/
+├── request_logging.py            # RequestLoggingMiddleware (excluye /v1/health)
+└── error_handler.py              # UPDATE: handler ConcurrencyConflictError
+
+src/domain/exceptions/
+├── concurrency_conflict.py       # Nueva excepción de dominio
+└── __init__.py                   # UPDATE: re-export
+
+src/infrastructure/db/
+└── connection.py                 # UPDATE: statement_timeout configurado via Settings
+
+src/main.py                       # UPDATE: lifespan incluye scheduler + logging setup
+```
+
+**Archivos de spec detallados:**
+
+- [SPEC-50](specs/SPEC-50.md) — Integración APScheduler
+- [SPEC-51](specs/SPEC-51.md) — Optimistic Concurrency & Retry
+- [SPEC-52](specs/SPEC-52.md) — Logging Estructurado & Errors
+
+## Code Style
+
+```python
+# Decorador async retryable — backoff exponencial + jitter
+@retry_with_backoff(
+    max_retries=3,
+    base_delay=1.0,
+    max_delay=10.0,
+    jitter=0.5,
+    exceptions=_RETRYABLE_EXCEPTIONS,
+)
+async def _refresh_job(pool: Pool, statement_timeout: int = 30) -> None:
+    start = time.monotonic()
+    _logger.info("Starting mv_stock_historical refresh")
+    await pool.execute(f"SET LOCAL statement_timeout = '{statement_timeout * 1000}'")
+    await refresh_stock_view(pool)
+    elapsed = time.monotonic() - start
+    _logger.info("mv_stock_historical refreshed in %.2fs", elapsed)
+
+# Middleware de request logging — contextvar propagation
+request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    EXCLUDED_PATHS: set[str] = {"/v1/health", "/health"}
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in self.EXCLUDED_PATHS:
+            return await call_next(request)
+        req_id = str(uuid.uuid4())
+        request_id_ctx.set(req_id)
+        # ... log + timing + response headers ...
+```
+
+**Convenciones específicas de F5:**
+- Scheduler: `AsyncIOScheduler` (no `BackgroundScheduler`) — usa event loop existente
+- Retry: decorador genérico, no específico de DB. Captura solo excepciones explícitas
+- Logging: `contextvars` para `request_id` — thread-safe y async-safe
+- Timeouts: `SET LOCAL` para refresh (no afecta otras conexiones del pool)
+- Health checks excluidos del logging — reducen ruido en producción
+
+## Testing Strategy
+
+| Level | Location | Framework | Scope |
+|-------|----------|-----------|-------|
+| Unit | `tests/unit/infrastructure/scheduler/` | pytest + mocks | Scheduler creation, job registration |
+| Unit | `tests/unit/core/` | pytest | Retry decorator behavior, JSON formatter |
+| Unit | `tests/unit/domain/exceptions/` | pytest | ConcurrencyConflictError |
+| Integration | `tests/integration/` | pytest + testcontainers | Request middleware, X-Request-ID header |
+
+**Coverage targets:** infrastructure/scheduler/ >70%, core/retry.py >80%, infrastructure/logging/ >70%
+
+**Patrones de test F5:**
+- Scheduler: mock de `AsyncIOScheduler`, verificar `add_job` con parámetros correctos
+- Retry: mock `asyncio.sleep`, verificar backoff exponencial, excepciones no-retryables propagan inmediatamente
+- Logging: verificar JSON válido, campos esperados, `request_id` en extras
+- Middleware: verificar `X-Request-ID` en headers, `/v1/health` no loggea
+
+## Boundaries
+
+### Always do
+- `AsyncIOScheduler` integrado en el lifespan — start en startup, shutdown en cleanup
+- Retry solo captura excepciones explícitas (no `Exception` genérica)
+- `/v1/health` excluido del request logging
+- `statement_timeout` se configura via Settings, no hardcodeado
+- `request_id` se propaga via `contextvars` y se incluye en headers de respuesta
+
+### Ask first
+- Añadir nuevos jobs al scheduler (más allá de refresh)
+- Cambiar el decorador retry para aplicarlo a use cases (modificaría Spec-40)
+- Migrar de `logging` estándar a `structlog`
+- Cambiar el mapeo `ConcurrencyConflictError` → HTTP status code
+- Añadir nuevas dependencias para F5
+
+### Never do
+- Usar `BackgroundScheduler` (crea thread pool separado — incompatible con asyncio)
+- Capturar `Exception` genérica en el retry decorador
+- Loggear body de requests (riesgo de datos sensibles)
+- Modificar use cases de F4 para añadir retry (Spec-40 completado)
+- Commit secrets en `.env`
+
+## Implementation Order
+
+```
+Spec-52 (Logging + Settings + request_id)
+    ↓ (dependencia: Config, error_handler)
+Spec-51 (Retry + ConcurrencyConflictError)
+    ↓ (dependencia: retry decorator)
+Spec-50 (Scheduler con retry aplicado)
+```
+
+- **Spec-52 primero:** Configura logging, Settings, middleware de request. Es la base que usan todos los demás componentes de F5. Añade campos de configuración en `config.py` que necesitan Spec-50 y Spec-51.
+- **Spec-51 segundo:** Añade `ConcurrencyConflictError` y el decorador `@retry_with_backoff`. No requiere que el scheduler exista, pero prepara la infraestructura de reintentos.
+- **Spec-50 tercero:** Integra APScheduler aplicando el retry del Spec-51 al refresh job. Actualiza el lifespan de FastAPI.
+
+> **Nota:** Aunque Spec-50 aparece como el primero en el número, la implementación debe empezar con Spec-52 (config/logging), luego Spec-51 (retry), y finalmente Spec-50 (scheduler). El DAG de dependencias en docs/workflow/dependency-graphs.md refleja esto: S52 → S51 → S50.
+
+## Success Criteria
+
+### Spec-50: Integración APScheduler
+- [ ] `AsyncIOScheduler` se inicia en el `lifespan` de FastAPI
+- [ ] Job `refresh_stock_view` se registra con intervalo configurable
+- [ ] `SCHEDULER_ENABLED=false` deshabilita el scheduler sin error
+- [ ] `shutdown_scheduler()` detiene el scheduler gracefulmente antes de cerrar el pool
+- [ ] El refresh usa `statement_timeout` configurable (default 30s)
+- [ ] Solo una instancia del job puede ejecutarse a la vez (`max_instances=1`)
+- [ ] Tests unitarios validan la creación del scheduler con mocks
+
+### Spec-51: Optimistic Concurrency & Retry
+- [ ] `ConcurrencyConflictError` hereda de `DomainError`
+- [ ] `@retry_with_backoff` reintenta con backoff exponencial + jitter
+- [ ] El decorador solo captura excepciones especificadas
+- [ ] Cada reintento se loggea con WARNING; fallo final con ERROR
+- [ ] `_refresh_job` usa retry con 3 reintentos
+- [ ] `ConcurrencyConflictError` se mapea a HTTP 409 `CONCURRENCY_CONFLICT`
+- [ ] Tests validan: éxito al reintento, fallo final, excepción no-retryable
+
+### Spec-52: Logging Estructurado & Errors
+- [ ] `setup_logging()` configura formato text o JSON según `LOG_FORMAT`
+- [ ] `RequestLoggingMiddleware` genera `request_id` único por request
+- [ ] `X-Request-ID` se incluye en headers de respuesta
+- [ ] `/v1/health` se excluye del request logging
+- [ ] `request_id` se propaga via `contextvars` a todos los logs
+- [ ] `statement_timeout` se configura en el pool via `API_STATEMENT_TIMEOUT_SECONDS`
+- [ ] Loggers de terceros silencian a WARNING
+- [ ] Tests validan JSON formatter output y middleware headers
+
+### Aggregate
+- [ ] `make lint` sin errores en todos los archivos nuevos
+- [ ] `make test` pasa todos los tests (no rompe tests existentes de F0-F4)
+- [ ] Version 0.5.0 en `main.py`
+- [ ] `AGENTS.md` actualizado a "F5: En Progreso"
+
+## Resolved Questions
+
+| # | Pregunta | Decisión | Rationale |
+|---|----------|----------|-----------|
+| F5-Q1 | ¿`AsyncIOScheduler` o `BackgroundScheduler`? | `AsyncIOScheduler` | Usa event loop existente de FastAPI. `BackgroundScheduler` crea thread pool separado |
+| F5-Q2 | ¿El retry debe aplicarse a use cases de movimiento? | **Solo refresh job** | Los use cases de Spec-40 están completados. Aplicar retry rompería tests existentes |
+| F5-Q3 | ¿El request logging debe excluir `/v1/health`? | **Sí** | Health checks frecuentes (K8s/Docker) generan ruido sin valor diagnóstico |
+| F5-Q4 | ¿`statement_timeout` global o configurable? | **Configurable via Settings** | API necesita 5s, refresh necesita 30s. Hardcodear sería inflexible |
+| F5-Q5 | ¿`structlog` o `logging` estándar? | `logging` estándar | Suficiente para F5. Se puede migrar en F6+ si se necesita más potencia |
+| F5-Q6 | ¿El scheduler debe tener su propio pool de conexiones? | **No** | Usa pool compartido. `REFRESH CONCURRENTLY` no bloquea lecturas |
+| F5-Q7 | ¿Debe existir endpoint admin para refresh manual? | **No en F5** | Añadiría complejidad (auth, access control). Usar función directa o scheduler |
+| F5-Q8 | ¿`CronTrigger` o `IntervalTrigger`? | `IntervalTrigger` | Más simple y suficiente para refresh periódico. Se puede cambiar a cron después |
+| F5-Q9 | ¿El decorador retry debe ser sync o async? | **Async** | Todas las operaciones que necesitan retry son async en este proyecto |
+| F5-Q10 | ¿Los logs deben ir a archivo además de stdout? | **Solo stdout** | En contenedores Docker, stdout es capturado por el runtime |
+

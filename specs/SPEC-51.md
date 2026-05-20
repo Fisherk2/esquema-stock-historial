@@ -9,7 +9,7 @@
 
 ## Objective
 
-Implementar un decorador `@retry_with_backoff` con backoff exponencial y jitter para manejar conflictos de concurrencia de forma resiliente. Añadir la excepción de dominio `ConcurrencyConflictError` para representar conflictos de concurrencia (HTTP 409). El decorador se aplica a operaciones que pueden fallar por conflictos transaccionales, como el refresh de vistas materializadas o la creación de movimientos concurrentes.
+Implementar un decorador `@retry_with_backoff` con backoff exponencial y jitter para manejar conflictos de concurrencia de forma resiliente. Añadir la excepción de dominio `ConcurrencyConflictError` para representar conflictos de concurrencia (HTTP 409). **En F5, el decorador se aplica exclusivamente al refresh job del scheduler** — no se modifica `RecordMovementUseCase` ni otros use cases ya completados en Spec-40.
 
 **Principios de diseño:**
 - **Backoff exponencial con jitter** — evita thundering herd cuando múltiples instancias reintentan simultáneamente
@@ -267,9 +267,9 @@ async def handle_concurrency_conflict(
 
 | Escenario | max_retries | base_delay | max_delay | Rationale |
 |-----------|-------------|------------|-----------|-----------|
-| Refresh de vista | 3 | 1.0s | 10.0s | Operación background, puede esperar |
-| Creación de movimiento | 2 | 0.5s | 5.0s | Request HTTP, latencia importa |
-| Consulta de stock | 1 | 0.2s | 2.0s | Operación idempotente, retry rápido |
+| Refresh de vista (F5) | 3 | 1.0s | 10.0s | Operación background, puede esperar |
+
+> **Nota:** En F5 el retry solo se aplica al refresh job. Si en F6+ se detectan conflictos de concurrencia en use cases de escritura, se añadirá retry con parámetros más conservadores (ej: 2 reintentos, base 0.5s).
 
 ---
 
@@ -355,3 +355,5 @@ async def test_retry_succeeds_on_third_attempt():
 4. **¿El decorador debe aceptar una función callback para logging custom?** → **No en F5.** El logging por defecto es suficiente. Si en el futuro se necesita logging específico por operación, se puede añadir un parámetro `logger` opcional al decorador.
 
 5. **¿Debe existir un middleware HTTP de retry?** → **No.** El retry es a nivel de operación (función), no a nivel HTTP. El cliente HTTP (navegador, Postman) decide si reintentar requests. El servidor solo debe ser idempotente en operaciones que lo requieran.
+
+6. **¿Debe aplicarse retry a los use cases de movimiento en F5?** → **No.** En F5 el retry se aplica exclusivamente al refresh job del scheduler. Los use cases de movimiento (Spec-40) ya están completados y no se modifican. Si en F6 se detectan conflictos de concurrencia en escrituras, se añadirá retry como una extensión sin romper los tests existentes.
