@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 — Pydantic needs runtime datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class MovementTypeInput(str, Enum):  # noqa: UP042 — Pydantic serialization needs str mixin
+class MovementTypeInput(StrEnum):
     """Tipo de movimiento de inventario (serializable a JSON)."""
 
     IN = "IN"
@@ -62,7 +62,8 @@ class CreateMovementInput(BaseModel):
     @field_validator("movement_type", mode="before")
     @classmethod
     def coerce_movement_type(
-        cls, v: str | MovementTypeInput,
+        cls,
+        v: str | MovementTypeInput,
     ) -> MovementTypeInput:
         """Convierte strings a MovementTypeInput enum.
 

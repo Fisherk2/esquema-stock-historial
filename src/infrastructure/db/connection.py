@@ -67,6 +67,9 @@ async def init_pool(settings: Settings) -> None:
             min_size=2,
             max_size=10,
         )
+        # F5: Configurar statement_timeout para queries de API
+        timeout_ms = settings.api_statement_timeout_seconds * 1000
+        await _pool.execute(f"SET statement_timeout = '{timeout_ms}'")
         logger.info("Database pool initialized")
     except Exception:
         # Fallback graceful: la DB puede no estar lista durante el

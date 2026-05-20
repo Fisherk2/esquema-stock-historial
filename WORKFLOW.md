@@ -16,7 +16,9 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > 147 unit tests + 88 integration tests (235 total, 100% pass, ~20s).
 > Testcontainers optimizado: 1 contenedor/session (antes 88), ~20s vs ~20 min.
 > `make lint` limpio. Version 0.4.0.
-> **F5: Scheduler & Concurrencia** aprobada para trabajo activo. Fases 0-4 completadas, 17/24 specs listos para F5-F7.
+> **F5: Scheduler & Concurrencia** completada el 2026-05-19. Specs Spec-50/51/52 en estado Completado.
+> APScheduler integrado, retry con backoff exponencial, logging estructurado con request_id.
+> 282 tests total (194 unit + 88 integration), 100% pass. `make lint` limpio.
 
 ## Detailed Docs
 

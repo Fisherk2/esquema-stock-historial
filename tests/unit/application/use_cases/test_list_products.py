@@ -1,4 +1,5 @@
 """Tests unitarios para ListProductsUseCase."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -12,9 +13,7 @@ class TestListProductsUseCase:
     async def test_returns_items_and_total(self) -> None:
         """Verifica que retorna tupla (items, total)."""
         product_repo = AsyncMock()
-        product_repo.list_all = AsyncMock(
-            return_value=[MagicMock(), MagicMock()]
-        )
+        product_repo.list_all = AsyncMock(return_value=[MagicMock(), MagicMock()])
         product_repo.count_all = AsyncMock(return_value=85)
 
         use_case = ListProductsUseCase(product_repo)

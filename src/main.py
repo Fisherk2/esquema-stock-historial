@@ -31,13 +31,44 @@ from src.infrastructure.db.connection import close_pool, init_pool
 async def lifespan(app: FastAPI):
     """Lifecycle hook para inicialización y limpieza de recursos.
 
-    Inicializa el pool de conexiones asyncpg al arrancar y lo cierra
-    al apagar la aplicación. En F5 se integrará también el scheduler.
+    Inicializa el logging, el pool de conexiones asyncpg y el scheduler
+    al arrancar. Cierra el scheduler y el pool al apagar la aplicación.
     """
     settings = Settings()
+
+    # F5: Configurar logging antes de cualquier otro componente
+    from src.infrastructure.logging import setup_logging
+
+    setup_logging(
+        log_level=settings.log_level,
+        log_format=settings.log_format,
+    )
+
     await init_pool(settings)
-    yield
-    await close_pool()
+
+    # F5: Iniciar scheduler
+    from src.infrastructure.db.connection import get_pool
+    from src.infrastructure.scheduler.scheduler import (
+        shutdown_scheduler,
+        start_scheduler,
+    )
+
+    pool = await get_pool()
+    if pool is not None:
+        await start_scheduler(
+            pool=pool,
+            enabled=settings.scheduler_enabled,
+            refresh_interval_minutes=settings.scheduler_refresh_interval_minutes,
+            misfire_grace_time=settings.scheduler_misfire_grace_time_seconds,
+            statement_timeout=settings.scheduler_statement_timeout_seconds,
+        )
+
+    try:
+        yield
+    finally:
+        # F5: Detener scheduler antes de cerrar pool
+        await shutdown_scheduler()
+        await close_pool()
 
 
 def create_app() -> FastAPI:
@@ -65,6 +96,11 @@ def create_app() -> FastAPI:
 
     # Composicion modular: cada router se registra con su prefijo /v1
     app.include_router(health_router, prefix="/v1")
+
+    # F5: Middleware de request logging
+    from src.adapters.api.middleware.request_logging import RequestLoggingMiddleware
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     # F4: Routers de dominio
     from src.adapters.api.middleware.error_handler import register_error_handlers

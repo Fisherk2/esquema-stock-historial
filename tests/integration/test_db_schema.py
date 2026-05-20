@@ -142,12 +142,8 @@ async def test_min_stock_threshold_non_negative(
     db_clean: asyncpg.Pool,
 ) -> None:
     """Verifica que min_stock_threshold no puede ser negativo."""
-    await db_clean.execute(
-        "INSERT INTO categories (name) VALUES ('Test Cat')"
-    )
-    cat = await db_clean.fetchrow(
-        "SELECT id FROM categories WHERE name = 'Test Cat'"
-    )
+    await db_clean.execute("INSERT INTO categories (name) VALUES ('Test Cat')")
+    cat = await db_clean.fetchrow("SELECT id FROM categories WHERE name = 'Test Cat'")
     with pytest.raises(asyncpg.CheckViolationError):
         await db_clean.execute(
             "INSERT INTO products "
@@ -251,9 +247,7 @@ async def test_fk_index_on_products_category(
 
 async def test_sku_unique_constraint(db_clean: asyncpg.Pool) -> None:
     """Verifica que no se pueden crear dos productos con mismo SKU."""
-    await db_clean.execute(
-        "INSERT INTO categories (name) VALUES ('Unique Test Cat')"
-    )
+    await db_clean.execute("INSERT INTO categories (name) VALUES ('Unique Test Cat')")
     cat = await db_clean.fetchrow(
         "SELECT id FROM categories WHERE name = 'Unique Test Cat'"
     )
@@ -279,9 +273,7 @@ async def test_category_name_unique_constraint(
     await db_clean.execute("INSERT INTO categories (name) VALUES ('Unique Cat')")
 
     with pytest.raises(asyncpg.UniqueViolationError):
-        await db_clean.execute(
-            "INSERT INTO categories (name) VALUES ('Unique Cat')"
-        )
+        await db_clean.execute("INSERT INTO categories (name) VALUES ('Unique Cat')")
 
 
 # ── Tests de seed data (insertan datos) ─────────────────────────────────

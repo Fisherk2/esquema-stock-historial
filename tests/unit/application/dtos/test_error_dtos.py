@@ -1,4 +1,5 @@
 """Tests para DTOs de error."""
+
 from __future__ import annotations
 
 from src.application.dtos.error_dtos import ErrorDetail, ErrorResponse

@@ -74,9 +74,7 @@ async def api_client(
     app.dependency_overrides[get_db_pool] = _override_db_pool
 
     transport = ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
     app.dependency_overrides.clear()

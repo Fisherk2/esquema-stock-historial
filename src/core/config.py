@@ -54,5 +54,15 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial"
     )
 
+    # F5: Scheduler settings
+    scheduler_enabled: bool = True
+    scheduler_refresh_interval_minutes: int = 5
+    scheduler_misfire_grace_time_seconds: int = 60
+    scheduler_statement_timeout_seconds: int = 30
+
+    # F5: Logging settings
+    log_format: str = "text"
+    api_statement_timeout_seconds: int = 5
+
     # Estrategia de carga: .env → env vars del sistema → defaults de la clase
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

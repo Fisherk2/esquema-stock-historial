@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi.responses import JSONResponse
 
 from src.application.dtos.error_dtos import ErrorDetail, ErrorResponse
+from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
 from src.domain.exceptions.domain_error import DomainError
 from src.domain.exceptions.immutability_violation import ImmutabilityViolationError
 from src.domain.exceptions.insufficient_stock import InsufficientStockError
@@ -87,6 +88,26 @@ def register_error_handlers(app: FastAPI) -> None:
                 error=ErrorDetail(
                     code="IMMUTABILITY_VIOLATION",
                     message=str(exc),
+                )
+            ).model_dump(),
+        )
+
+    @app.exception_handler(ConcurrencyConflictError)
+    async def handle_concurrency_conflict(
+        request, exc: ConcurrencyConflictError
+    ) -> JSONResponse:
+        """Mapea ConcurrencyConflictError a HTTP 409 Conflict."""
+        details: dict[str, str] = {"operation": exc.operation}
+        if exc.detail is not None:
+            details["detail"] = exc.detail
+
+        return JSONResponse(
+            status_code=409,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="CONCURRENCY_CONFLICT",
+                    message=str(exc),
+                    details=details,
                 )
             ).model_dump(),
         )

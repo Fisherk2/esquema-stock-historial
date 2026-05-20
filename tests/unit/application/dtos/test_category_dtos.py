@@ -1,4 +1,5 @@
 """Tests para DTOs de categorias."""
+
 from __future__ import annotations
 
 import pytest
