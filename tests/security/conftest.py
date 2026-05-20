@@ -1,7 +1,7 @@
 """Fixtures compartidos para tests de seguridad.
 
-Reutiliza los fixtures de integracion (db_pool, db_clean) y proporciona
-el fixture api_client para tests contra la API.
+Proporciona el fixture api_client para tests contra la API.
+Los fixtures de base de datos (db_pool, db_clean) vienen de tests/conftest.py.
 """
 
 from __future__ import annotations
@@ -12,8 +12,6 @@ import httpx
 import pytest
 from httpx import ASGITransport
 
-# Re-importar fixtures de integracion para que pytest los encuentre
-from tests.integration.conftest import db_clean, db_pool  # noqa: F401
 from src.main import create_app
 
 if TYPE_CHECKING:
@@ -24,7 +22,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 async def api_client(
-    db_pool: asyncpg.Pool, db_clean: asyncpg.Pool
+    db_pool: asyncpg.Pool,
+    db_clean: asyncpg.Pool,
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Fixture: cliente HTTP async contra la app con datos limpios."""
     from src.adapters.api.dependencies import get_db_pool

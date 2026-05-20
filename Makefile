@@ -27,25 +27,25 @@ help:
 	@echo "  docker-prod-down Stop Docker Compose production stack"
 
 install:
-	pip install -r requirements.txt
+	python -m pip install -r requirements.txt
 
 dev:
-	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+	python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 lint:
 	ruff check src tests
 
 format:
-	black src tests
+	python -m black src tests
 
 test:
-	pytest
+	python -m pytest
 
 test-cov:
-	pytest --cov=src --cov-report=term-missing --cov-report=html
+	python -m pytest --cov=src --cov-report=term-missing --cov-report=html
 
 typecheck:
-	mypy src/ --strict
+	python -m mypy src/ --strict
 
 # Gate de calidad pre-commit: lint + format + test deben pasar antes de commitear
 build: lint format test

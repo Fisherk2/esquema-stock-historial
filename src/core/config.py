@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     log_format: str = "text"
     api_statement_timeout_seconds: int = 5
 
-    # F7: Docker Compose Prod (solo para docker-compose, no usadas directamente por la app)
+    # F7: Docker Compose Prod (para docker-compose, no usadas por la app)
     postgres_user: str = "stock_user"
     postgres_password: str = ""
     postgres_db: str = "stock_historial"
