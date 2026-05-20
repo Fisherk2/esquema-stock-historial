@@ -242,7 +242,7 @@ class IStockQueryRepository(Protocol):
     vistas materializadas, CTEs, o cálculos directos según la implementación.
     """
 
-    async def get_current_stock(self, product_id: int) -> int:
+    async def get_current_stock(self, product_id: int) -> float:
         """Calcula el stock actual de un producto.
 
         Suma todos los movimientos del producto:
@@ -255,7 +255,12 @@ class IStockQueryRepository(Protocol):
             product_id: Identificador del producto.
 
         Returns:
-            int: Stock actual del producto (0 si no tiene movimientos).
+            float: Stock actual del producto (0.0 si no tiene movimientos).
+
+        Note:
+            Resolución F3-Q1: el tipo de retorno es `float` para compatibilidad
+            con la implementación en SPEC-30/31 (vista materializada + asyncpg).
+            Corregido de `int` a `float` para coincidir con el código real.
         """
         ...
 
@@ -263,7 +268,7 @@ class IStockQueryRepository(Protocol):
         self,
         product_id: int,
         date: datetime,
-    ) -> int:
+    ) -> float:
         """Calcula el stock de un producto en una fecha específica.
 
         Solo considera movimientos donde created_at <= date.
@@ -273,14 +278,14 @@ class IStockQueryRepository(Protocol):
             date: Fecha/hora de referencia (timezone-aware).
 
         Returns:
-            int: Stock del producto en la fecha especificada (0 si no hay movimientos anteriores).
+            float: Stock del producto en la fecha especificada (0.0 si no hay movimientos anteriores).
         """
         ...
 ```
 
 **Design Notes:**
 - Separado de `IMovementRepository` — ISP: consultas analíticas vs. CRUD de movimientos
-- Retorna `int` (no entidades) — son consultas de agregación
+- Retorna `float` (no entidades) — son consultas de agregación (resolución F3-Q1)
 - `get_stock_at_date()` es la consulta principal para el objetivo de stock histórico <100ms
 - La implementación puede usar vistas materializadas o cálculo directo según performance
 
