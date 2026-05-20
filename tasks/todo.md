@@ -1,137 +1,139 @@
-# TODO — F4: Capa API (Casos de Uso + Endpoints)
+# TODO — F5: Scheduler & Concurrencia
 
-## Progress: [0/10] ░░░░░░░░░░ PENDIENTE
-
-> **Nota:** La implementación preliminar de F4 ya existe (use cases, DTOs, routers, error mapping, DI factories, 147 unit tests). Este TODO cubre los gaps restantes para completar la fase.
+## Progress: [0/11] ░░░░░░░░░░░ PENDIENTE
 
 ## Phase 1: Foundation [0/2]
 
-- [ ] **Task 1:** Crear fixture de cliente HTTP para integración
-  - `tests/integration/api/conftest.py`
-  - Fixture `api_client`: `httpx.AsyncClient` con `ASGITransport`, pool override
-  - Usa fixture existente `db_pool` de `tests/integration/conftest.py`
-  - Verify: `python -c "from tests.integration.api.conftest import *; print('OK')"`
+- [ ] **Task 1:** Extender Settings con 6 campos F5
+  - `src/core/config.py` — añadir: `scheduler_enabled`, `scheduler_refresh_interval_minutes`, `scheduler_misfire_grace_time_seconds`, `scheduler_statement_timeout_seconds`, `log_format`, `api_statement_timeout_seconds`
+  - `.env.example` — añadir 6 variables con comentarios
+  - Docstrings actualizados en Settings
+  - Verify: `python -c "from src.core.config import Settings; s = Settings(); print(s.scheduler_enabled)"`
 
-- [ ] **Task 2:** Agregar test de integración `count_by_product()`
-  - `tests/integration/repositories/test_movement_repository.py` (append)
-  - `test_count_by_product_returns_correct_count` — 3 movimientos → count = 3
-  - `test_count_by_product_returns_zero_for_no_movements` — sin movimientos → 0
-  - Verify: `pytest tests/integration/repositories/test_movement_repository.py -v -k count`
+- [ ] **Task 2:** Crear ConcurrencyConflictError
+  - `src/domain/exceptions/concurrency_conflict.py` — hereda DomainError, attrs `operation`, `detail`
+  - `src/domain/exceptions/__init__.py` — re-export
+  - `src/domain/__init__.py` — re-export + `__all__`
+  - Verify: `from src.domain import ConcurrencyConflictError; assert issubclass(ConcurrencyConflictError, DomainError)`
 
 ### Checkpoint: Foundation Ready [ ]
-- [ ] API client fixture funciona con DB real
-- [ ] Tests de `count_by_product()` pasan
-- [ ] `make lint` pasa
-- [ ] Listo para escribir endpoint tests
-
----
-
-## Phase 2: Endpoint Integration Tests [0/4]
-
-- [ ] **Task 3:** Tests de categorías
-  - `tests/integration/api/test_categories_api.py`
-  - `test_create_category_returns_201` — POST crea con id y created_at
-  - `test_create_category_empty_name_returns_422` — POST con nombre vacío
-  - `test_list_categories_returns_200` — GET retorna seed data
-  - `test_list_categories_after_create` — POST + GET muestra nueva
-  - Verify: `pytest tests/integration/api/test_categories_api.py -v`
-
-- [ ] **Task 4:** Tests de productos
-  - `tests/integration/api/test_products_api.py`
-  - `test_create_product_returns_201` — POST con datos válidos
-  - `test_create_product_invalid_sku_returns_422` — POST con SKU inválido
-  - `test_create_product_nonexistent_category_returns_400` — POST con category_id inexistente
-  - `test_list_products_returns_200_with_pagination` — GET con total paginado
-  - `test_get_product_by_id_returns_200` — GET/{id} retorna producto
-  - `test_get_product_by_id_not_found_returns_404` — GET/99999 → 404
-  - `test_list_products_pagination_works` — limit/offset funciona
-  - Verify: `pytest tests/integration/api/test_products_api.py -v`
-
-- [ ] **Task 5:** Tests de movimientos
-  - `tests/integration/api/test_movements_api.py`
-  - `test_create_in_movement_returns_201` — POST IN
-  - `test_create_out_movement_with_stock_returns_201` — POST OUT con stock
-  - `test_create_out_movement_insufficient_stock_returns_409` — POST OUT sin stock → 409
-  - `test_create_transfer_requires_metadata_returns_400` — POST TRANSFER sin metadata
-  - `test_create_adjustment_requires_reason_returns_400` — POST ADJUSTMENT sin reason
-  - `test_create_movement_invalid_product_returns_400` — POST con producto inexistente
-  - `test_get_movement_by_id_returns_200` — GET/{id} después de POST
-  - `test_get_movement_not_found_returns_404` — GET/99999 → 404
-  - `test_list_movements_by_product_returns_200` — GET?product_id= con paginación
-  - `test_list_movements_pagination` — limit/offset correcto
-  - Verify: `pytest tests/integration/api/test_movements_api.py -v`
-
-- [ ] **Task 6:** Tests de stock
-  - `tests/integration/api/test_stock_api.py`
-  - `test_get_current_stock_returns_200` — GET current después de IN
-  - `test_get_current_stock_reflects_out_movements` — GET current después de OUT
-  - `test_get_current_stock_no_movements_returns_zero` — sin movimientos → 0.0
-  - `test_get_stock_at_date_returns_200` — GET at-date con fecha válida
-  - `test_get_stock_at_date_with_iso8601_format` — formato ISO 8601 funciona
-  - Verify: `pytest tests/integration/api/test_stock_api.py -v`
-
-### Checkpoint: Endpoint Tests Complete [ ]
-- [ ] 4 archivos de tests de endpoints pasan
-- [ ] Categories: 4+ tests
-- [ ] Products: 7+ tests
-- [ ] Movements: 10+ tests
-- [ ] Stock: 5+ tests
-- [ ] `make lint` pasa
-- [ ] Listo para error mapping tests
-
----
-
-## Phase 3: Error Mapping Tests [0/1]
-
-- [ ] **Task 7:** Tests de mapeo de errores
-  - `tests/integration/api/test_error_mapping_api.py`
-  - `test_insufficient_stock_returns_409` — OUT sin stock → 409 con código `INSUFFICIENT_STOCK`
-  - `test_insufficient_stock_includes_details` — 409 incluye product_id, requested, available
-  - `test_invalid_sku_returns_422` — SKU inválido → 422 con código `INVALID_SKU`
-  - `test_immutability_violation_returns_403` — handler registrado para 403
-  - `test_validation_error_returns_400` — TRANSFER sin metadata → 400
-  - `test_error_response_format` — formato `{"error": {"code": "...", "message": "..."}}` consistente
-  - Verify: `pytest tests/integration/api/test_error_mapping_api.py -v`
-
-### Checkpoint: Error Mapping Complete [ ]
-- [ ] 6 exception handlers producen respuestas HTTP correctas
-- [ ] Formato `ErrorResponse` consistente
+- [ ] 6 campos Settings accesibles
+- [ ] ConcurrencyConflictError instanciable y hereda DomainError
+- [ ] `.env.example` con todas las variables nuevas
 - [ ] `make lint` pasa
 
 ---
 
-## Phase 4: Validación Final [0/3]
+## Phase 2: Core Infrastructure [0/2]
 
-- [ ] **Task 8:** Build completo con cobertura
+- [ ] **Task 3:** Implementar @retry_with_backoff + tests
+  - `src/core/retry.py` — decorador factory async con backoff exponencial + jitter
+  - `src/core/__init__.py` — re-export `retry_with_backoff`
+  - `tests/unit/core/__init__.py` — nuevo
+  - `tests/unit/core/test_retry.py` — 5+ tests (éxito, reintento, fallo final, no-retryable, delay pattern)
+  - Mock `asyncio.sleep` para tests rápidos
+  - Verify: `pytest tests/unit/core/test_retry.py -v`
+
+- [ ] **Task 4:** Implementar logging + tests
+  - `src/infrastructure/logging/config.py` — `JSONFormatter` + `setup_logging()`
+  - `src/infrastructure/logging/__init__.py` — re-export `setup_logging`
+  - `tests/unit/infrastructure/logging/__init__.py` — nuevo
+  - `tests/unit/infrastructure/logging/test_config.py` — 4+ tests (JSON válido, request_id, exception, setup_logging)
+  - Verify: `pytest tests/unit/infrastructure/logging/test_config.py -v`
+
+### Checkpoint: Core Infrastructure Ready [ ]
+- [ ] Retry decorator funciona y tests pasan
+- [ ] JSON formatter produce JSON válido con todos los campos
+- [ ] `setup_logging` configura logger root correctamente
+- [ ] `make lint` pasa
+
+---
+
+## Phase 3: HTTP Layer [0/2]
+
+- [ ] **Task 5:** Implementar RequestLoggingMiddleware + tests integración
+  - `src/adapters/api/middleware/request_logging.py` — `request_id_ctx`, `RequestLoggingMiddleware`, `get_request_id()`
+  - Excluye `/v1/health` y `/health`
+  - UUID4 + contextvars + `X-Request-ID` header + timing
+  - `tests/integration/api/test_request_logging.py` — 3 tests (X-Request-ID presente, health excluido, unique per request)
+  - Verify: `pytest tests/integration/api/test_request_logging.py -v`
+
+- [ ] **Task 6:** Actualizar error handler
+  - `src/adapters/api/middleware/error_handler.py` — handler `ConcurrencyConflictError` → HTTP 409 `CONCURRENCY_CONFLICT`
+  - Handler registrado **ANTES** de `DomainError` genérico
+  - `request_id` de `get_request_id()` en respuestas de error
+  - Tests de ConcurrencyConflictError añadidos
+  - Verify: `pytest tests/unit/domain/test_exceptions.py -v` (o archivo apropiado)
+
+### Checkpoint: HTTP Layer Ready [ ]
+- [ ] RequestLoggingMiddleware añade X-Request-ID a respuestas
+- [ ] Health endpoints excluidos del logging
+- [ ] ConcurrencyConflictError handler retorna 409
+- [ ] `request_id` incluido en respuestas de error
+- [ ] `make lint` pasa
+
+---
+
+## Phase 4: Scheduler & Integration [0/3]
+
+- [ ] **Task 7:** Configurar statement_timeout
+  - `src/infrastructure/db/connection.py` — `init_pool()` ejecuta `SET statement_timeout`
+  - Valor: `settings.api_statement_timeout_seconds * 1000` (ms)
+  - Default 5000ms, fallback graceful con log warning
+  - Verify: `python -c "from src.infrastructure.db.connection import init_pool; ..."`
+
+- [ ] **Task 8:** Implementar scheduler module + tests
+  - `src/infrastructure/scheduler/scheduler.py` — `_RETRYABLE_EXCEPTIONS`, `_refresh_job()` con `@retry_with_backoff`, `create_scheduler()`, `start_scheduler()`, `shutdown_scheduler()`
+  - `_refresh_job` usa `pool.acquire() + conn.transaction()` para `SET LOCAL statement_timeout`
+  - `src/infrastructure/scheduler/__init__.py` — re-exports
+  - `tests/unit/infrastructure/scheduler/__init__.py` — nuevo
+  - `tests/unit/infrastructure/scheduler/test_scheduler.py` — 5+ tests (create, job params, enabled/disabled, shutdown, refresh)
+  - Todos los tests con mocks
+  - Verify: `pytest tests/unit/infrastructure/scheduler/test_scheduler.py -v`
+
+- [ ] **Task 9:** Integrar en main.py + aislamiento de tests
+  - `src/main.py` — `setup_logging()` antes de `init_pool()`, `RequestLoggingMiddleware` en `create_app()`, scheduler en lifespan, version 0.5.0
+  - `tests/conftest.py` — `SCHEDULER_ENABLED=false` via monkeypatch
+  - Todos los tests F0-F4 siguen pasando
+  - Verify: `pytest tests/ -v --co -q` sin errores de import
+
+### Checkpoint: Integration Complete [ ]
+- [ ] Scheduler inicia y para con lifecycle de la app
+- [ ] Logging configurado al startup
+- [ ] Request middleware activo
+- [ ] `SCHEDULER_ENABLED=false` previene scheduler en tests
+- [ ] `make lint` pasa
+
+---
+
+## Phase 5: Validación & Documentación [0/2]
+
+- [ ] **Task 10:** Build completo con cobertura
   - `make lint` → 0 errores
-  - `make test` → todos verdes (unit + integration)
-  - Coverage `src/application/` > 85%
-  - Coverage `src/adapters/` > 70%
-  - OpenAPI `/docs` muestra 10 endpoints
-  - Version 0.4.0 en `main.py`
-  - Verify: `make build` exit code 0; `make test-cov` > 85% application
+  - `make test` → todos verdes (F0-F5)
+  - Coverage `src/core/retry.py` > 80%
+  - Coverage `src/infrastructure/scheduler/` > 70%
+  - Coverage `src/infrastructure/logging/` > 70%
+  - Total tests: 255+ (235 existentes + 20+ nuevos)
+  - Version 0.5.0 en `main.py`
+  - Verify: `make build` exit code 0; `make test-cov` targets cumplidos
 
-- [ ] **Task 9:** Actualizar documentación del proyecto
-  - `WORKFLOW.md` — F4 status con conteo de tests de integración
-  - `docs/workflow/spec-tracking.md` — Spec-40/41/42 verificados
-  - `docs/workflow/roadmap-phases.md` — F4 "En Progreso" → "Completado"
-  - `SPEC.md` — F4 success criteria verificados
+- [ ] **Task 11:** Actualizar documentación del proyecto
+  - `WORKFLOW.md` — F5 status con descripción precisa
+  - `docs/workflow/spec-tracking.md` — Spec-50/51/52 verificados
+  - `docs/workflow/roadmap-phases.md` — F5 status "Completado"
+  - `AGENTS.md` — Fase actualizada
+  - `SPEC.md` — F5 success criteria verificados
   - Verify: revisión de archivos actualizados
 
-- [ ] **Task 10:** Eliminar directorio vacío `application/interfaces/`
-  - `src/application/interfaces/` (eliminar directorio completo)
-  - Verificar: `grep -r "application.interfaces" src/ tests/` retorna nada
-  - Verify: `make lint` pasa; `make test` pasa
-
-### Checkpoint: F4 Complete [ ]
-- [ ] Todos los criterios de Spec-40/41/42 cumplidos
+### Checkpoint: F5 Complete [ ]
+- [ ] Todos los criterios de Spec-50/51/52 cumplidos
 - [ ] `make build` pasa
-- [ ] Coverage `src/application/` > 85%
-- [ ] Tests de integración para los 10 endpoints pasan
-- [ ] Error mapping validado end-to-end
+- [ ] Coverage targets cumplidos para todos los módulos nuevos
+- [ ] 20+ nuevos tests pasan
+- [ ] Sin regresiones en tests F0-F4 existentes
 - [ ] Documentación actualizada y precisa
-- [ ] Sin código muerto (`application/interfaces/` eliminado)
-- [ ] Listo para revisión humana → F5
+- [ ] Listo para revisión humana → F6
 
 ---
 
@@ -140,41 +142,36 @@
 | Phase | Tasks | Completed |
 |-------|-------|-----------|
 | Phase 1: Foundation | 2 | 0/2 |
-| Phase 2: Endpoint Tests | 4 | 0/4 |
-| Phase 3: Error Mapping | 1 | 0/1 |
-| Phase 4: Final Validation | 3 | 0/3 |
-| **Total** | **10** | **0/10** |
+| Phase 2: Core Infrastructure | 2 | 0/2 |
+| Phase 3: HTTP Layer | 2 | 0/2 |
+| Phase 4: Scheduler & Integration | 3 | 0/3 |
+| Phase 5: Validación & Docs | 2 | 0/2 |
+| **Total** | **11** | **0/11** |
 
 ---
 
 ## Implementation Order Reference
 
 ```
-Task 1 (API client fixture)
+Tasks 1, 2 (parallel)
     ↓
-Task 2 (count_by_product test — independent, can parallelize)
+Tasks 3, 4, 5, 7 (parallel after T1+T2)
     ↓
-Tasks 3, 4, 5, 6 (endpoint tests — can be parallelized)
+Task 6 (after T2+T5)
     ↓
-Task 7 (error mapping tests — after Task 5 for reference)
+Task 8 (after T3+T7)
     ↓
-Task 10 (cleanup — independent, can parallelize)
+Task 9 (after T1+T4+T5+T8)
     ↓
-Task 8 (build validation)
+Task 10 (after T9)
     ↓
-Task 9 (docs update)
+Task 11 (after T10)
 ```
 
-## Resolved Decisions (F4-Q1 through F4-Q10)
+## Resolved Decisions (F5-Q11 through F5-Q14)
 
-All 10 decisions from preliminary implementation are confirmed:
-- `count_by_product()` implemented now (F4-Q1)
-- `validate_stock_not_negative()` fixed with `product_id` (F4-Q2)
-- F4 spec appended to SPEC.md (F4-Q3)
-- Unit + Integration testing scope (F4-Q4)
-- `ListProductsUseCase` returns total via `count_all()` (F4-Q5)
-- GET by ID direct to repo (CQRS) (F4-Q6)
-- Use cases as classes with DI (F4-Q7)
-- UoW only for OUT/TRANSFER (F4-Q8)
-- API snake_case (F4-Q9)
-- Exception handlers (not middleware) (F4-Q10)
+All 4 decisions from the implementation questionnaire are confirmed:
+- `SET LOCAL` scoped via `pool.acquire() + conn.transaction()` in `_refresh_job` (F5-Q11)
+- `SCHEDULER_ENABLED=false` in `tests/conftest.py` via monkeypatch (F5-Q12)
+- Overwrite F4 plan/todo files (historical) (F5-Q13)
+- Retry only on `_refresh_job`, not on use cases (F5-Q14)
