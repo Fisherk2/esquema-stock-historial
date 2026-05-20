@@ -71,7 +71,7 @@ FROM python:3.12-slim AS runtime
 LABEL org.opencontainers.image.title="Stock Historial" \
       org.opencontainers.image.description="Sistema de gestión de inventario con Source of Truth Inmutable" \
       org.opencontainers.image.version="1.0.0" \
-      org.opencontainers.image.source="https://github.com/user/stock-historial" \
+      org.opencontainers.image.source="https://github.com/Fisherk2/esquema-stock-historial" \
       org.opencontainers.image.licenses="MIT"
 
 # Crear usuario no-root antes de COPY

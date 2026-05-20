@@ -60,7 +60,7 @@ El README sigue el patrón de **progressive disclosure**: overview → stack →
 ### Badge URLs
 
 ```
-[![CI](https://github.com/{user}/stock-historial/actions/workflows/ci.yml/badge.svg)](https://github.com/{user}/stock-historial/actions/workflows/ci.yml)
+[![CI](https://github.com/Fisherk2/esquema-stock-historial/actions/workflows/ci.yml/badge.svg)](https://github.com/Fisherk2/esquema-stock-historial/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-3.12-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
