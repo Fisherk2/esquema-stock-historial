@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from src.application.dtos.error_dtos import ErrorDetail, ErrorResponse
@@ -18,7 +17,8 @@ from src.domain.exceptions.immutability_violation import ImmutabilityViolationEr
 from src.domain.exceptions.insufficient_stock import InsufficientStockError
 
 if TYPE_CHECKING:
-    from fastapi import FastAPI
+    import asyncpg
+    from fastapi import FastAPI, Request
 from src.domain.exceptions.invalid_quantity import InvalidQuantityError
 from src.domain.exceptions.invalid_sku import InvalidSKUError
 
@@ -116,9 +116,7 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(DomainError)
-    async def handle_domain_error(
-        request: Request, exc: DomainError
-    ) -> JSONResponse:
+    async def handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
         """Mapea DomainError (base) a HTTP 500 Internal Server Error.
 
         Este handler captura cualquier DomainError no manejado por los
@@ -135,9 +133,7 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(ValueError)
-    async def handle_value_error(
-        request: Request, exc: ValueError
-    ) -> JSONResponse:
+    async def handle_value_error(request: Request, exc: ValueError) -> JSONResponse:
         """Mapea ValueError a HTTP 400 Bad Request.
 
         Se usa para errores de validacion de input (metadata inconsistente,
@@ -149,6 +145,63 @@ def register_error_handlers(app: FastAPI) -> None:
                 error=ErrorDetail(
                     code="VALIDATION_ERROR",
                     message=str(exc),
+                )
+            ).model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        """Mapea cualquier excepcion no manejada a HTTP 500.
+
+        Captura errores de infraestructura (asyncpg, etc.) que no tienen
+        handlers especificos. Nunca expone stack traces ni detalles internos.
+        """
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="INTERNAL_ERROR",
+                    message="An unexpected error occurred.",
+                )
+            ).model_dump(),
+        )
+
+    import asyncpg
+
+    @app.exception_handler(asyncpg.DataError)
+    async def handle_asyncpg_data_error(
+        request: Request, exc: asyncpg.DataError
+    ) -> JSONResponse:
+        """Mapea asyncpg.DataError a HTTP 500.
+
+        Captura errores de codificacion de datos (overflow, encoding)
+        que ocurren en el nivel de protocolo asyncpg.
+        """
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="INTERNAL_ERROR",
+                    message="An unexpected error occurred.",
+                )
+            ).model_dump(),
+        )
+
+    @app.exception_handler(asyncpg.PostgresError)
+    async def handle_asyncpg_postgres_error(
+        request: Request, exc: asyncpg.PostgresError
+    ) -> JSONResponse:
+        """Mapea asyncpg.PostgresError a HTTP 500.
+
+        Captura todos los errores de PostgreSQL (FK violations, null bytes,
+        etc.) que no tienen handlers especificos.
+        """
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="INTERNAL_ERROR",
+                    message="An unexpected error occurred.",
                 )
             ).model_dump(),
         )

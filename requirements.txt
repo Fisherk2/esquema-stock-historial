@@ -18,3 +18,4 @@ freezegun==1.5.5
 pre-commit==4.6.0
 mypy==2.1.0
 hypothesis==6.141.1
+pytest-benchmark==5.2.3

@@ -73,8 +73,7 @@ async def test_mv_stock_multiple_products(db_pool: asyncpg.Pool) -> None:
 
     for i in range(10):
         await db_pool.execute(
-            "INSERT INTO products (sku, name, category_id) "
-            "VALUES ($1, $2, $3)",
+            "INSERT INTO products (sku, name, category_id) " "VALUES ($1, $2, $3)",
             f"MV-MULTI-{i:02d}",
             f"Multi Product {i}",
             cat_row["id"],

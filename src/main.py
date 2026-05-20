@@ -18,14 +18,17 @@ Ejemplo::
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 
 from src.adapters.api.routers.health import router as health_router
 from src.core.config import Settings
 from src.infrastructure.db.connection import close_pool, init_pool
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @asynccontextmanager
@@ -91,7 +94,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Stock Historial",
         description="Sistema de gestion de inventario con Source of Truth Inmutable",
-        version="0.4.0",
+        version="0.6.0",
         lifespan=lifespan,
     )
 

@@ -130,10 +130,7 @@ async def insert_batch_movements(
         movement_type: Tipo de movimiento (IN, OUT, ADJUSTMENT, TRANSFER).
         quantity: Cantidad por movimiento.
     """
-    rows = [
-        (product_id, movement_type, quantity, "{}")
-        for _ in range(count)
-    ]
+    rows = [(product_id, movement_type, quantity, "{}") for _ in range(count)]
     await pool.executemany(
         """
         INSERT INTO movements (product_id, movement_type, quantity, metadata)

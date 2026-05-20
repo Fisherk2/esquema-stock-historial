@@ -47,7 +47,8 @@ async def test_list_below_threshold_none(db_pool: asyncpg.Pool) -> None:
         "SELECT id FROM categories WHERE name = 'General' LIMIT 1"
     )
     await db_pool.execute(
-        "INSERT INTO products (sku, name, unit_of_measure, category_id, min_stock_threshold) "
+        "INSERT INTO products "
+        "(sku, name, unit_of_measure, category_id, min_stock_threshold) "
         "VALUES ('THRESH-NONE', 'No Threshold', 'unit', $1, 0)",
         cat["id"],
     )

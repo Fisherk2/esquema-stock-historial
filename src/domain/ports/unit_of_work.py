@@ -33,7 +33,7 @@ class IUnitOfWork(Protocol):
         """La conexion activa dentro de la transaccion."""
         ...
 
-    async def __aenter__(self) -> "IUnitOfWork":
+    async def __aenter__(self) -> IUnitOfWork:
         """Adquiere conexion e inicia transaccion."""
         ...
 

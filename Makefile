@@ -21,6 +21,7 @@ help:
 	@echo "  clean       Remove cache and build artifacts"
 	@echo "  migrate     Run database migrations"
 	@echo "  seed        Insert seed data for development"
+	@echo "  typecheck   Run mypy strict type checking"
 
 install:
 	pip install -r requirements.txt

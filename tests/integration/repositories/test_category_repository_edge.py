@@ -7,15 +7,11 @@ nombre duplicado (UniqueViolation).
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
 
 from src.domain.entities.category import Category
-
-if TYPE_CHECKING:
-    import asyncpg as asyncpg_type
 
 _NOW = datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC)
 
@@ -30,7 +26,7 @@ def _make_category(name: str, description: str | None = None) -> Category:
     )
 
 
-async def test_get_by_id_not_found(db_pool: asyncpg_type.Pool) -> None:
+async def test_get_by_id_not_found(db_pool: asyncpg.Pool) -> None:
     """get_by_id() retorna None para categoria inexistente."""
     from src.infrastructure.repositories.category_repository import (
         PostgresCategoryRepository,
@@ -42,7 +38,7 @@ async def test_get_by_id_not_found(db_pool: asyncpg_type.Pool) -> None:
     assert result is None
 
 
-async def test_list_all_returns_only_new_categories(db_clean: asyncpg_type.Pool) -> None:
+async def test_list_all_returns_only_new_categories(db_clean: asyncpg.Pool) -> None:
     """list_all() retorna solo categorias creadas tras limpiar datos.
 
     Usa db_clean que ya hace TRUNCATE + re-seed. Verificamos que las
@@ -62,7 +58,7 @@ async def test_list_all_returns_only_new_categories(db_clean: asyncpg_type.Pool)
 
 
 async def test_create_duplicate_name_raises_unique_violation(
-    db_pool: asyncpg_type.Pool,
+    db_pool: asyncpg.Pool,
 ) -> None:
     """create() con nombre duplicado lanza UniqueViolation de asyncpg."""
     from src.infrastructure.repositories.category_repository import (

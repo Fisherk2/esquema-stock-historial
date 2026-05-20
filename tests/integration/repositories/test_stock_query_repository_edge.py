@@ -157,23 +157,15 @@ async def test_get_current_stock_after_mixed_movements(
     prod = await db_pool.fetchrow("SELECT id FROM products WHERE sku = 'STK-EDGE-005'")
     product_id = prod["id"]
 
-    # IN: +100, OUT: -30, ADJUSTMENT: +10, TRANSFER: -5 → net = 75
-    await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'IN', 100)",
-        product_id,
+    # IN: +100, OUT: -30, ADJUSTMENT: +10, TRANSFER: -5 -> net = 75
+    base_sql = (
+        "INSERT INTO movements "
+        "(product_id, movement_type, quantity) VALUES ($1, '{type}', {qty})"
     )
-    await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'OUT', 30)",
-        product_id,
-    )
-    await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'ADJUSTMENT', 10)",
-        product_id,
-    )
-    await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'TRANSFER', 5)",
-        product_id,
-    )
+    await db_pool.execute(base_sql.format(type="IN", qty=100), product_id)
+    await db_pool.execute(base_sql.format(type="OUT", qty=30), product_id)
+    await db_pool.execute(base_sql.format(type="ADJUSTMENT", qty=10), product_id)
+    await db_pool.execute(base_sql.format(type="TRANSFER", qty=5), product_id)
 
     repo = PostgresStockQueryRepository(db_pool)
     stock = await repo.get_current_stock(product_id)

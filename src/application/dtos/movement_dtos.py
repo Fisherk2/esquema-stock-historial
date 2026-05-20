@@ -31,7 +31,7 @@ class CreateMovementInput(BaseModel):
         }
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     product_id: int = Field(
         gt=0,

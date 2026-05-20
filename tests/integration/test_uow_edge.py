@@ -46,9 +46,10 @@ async def test_uow_rollback_on_second_repo_error(
         async with PostgresUnitOfWork(db_pool) as uow:
             assert uow.connection is not None
             product_repo = PostgresProductRepository(db_pool, uow.connection)
+            from datetime import UTC, datetime
+
             from src.domain.entities.product import Product
             from src.domain.value_objects.sku import SKU
-            from datetime import UTC, datetime
 
             await product_repo.create(
                 Product(
@@ -93,6 +94,7 @@ async def test_uow_successful_commit_persists_all(
 ) -> None:
     """UoW con commit exitoso persiste todos los cambios."""
     import json
+
     from src.infrastructure.db.uow import PostgresUnitOfWork
 
     product_id_row = await db_pool.fetchrow("SELECT id FROM products LIMIT 1")

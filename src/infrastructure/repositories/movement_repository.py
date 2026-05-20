@@ -22,11 +22,12 @@ from __future__ import annotations
 import json  # Serializa dict → str para columna JSONB (asyncpg 0.31.0 + Python 3.14)
 from typing import TYPE_CHECKING
 
+import asyncpg
+
 from src.domain.ports.movement_repository import IMovementRepository
 from src.infrastructure.repositories.mappers import map_movement_row
 
 if TYPE_CHECKING:
-    import asyncpg
 
     from src.domain.entities.movement import Movement
 
@@ -87,15 +88,18 @@ class PostgresMovementRepository(IMovementRepository):
 
     async def create(self, movement: Movement) -> Movement:
         """Persiste un nuevo movimiento y retorna la entidad con id asignado."""
-        row = await self._get_conn().fetchrow(
-            self._CREATE_SQL,
-            movement.product_id,
-            movement.movement_type.value,
-            movement.quantity.value,
-            json.dumps(movement.metadata),
-            movement.reference,
-            movement.created_at,
-        )
+        try:
+            row = await self._get_conn().fetchrow(
+                self._CREATE_SQL,
+                movement.product_id,
+                movement.movement_type.value,
+                movement.quantity.value,
+                json.dumps(movement.metadata),
+                movement.reference,
+                movement.created_at,
+            )
+        except asyncpg.PostgresError as exc:
+            raise ValueError(f"Database error: {exc}") from exc
         return map_movement_row(row)
 
     async def get_by_id(self, movement_id: int) -> Movement | None:

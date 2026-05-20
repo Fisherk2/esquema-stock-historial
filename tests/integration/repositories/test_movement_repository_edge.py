@@ -101,12 +101,14 @@ async def test_list_by_product_pagination_offset_exceeds(
     product_id = prod["id"]
 
     # Insert 2 movements
-    await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'IN', 10)",
-        product_id,
+    insert_sql = (
+        "INSERT INTO movements "
+        "(product_id, movement_type, quantity) VALUES ($1, 'IN', 10)"
     )
+    await db_pool.execute(insert_sql, product_id)
     await db_pool.execute(
-        "INSERT INTO movements (product_id, movement_type, quantity) VALUES ($1, 'IN', 5)",
+        "INSERT INTO movements "
+        "(product_id, movement_type, quantity) VALUES ($1, 'IN', 5)",
         product_id,
     )
 
