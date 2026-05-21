@@ -184,3 +184,19 @@ class TestRetryWithBackoffMultipleExceptions:
 
         assert result == "ok"
         assert call_count == 3
+
+
+class TestRetryWithBackoffValidation:
+    """Tests para validacion de parametros del decorador."""
+
+    def test_empty_exceptions_raises_value_error(self):
+        """Debe rechazar la decoracion si no se especifican excepciones."""
+        with pytest.raises(ValueError, match="exceptions must specify at least one"):
+
+            @retry_with_backoff(
+                max_retries=3,
+                base_delay=0.001,
+                jitter=0.0,
+            )
+            async def no_exceptions_configured():
+                return "ok"

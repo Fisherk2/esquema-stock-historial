@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.adapters.api.dependencies import (
     get_create_product_use_case,
@@ -50,7 +50,11 @@ async def create_product(
         description=body.description,
         min_stock_threshold=body.min_stock_threshold,
     )
-    assert product.id is not None
+    if product.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create product: no ID generated",
+        )
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,
@@ -107,10 +111,12 @@ async def get_product(
     """Obtiene un producto por su ID."""
     product = await repo.get_by_id(product_id)
     if product is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Product not found")
-    assert product.id is not None
+    if product.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Product ID missing after retrieval",
+        )
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,

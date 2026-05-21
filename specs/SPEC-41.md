@@ -41,12 +41,12 @@ Definir los modelos Pydantic (BaseModel) de **Input** y **Output** separados par
 #### Input: `CreateMovementInput`
 
 ```python
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class MovementTypeInput(str, Enum):
+class MovementTypeInput(StrEnum):
     """Tipo de movimiento de inventario (serializable a JSON)."""
 
     IN = "IN"
@@ -69,7 +69,7 @@ class CreateMovementInput(BaseModel):
         }
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     product_id: int = Field(
         gt=0,
@@ -85,7 +85,7 @@ class CreateMovementInput(BaseModel):
         description="Cantidad positiva de unidades.",
         json_schema_extra={"examples": [10]},
     )
-    metadata: dict[str, str] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Datos contextuales. Obligatorio para TRANSFER y ADJUSTMENT.",
         json_schema_extra={"examples": [{"supplier": "ACME"}]},
@@ -97,8 +97,21 @@ class CreateMovementInput(BaseModel):
         json_schema_extra={"examples": ["PO-12345"]},
     )
 
-    @model_validator(mode="after")
-    def validate_movement_metadata(self) -> "CreateMovementInput":
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def coerce_movement_type(
+        cls,
+        v: str | MovementTypeInput,
+    ) -> MovementTypeInput:
+        """Convierte strings a MovementTypeInput enum.
+
+        Con strict=True, Pydantic requiere enum instances, no strings.
+        Este validator permite que la API acepte strings (ej: "IN") y los
+        convierta a enum antes de la validacion estricta.
+        """
+        if isinstance(v, MovementTypeInput):
+            return v
+        return MovementTypeInput(v)
         """Valida metadata condicional segun el tipo de movimiento.
 
         TRANSFER requiere 'origin' y 'destination' en metadata.
@@ -151,7 +164,7 @@ class MovementOutput(BaseModel):
     product_id: int = Field(description="ID del producto afectado.")
     movement_type: str = Field(description="Tipo de movimiento.")
     quantity: int = Field(description="Cantidad de unidades.")
-    metadata: dict[str, str] = Field(description="Datos contextuales.")
+    metadata: dict[str, Any] = Field(description="Datos contextuales.")
     reference: str | None = Field(description="Referencia externa.")
     created_at: datetime = Field(description="Fecha y hora UTC del movimiento.")
 ```
@@ -256,7 +269,7 @@ class CreateProductInput(BaseModel):
         }
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     sku: str = Field(
         min_length=1,
@@ -382,7 +395,7 @@ class CreateCategoryInput(BaseModel):
         }
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     name: str = Field(
         min_length=1,

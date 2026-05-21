@@ -20,7 +20,7 @@
 ```
 src/
 ├── domain/          # Entidades, excepciones, reglas de negocio puras, ports (protocols)
-├── application/     # UseCases, DTOs, Interfaces (Protocols)
+├── application/     # UseCases, DTOs (Pydantic Input/Output)
 ├── infrastructure/ # DB (connection, uow, migrations, seed), repositories (asyncpg wrappers), scheduler, logging
 │ ├── db/ # connection.py, uow.py, migrate.py (non-transactional support), seed.py
 │ ├── repositories/ # base_repository.py, movement_repository.py, product_repository.py, category_repository.py, stock_query_repository.py, mappers.py

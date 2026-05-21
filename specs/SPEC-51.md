@@ -113,8 +113,8 @@ def retry_with_backoff(
     base_delay: float = 1.0,
     max_delay: float = 30.0,
     jitter: float = 0.5,
-    exceptions: tuple[type[Exception], ...] = (Exception,),
-) -> Callable[[F], F]:
+    exceptions: tuple[type[Exception], ...] = (),
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorador de reintentos con backoff exponencial y jitter.
 
     Reintenta la funcion decorada hasta ``max_retries`` veces cuando
@@ -124,11 +124,19 @@ def retry_with_backoff(
         delay = min(base_delay * 2^attempt + random(0, jitter), max_delay)
 
     Args:
-        max_retries: Numero maximo de reintentos (no cuenta el intento inicial).
+        max_retries: Numero maximo de reintentos (no cuenta el intento
+            inicial).
         base_delay: Delay base en segundos para el primer reintento.
         max_delay: Delay maximo en segundos (tope del backoff).
         jitter: Rango de aleatoriedad añadido a cada delay (segundos).
         exceptions: Tupla de excepciones que disparan el reintento.
+            **Requerido** — no usar el valor por defecto vacio, ya que
+            capturar todas las excepciones reintentaria errores no
+            recuperables (ValueError, logica, etc.).
+
+    Raises:
+        ValueError: Si ``exceptions`` esta vacio (se requiere al menos
+            una excepcion configurada).
 
     Returns:
         Decorador que envuelve la funcion con logica de reintento.
@@ -143,10 +151,16 @@ def retry_with_backoff(
         async def risky_operation():
             ...
     """
+    if not exceptions:
+        raise ValueError(
+            "exceptions must specify at least one exception type. "
+            "Capturing Exception is unsafe — it would retry non-recoverable "
+            "errors (ValueError, logic errors, etc.)."
+        )
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception: Exception | None = None
 
             for attempt in range(max_retries + 1):

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.adapters.api.dependencies import (
     get_category_repo,
@@ -40,7 +40,11 @@ async def create_category(
         name=body.name,
         description=body.description,
     )
-    assert category.id is not None
+    if category.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create category: no ID generated",
+        )
     return CategoryOutput(
         id=category.id,
         name=category.name,

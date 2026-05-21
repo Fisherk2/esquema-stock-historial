@@ -122,7 +122,7 @@ end
 - `middleware/` — Error mapping (domain exceptions → HTTP status codes: `ProductNotFoundError`→400, `CategoryNotFoundError`→400, `InsufficientStockError`→409, etc.), request logging
 - `dependencies.py` — Factory functions para DI
 
-**Regla de importación:** Importa de aplicación e infraestructura. Nunca importa directamente del dominio.
+**Regla de importación:** Importa de aplicación e infraestructura. `dependencies.py` importa protocolos de `domain/ports/` como único puente; los routers no importan del dominio directamente.
 
 ## Reglas de Importación
 
@@ -131,7 +131,7 @@ end
 | **Domain** | Nada de otras capas | Application, Infrastructure, Adapters |
 | **Application** | Domain | Infrastructure, Adapters |
 | **Infrastructure** | Domain, Application | Adapters |
-| **Adapters** | Application, Infrastructure | Domain (directo) |
+| **Adapters** | Application, Infrastructure, `domain/ports/` (solo protocolos via DI) | `domain/entities/`, `domain/rules/` (directo) |
 
 ## Patrones Clave
 

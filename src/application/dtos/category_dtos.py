@@ -18,7 +18,7 @@ class CreateCategoryInput(BaseModel):
         }
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     name: str = Field(
         min_length=1,

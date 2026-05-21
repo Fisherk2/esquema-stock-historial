@@ -70,8 +70,9 @@ async def _refresh_job(pool: Pool, statement_timeout: int = 30) -> None:
     start = time.monotonic()
     _logger.info("Starting mv_stock_historical refresh")
     try:
+        # Timeout elevado para refresh (parametrizado para evitar inyeccion SQL)
         timeout_ms = statement_timeout * 1000
-        await pool.execute(f"SET LOCAL statement_timeout = '{timeout_ms}'")
+        await pool.execute("SET LOCAL statement_timeout = $1", timeout_ms)
         await _do_refresh(pool)
         elapsed = time.monotonic() - start
         _logger.info("mv_stock_historical refreshed in %.2fs", elapsed)

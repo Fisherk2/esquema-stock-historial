@@ -13,13 +13,39 @@
 
 ## Formato de Error
 
-Todos los errores retornan un cuerpo JSON con el siguiente formato:
+La API utiliza **dos formatos de error** dependiendo del tipo de validación:
+
+### Errores de Validación Pydantic (HTTP 422)
+
+Cuando el payload no cumple con el esquema del DTO de entrada, FastAPI retorna automáticamente:
 
 ```json
 {
-  "detail": "Error message describing what went wrong"
+  "detail": [
+    {
+      "type": "string_too_short",
+      "loc": ["body", "name"],
+      "msg": "String should have at least 1 character"
+    }
+  ]
 }
 ```
+
+### Errores de Dominio y Negocio
+
+Todos los errores de negocio retornan un cuerpo JSON con formato estructurado:
+
+```json
+{
+  "error": {
+    "code": "INSUFFICIENT_STOCK",
+    "message": "Error message describing what went wrong",
+    "details": {}
+  }
+}
+```
+
+El campo `details` es opcional y contiene contexto adicional (IDs, valores, `request_id` para debugging).
 
 ### Códigos de Error
 

@@ -92,7 +92,7 @@ Las siguientes reglas de importación son obligatorias y se verifican en CI:
 | `domain/` | Solo módulos internos de `domain/` | `application/`, `infrastructure/`, `adapters/` |
 | `application/` | `domain/`, módulos internos de `application/` | `infrastructure/`, `adapters/` |
 | `infrastructure/` | `domain/`, `application/`, libs externas | `adapters/` |
-| `adapters/` | `domain/`, `application/`, `infrastructure/`, libs externas | — |
+| `adapters/` | `application/`, `infrastructure/`, `domain/ports/` (solo protocolos via DI), libs externas | `domain/entities/`, `domain/rules/` (directo) |
 
 **Verificación automatizada:**
 - `ruff` con `ban-relative-imports = "all"` previene imports relativos entre paquetes

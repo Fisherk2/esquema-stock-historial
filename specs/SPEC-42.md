@@ -257,15 +257,12 @@ async def create_movement(
         metadata=body.metadata,
         reference=body.reference,
     )
-    return MovementOutput(
-        id=movement.id,
-        product_id=movement.product_id,
-        movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,
-        metadata=movement.metadata,
-        reference=movement.reference,
-        created_at=movement.created_at,
-    )
+    if movement.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create movement: no ID generated",
+        )
+    return _movement_to_output(movement)
 
 
 @router.get(
@@ -283,15 +280,7 @@ async def get_movement(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Movement not found")
-    return MovementOutput(
-        id=movement.id,
-        product_id=movement.product_id,
-        movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,
-        metadata=movement.metadata,
-        reference=movement.reference,
-        created_at=movement.created_at,
-    )
+    return _movement_to_output(movement)
 
 
 @router.get(
@@ -307,20 +296,10 @@ async def list_movements(
 ) -> MovementListOutput:
     """Lista movimientos de un producto con paginacion."""
     movements = await repo.list_by_product(product_id, limit=limit, offset=offset)
+    total = await repo.count_by_product(product_id)
     return MovementListOutput(
-        items=[
-            MovementOutput(
-                id=m.id,
-                product_id=m.product_id,
-                movement_type=m.movement_type.value,
-                quantity=m.quantity.value,
-                metadata=m.metadata,
-                reference=m.reference,
-                created_at=m.created_at,
-            )
-            for m in movements
-        ],
-        total=len(movements),  # El repositorio deberia retornar total; simplificado
+        items=[_movement_to_output(m) for m in movements],
+        total=total,
         limit=limit,
         offset=offset,
     )
@@ -453,6 +432,11 @@ async def create_product(
         description=body.description,
         min_stock_threshold=body.min_stock_threshold,
     )
+    if product.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create product: no ID generated",
+        )
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,
@@ -512,6 +496,11 @@ async def get_product(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Product not found")
+    if product.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Product ID missing after retrieval",
+        )
     return ProductOutput(
         id=product.id,
         sku=product.sku.value,
@@ -566,6 +555,11 @@ async def create_category(
         name=body.name,
         description=body.description,
     )
+    if category.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create category: no ID generated",
+        )
     return CategoryOutput(
         id=category.id,
         name=category.name,
