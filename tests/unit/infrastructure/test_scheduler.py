@@ -23,7 +23,6 @@ class TestCreateScheduler:
             pool,
             refresh_interval_minutes=10,
             misfire_grace_time=30,
-            statement_timeout=45,
         )
 
         jobs = scheduler.get_jobs()

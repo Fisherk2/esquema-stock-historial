@@ -77,8 +77,8 @@ async def list_categories(
         description="Numero de categorias a saltar.",
     ),
 ) -> list[CategoryOutput]:
-    """Lista categorias con paginacion."""
-    categories = await repo.list_all()
+    """Lista categorias con paginacion en base de datos."""
+    categories = await repo.list_all(limit=limit, offset=offset)
     return [
         CategoryOutput(
             id=c.id,  # type: ignore[arg-type]
@@ -86,5 +86,5 @@ async def list_categories(
             description=c.description,
             created_at=c.created_at,
         )
-        for c in categories[offset : offset + limit]
+        for c in categories
     ]

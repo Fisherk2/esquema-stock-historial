@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 — Pydantic needs runtime datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.domain.value_objects.movement_type import MovementType
+
+class MovementTypeInput(StrEnum):
+    """Tipo de movimiento de inventario (serializable a JSON).
+
+    Este enum vive en la capa de aplicacion (DTOs) para mantener la
+    independencia de Clean Architecture. El router lo mapea a
+    ``MovementType`` del dominio al llamar al use case.
+    """
+
+    IN = "IN"
+    OUT = "OUT"
+    ADJUSTMENT = "ADJUSTMENT"
+    TRANSFER = "TRANSFER"
 
 
 class CreateMovementInput(BaseModel):
@@ -31,7 +44,7 @@ class CreateMovementInput(BaseModel):
         description="ID del producto al que afecta el movimiento.",
         json_schema_extra={"examples": [1]},
     )
-    movement_type: MovementType = Field(
+    movement_type: MovementTypeInput = Field(
         description="Tipo de movimiento: IN, OUT, ADJUSTMENT, TRANSFER.",
         json_schema_extra={"examples": ["IN"]},
     )
@@ -56,17 +69,23 @@ class CreateMovementInput(BaseModel):
     @classmethod
     def coerce_movement_type(
         cls,
-        v: str | MovementType,
-    ) -> MovementType:
-        """Convierte strings a MovementType enum.
+        v: str | MovementTypeInput | object,
+    ) -> MovementTypeInput:
+        """Convierte strings a MovementTypeInput enum.
 
         Con strict=True, Pydantic requiere enum instances, no strings.
         Este validator permite que la API acepte strings (ej: "IN") y los
         convierta a enum antes de la validacion estricta.
+
+        Tambien acepta ``MovementType`` del dominio para compatibilidad
+        con tests que pasan el enum de dominio directamente.
         """
-        if isinstance(v, MovementType):
+        if isinstance(v, MovementTypeInput):
             return v
-        return MovementType(v)
+        # Acepta MovementType del domain (para tests)
+        if hasattr(v, "value"):
+            return MovementTypeInput(v.value)
+        return MovementTypeInput(v)
 
     @model_validator(mode="after")
     def validate_movement_metadata(self) -> CreateMovementInput:
@@ -78,14 +97,14 @@ class CreateMovementInput(BaseModel):
         Raises:
             ValueError: Si la metadata es insuficiente para el tipo.
         """
-        if self.movement_type == MovementType.TRANSFER and (
+        if self.movement_type == MovementTypeInput.TRANSFER and (
             "origin" not in self.metadata or "destination" not in self.metadata
         ):
             raise ValueError(
                 "TRANSFER movement requires 'origin' and 'destination' in metadata"
             )
         elif (
-            self.movement_type == MovementType.ADJUSTMENT
+            self.movement_type == MovementTypeInput.ADJUSTMENT
             and "reason" not in self.metadata
         ):
             raise ValueError("ADJUSTMENT movement requires 'reason' in metadata")

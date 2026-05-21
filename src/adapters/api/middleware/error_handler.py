@@ -206,20 +206,6 @@ def register_error_handlers(app: FastAPI) -> None:
             ).model_dump(),
         )
 
-        if not is_validation_error:
-            # Error interno de programacion — no enmascarar como 400
-            raise exc
-
-        return JSONResponse(
-            status_code=400,
-            content=ErrorResponse(
-                error=ErrorDetail(
-                    code="VALIDATION_ERROR",
-                    message=str(exc),
-                )
-            ).model_dump(),
-        )
-
     @app.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
         """Mapea cualquier excepcion no manejada a HTTP 500.

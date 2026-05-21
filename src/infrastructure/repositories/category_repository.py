@@ -1,7 +1,6 @@
 """PostgresCategoryRepository — implementacion concreta de ICategoryRepository.
 
-Repositorio de categorias con asyncpg y SQL explicito. Sin paginacion
-en list_all: se espera un conjunto pequeno de categorias.
+Repositorio de categorias con asyncpg y SQL explicito.
 
 Ejemplo de uso sin transacción::
 
@@ -46,6 +45,7 @@ class PostgresCategoryRepository(BasePostgresRepository, ICategoryRepository):
         SELECT id, name, description, created_at
         FROM categories
         ORDER BY name
+        LIMIT $1 OFFSET $2
     """
 
     async def create(self, category: Category) -> Category:
@@ -65,7 +65,7 @@ class PostgresCategoryRepository(BasePostgresRepository, ICategoryRepository):
             return None
         return map_category_row(row)
 
-    async def list_all(self) -> list[Category]:
-        """Lista todas las categorias ordenadas por nombre."""
-        rows = await self._get_conn().fetch(self._LIST_ALL_SQL)
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[Category]:
+        """Lista categorias con paginacion en base de datos."""
+        rows = await self._get_conn().fetch(self._LIST_ALL_SQL, limit, offset)
         return [map_category_row(r) for r in rows]

@@ -64,7 +64,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             enabled=settings.scheduler_enabled,
             refresh_interval_minutes=settings.scheduler_refresh_interval_minutes,
             misfire_grace_time=settings.scheduler_misfire_grace_time_seconds,
-            statement_timeout=settings.scheduler_statement_timeout_seconds,
         )
 
     try:

@@ -57,24 +57,20 @@ async def _do_refresh(pool: Pool) -> None:
     await refresh_stock_view(pool)
 
 
-async def _refresh_job(pool: Pool, statement_timeout: int = 30) -> None:
+async def _refresh_job(pool: Pool) -> None:
     """Job que refresca la vista materializada.
 
     Delega la ejecucion a _do_refresh con reintentos automaticos.
-    El statement_timeout esta heredado del pool via server_settings.
-    El retry_with_backoff en _do_refresh tolera timeouts y conflictos.
+    El statement_timeout esta heredado del pool via ``server_settings``
+    configurado en ``create_pool()``. El retry_with_backoff en
+    _do_refresh tolera timeouts y conflictos.
 
     Args:
         pool: Pool de conexiones asyncpg.
-        statement_timeout: Timeout en segundos para la operacion de refresh
-            (documentacional — el timeout real viene del pool).
     """
     start = time.monotonic()
     _logger.info("Starting mv_stock_historical refresh")
     try:
-        # Nota: SET LOCAL no funciona con pool.execute() sin transaccion.
-        # El timeout se controla via server_settings en create_pool().
-        # Si el refresh necesita mas tiempo, ajustar api_statement_timeout_seconds.
         await _do_refresh(pool)
         elapsed = time.monotonic() - start
         _logger.info("mv_stock_historical refreshed in %.2fs", elapsed)
@@ -87,7 +83,6 @@ def create_scheduler(
     pool: Pool,
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
-    statement_timeout: int = 30,
 ) -> AsyncIOScheduler:
     """Crea y configura el AsyncIOScheduler.
 
@@ -98,7 +93,6 @@ def create_scheduler(
         pool: Pool de conexiones asyncpg para el refresh.
         refresh_interval_minutes: Intervalo entre refreshes de la vista.
         misfire_grace_time: Tolerancia en segundos para jobs retrasados.
-        statement_timeout: Timeout en segundos para el refresh job.
 
     Returns:
         AsyncIOScheduler configurado y listo para iniciar.
@@ -109,7 +103,7 @@ def create_scheduler(
         _refresh_job,
         trigger="interval",
         minutes=refresh_interval_minutes,
-        args=[pool, statement_timeout],
+        args=[pool],
         id="refresh_stock_view",
         replace_existing=True,
         misfire_grace_time=misfire_grace_time,
@@ -124,7 +118,6 @@ async def start_scheduler(
     enabled: bool = True,
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
-    statement_timeout: int = 30,
 ) -> None:
     """Inicializa y arranca el scheduler.
 
@@ -133,7 +126,6 @@ async def start_scheduler(
         enabled: Si False, no arranca el scheduler (util en tests).
         refresh_interval_minutes: Intervalo entre refreshes.
         misfire_grace_time: Tolerancia para jobs retrasados.
-        statement_timeout: Timeout en segundos para el refresh job.
     """
     global _scheduler
 
@@ -142,7 +134,7 @@ async def start_scheduler(
         return
 
     _scheduler = create_scheduler(
-        pool, refresh_interval_minutes, misfire_grace_time, statement_timeout
+        pool, refresh_interval_minutes, misfire_grace_time
     )
     _scheduler.start()
     _logger.info(

@@ -1,8 +1,7 @@
 """ICategoryRepository port — interfaz para persistencia de categorias.
 
 Define el contrato que cualquier implementacion de repositorio de
-categorias debe cumplir. Sin paginacion porque se espera un conjunto
- pequeno de categorias.
+categorias debe cumplir.
 """
 
 from __future__ import annotations
@@ -15,11 +14,7 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class ICategoryRepository(Protocol):
-    """Contrato para repositorios de categorias.
-
-    Sin paginacion en list_all: se espera un conjunto pequeno de
-    categorias.
-    """
+    """Contrato para repositorios de categorias."""
 
     async def create(self, category: Category) -> Category:
         """Persiste una nueva categoria.
@@ -43,10 +38,14 @@ class ICategoryRepository(Protocol):
         """
         ...
 
-    async def list_all(self) -> list[Category]:
-        """Lista todas las categorias.
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[Category]:
+        """Lista categorias con paginacion.
+
+        Args:
+            limit: Numero maximo de categorias a retornar.
+            offset: Numero de categorias a saltar.
 
         Returns:
-            Lista de todas las categorias.
+            Lista de categorias paginadas.
         """
         ...
