@@ -152,7 +152,7 @@ class TestCreateMovementInputValidation:
     async def test_metadata_with_nested_objects(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """metadata con objetos anidados → 422 (dict[str,str] rechaza dict values)."""
+        """metadata con objetos anidados → acepta dict[str, Any] permite JSON."""
         resp = await api_client.post(
             "/v1/movements",
             json={
@@ -162,7 +162,7 @@ class TestCreateMovementInputValidation:
                 "metadata": {"nested": {"key": "value"}},
             },
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 201
 
 
 class TestCreateProductInputValidation:

@@ -19,6 +19,7 @@ Ejemplo de uso con Unit of Work::
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from src.domain.ports.movement_repository import IMovementRepository
@@ -72,7 +73,7 @@ class PostgresMovementRepository(BasePostgresRepository, IMovementRepository):
             movement.product_id,
             movement.movement_type.value,
             movement.quantity.value,
-            movement.metadata,
+            json.dumps(movement.metadata),
             movement.reference,
             movement.created_at,
         )
