@@ -8,6 +8,7 @@ import pytest
 
 from src.application.use_cases.record_movement import RecordMovementUseCase
 from src.domain.exceptions.insufficient_stock import InsufficientStockError
+from src.domain.exceptions.product_not_found import ProductNotFoundError
 from src.domain.value_objects.movement_type import MovementType
 
 
@@ -121,19 +122,21 @@ class TestRecordMovementUseCase:
         assert exc_info.value.requested == 10
         assert exc_info.value.available == 3
 
-    async def test_product_not_found_raises_value_error(
+    async def test_product_not_found_raises_product_not_found_error(
         self, use_case: RecordMovementUseCase, product_repo: AsyncMock
     ) -> None:
-        """Verifica que lanza ValueError si el producto no existe."""
+        """Verifica que lanza ProductNotFoundError si el producto no existe."""
         product_repo.get_by_id = AsyncMock(return_value=None)
 
-        with pytest.raises(ValueError, match=r"Product .* not found"):
+        with pytest.raises(ProductNotFoundError) as exc_info:
             await use_case.execute(
                 product_id=999,
                 movement_type=MovementType.IN,
                 quantity=10,
                 metadata={},
             )
+
+        assert exc_info.value.product_id == 999
 
     async def test_transfer_requires_origin_and_destination(
         self,

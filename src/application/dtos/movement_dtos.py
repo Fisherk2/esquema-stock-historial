@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 — Pydantic needs runtime datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -47,7 +48,7 @@ class CreateMovementInput(BaseModel):
         description="Cantidad positiva de unidades.",
         json_schema_extra={"examples": [10]},
     )
-    metadata: dict[str, str] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Datos contextuales. Obligatorio para TRANSFER y ADJUSTMENT.",
         json_schema_extra={"examples": [{"supplier": "ACME"}]},
@@ -119,7 +120,7 @@ class MovementOutput(BaseModel):
     product_id: int = Field(description="ID del producto afectado.")
     movement_type: str = Field(description="Tipo de movimiento.")
     quantity: int = Field(description="Cantidad de unidades.")
-    metadata: dict[str, str] = Field(description="Datos contextuales.")
+    metadata: dict[str, Any] = Field(description="Datos contextuales.")
     reference: str | None = Field(description="Referencia externa.")
     created_at: datetime = Field(description="Fecha y hora UTC del movimiento.")
 

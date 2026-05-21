@@ -23,9 +23,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import asyncpg
-
 from src.domain.ports.stock_query_repository import IStockQueryRepository
+from src.infrastructure.repositories.base_repository import BasePostgresRepository
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -33,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class PostgresStockQueryRepository(IStockQueryRepository):
+class PostgresStockQueryRepository(BasePostgresRepository, IStockQueryRepository):
     """Repositorio de consultas de stock con MV + fallback directo.
 
     Estrategia de dos niveles:
@@ -89,24 +88,6 @@ class PostgresStockQueryRepository(IStockQueryRepository):
           AND created_at <= $2
     """
 
-    def __init__(
-        self,
-        pool: asyncpg.Pool,
-        connection: asyncpg.Connection | None = None,
-    ) -> None:
-        """Inicializa el repositorio con pool y conexion opcional.
-
-        Args:
-            pool: Pool de conexiones asyncpg (requerido).
-            connection: Conexion activa para transacciones (opcional).
-        """
-        self._pool = pool
-        self._connection = connection
-
-    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexion activa o el pool."""
-        return self._connection if self._connection else self._pool
-
     async def get_current_stock(self, product_id: int) -> float:
         """Obtiene el stock actual via vista materializada con fallback.
 
@@ -115,6 +96,8 @@ class PostgresStockQueryRepository(IStockQueryRepository):
         (producto nuevo sin refresh), usa calculo directo.
         """
         try:
+            import asyncpg
+
             row = await self._get_conn().fetchrow(
                 self._MV_CURRENT_STOCK_SQL, product_id
             )

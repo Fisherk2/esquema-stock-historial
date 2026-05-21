@@ -21,96 +21,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.domain.ports.product_repository import IProductRepository
+from src.infrastructure.repositories.base_repository import BasePostgresRepository
 from src.infrastructure.repositories.mappers import map_product_row
 
 if TYPE_CHECKING:
-    import asyncpg
-
     from src.domain.entities.product import Product
 
 
-class PostgresProductRepository(IProductRepository):
+class PostgresProductRepository(BasePostgresRepository, IProductRepository):
     """Repositorio de productos con asyncpg y SQL explicito."""
-
-    _CREATE_SQL = """
-        INSERT INTO products (
-            sku, name, description, unit_of_measure,
-            category_id, min_stock_threshold, created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING
-            id, sku, name, description, unit_of_measure,
-            category_id, min_stock_threshold, created_at
-    """
-
-    _GET_BY_ID_SQL = """
-        SELECT
-            id, sku, name, description, unit_of_measure,
-            category_id, min_stock_threshold, created_at
-        FROM products
-        WHERE id = $1
-    """
-
-    _GET_BY_SKU_SQL = """
-        SELECT
-            id, sku, name, description, unit_of_measure,
-            category_id, min_stock_threshold, created_at
-        FROM products
-        WHERE sku = $1
-    """
-
-    _LIST_ALL_SQL = """
-        SELECT
-            id, sku, name, description, unit_of_measure,
-            category_id, min_stock_threshold, created_at
-        FROM products
-        ORDER BY id
-        LIMIT $1 OFFSET $2
-    """
-
-    _COUNT_ALL_SQL = """
-        SELECT COUNT(*) FROM products
-    """
-
-    _LIST_BELOW_THRESHOLD_SQL = """
-        SELECT
-            p.id, p.sku, p.name, p.description,
-            p.unit_of_measure, p.category_id,
-            p.min_stock_threshold, p.created_at
-        FROM products p
-        LEFT JOIN movements m ON m.product_id = p.id
-        GROUP BY p.id
-        HAVING COALESCE(
-            SUM(
-                CASE m.movement_type
-                    WHEN 'IN' THEN m.quantity
-                    WHEN 'OUT' THEN -m.quantity
-                    WHEN 'ADJUSTMENT' THEN m.quantity
-                    WHEN 'TRANSFER' THEN -m.quantity
-                    ELSE 0
-                END
-            ), 0
-        ) < p.min_stock_threshold
-        LIMIT $1
-    """
-
-    def __init__(
-        self,
-        pool: asyncpg.Pool,
-        connection: asyncpg.Connection | None = None,
-    ) -> None:
-        """Inicializa el repositorio con pool y conexion opcional.
-
-        Args:
-            pool: Pool de conexiones asyncpg (requerido).
-            connection: Conexion activa para transacciones (opcional).
-        """
-        self._pool = pool
-        self._connection = connection
-
-    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexion activa o el pool."""
-        return self._connection if self._connection else self._pool
 
     async def create(self, product: Product) -> Product:
         """Persiste un nuevo producto y retorna la entidad con id asignado."""

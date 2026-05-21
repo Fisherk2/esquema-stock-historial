@@ -1,16 +1,21 @@
+# docker-compose.yml — Stack de desarrollo local
+# Uso: docker compose up -d
+# Las credenciales se configuran via .env (ver .env.example)
+# Si no hay .env, se usan valores de desarrollo por defecto.
+
 services:
   # PostgreSQL 16 Alpine — imagen ligera para desarrollo local
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: stock_historial
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-stock_historial}
     ports:
       - "5432:5432"
     # pg_isready verifica que PostgreSQL acepta conexiones
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -22,14 +27,14 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     environment:
       # DSN asyncpg: protocolo+driver://user:pass@host:port/dbname
       # "db" resuelve al servicio PostgreSQL dentro de la red Docker
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/stock_historial
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-stock_historial}
       APP_HOST: 0.0.0.0
       APP_PORT: 8000
-      LOG_LEVEL: info
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       ENVIRONMENT: development
     # Espera a que PostgreSQL esté healthy antes de iniciar la app
     depends_on:

@@ -2,7 +2,7 @@
 description: Architect of Specifications - Spec-Driven Analysis
 mode: primary
 color: "#FF8C00"
-model: nvidia/z-ai/glm-5.1
+model: nvidia/moonshotai/kimi-k2.6
 temperature: 0.9
 permission:
   write: ask

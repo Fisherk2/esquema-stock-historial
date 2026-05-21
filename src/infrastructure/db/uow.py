@@ -76,7 +76,12 @@ class PostgresUnitOfWork(IUnitOfWork):
         exc_val: BaseException | None,
         exc_tb: object | None,
     ) -> None:
-        """Commit si no hay excepcion, rollback si la hay."""
+        """Commit si no hay excepcion, rollback si la hay.
+
+        Si el rollback falla y ya habia una excepcion activa, se loggea
+        el error del rollback pero se re-lanza la excepcion original
+        (que es mas importante para el caller).
+        """
         if self._transaction is None:
             return
         try:
@@ -86,9 +91,18 @@ class PostgresUnitOfWork(IUnitOfWork):
             else:
                 await self._transaction.rollback()
                 logger.debug("UnitOfWork transaction rolled back")
-        except Exception:
-            logger.exception("Error during transaction commit/rollback")
-            raise
+        except Exception as tx_exc:
+            if exc_type is not None:
+                # Ya habia una excepcion activa: loggear el error del
+                # rollback pero re-lanzar la excepcion original.
+                logger.exception(
+                    "Error during rollback (original exception preserved): %s", tx_exc
+                )
+            else:
+                # No habia excepcion: el error del commit/rollback es
+                # el problema principal.
+                logger.exception("Error during transaction commit/rollback")
+                raise
         finally:
             if self._connection is not None:
                 await self._pool.release(self._connection)

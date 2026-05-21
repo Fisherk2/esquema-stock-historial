@@ -3,7 +3,8 @@
 ## Validación y Sanitización
 
 - **Inputs:** Pydantic valida tipos, rangos, formatos UUID/ISO8601. Rechazo automático de payloads malformados (`HTTP 422`).
-- **SQL Injection:** Zero tolerancia. Uso estricto de parámetros posicionales/nombrados (`$1`, `$2`). Nunca concatenación de strings para queries.
+- **SQL Injection:** Zero tolerancia. Uso estricto de parámetros posicionales/nombrados (`$1`, `$2`). Nunca concatenación de strings para queries, incluyendo `SET` statements (ej: `SET statement_timeout = $1`, no f-string).
+- **JSONB:** asyncpg maneja `dict → JSONB` nativamente. Nunca usar `json.dumps()` para parámetros JSONB — esto duplica la serialización y puede causar doble-encoding.
 - **Secretos:** `.env` nunca versionado. Variables sensibles cargadas vía `pydantic-settings`. Rotación automática en CI.
 
 ## Control de Excepciones y Límites

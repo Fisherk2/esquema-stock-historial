@@ -27,5 +27,5 @@ def validate_movement_type_consistency(
         "origin" not in metadata or "destination" not in metadata
     ):
         raise ValueError("TRANSFER requires 'origin' and 'destination' in metadata")
-    if movement_type == MovementType.ADJUSTMENT and "reason" not in metadata:
+    elif movement_type == MovementType.ADJUSTMENT and "reason" not in metadata:
         raise ValueError("ADJUSTMENT requires 'reason' in metadata")

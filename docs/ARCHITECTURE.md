@@ -37,13 +37,13 @@ graph TB
         C5[Exceptions]
     end
 
-    subgraph "Infrastructure (outer)"
-        D1[PostgresRepository impls]
-        D2[asyncpg Connection Pool]
-        D3[APScheduler]
-        D4[Structured Logging]
-        D5[Materialized Views]
-    end
+subgraph "Infrastructure (outer)"
+D1[PostgresRepository impls ← BasePostgresRepository]
+D2[asyncpg Connection Pool (configurable)]
+D3[APScheduler]
+D4[Structured Logging]
+D5[Materialized Views]
+end
 
     A1 --> B1
     A1 --> B2
@@ -82,11 +82,11 @@ graph TB
 **Responsabilidades:** Entidades de negocio, value objects, reglas de validación, protocolos de interfaz.
 
 **Componentes:**
-- `entities/` — `Product`, `Movement`, `Category` con inmutabilidad
-- `value_objects/` — `SKU` (pattern validated), `Quantity` (positive), `MovementType` (enum)
-- `rules/` — Stock no negativo, inmutabilidad de movimientos, validación de metadata condicional
+- `entities/` — `Product`, `Movement`, `Category` — todas `frozen=True` (`@dataclass(frozen=True)`), inmutables post-construcción
+- `value_objects/` — `SKU` (pattern validated), `Quantity` (positive), `MovementType` (`StrEnum`, no `str, Enum`)
+- `rules/` — Stock no negativo, inmutabilidad de movimientos, validación de metadata condicional (single source of truth en `Movement.__post_init__`)
 - `ports/` — `IMovementRepository`, `IProductRepository`, `ICategoryRepository`, `IStockQueryRepository`
-- `exceptions/` — `InsufficientStockError`, `ImmutabilityViolationError`, `DomainValidationError`
+- `exceptions/` — `DomainError` (base), `InsufficientStockError`, `ImmutabilityViolationError`, `ProductNotFoundError`, `CategoryNotFoundError`, `ConcurrencyConflictError`, `InvalidSKUError`, `InvalidQuantityError`
 
 **Regla de importación:** No importa de ninguna otra capa.
 
@@ -105,8 +105,9 @@ graph TB
 **Responsabilidades:** Implementación de repositorios, conexiones DB, scheduler, logging, vistas materializadas.
 
 **Componentes:**
-- `db/` — Connection pool asyncpg, Unit of Work, migraciones, seed
-- `repositories/` — `MovementRepository`, `ProductRepository`, `CategoryRepository`, `StockQueryRepository`
+- `db/` — Connection pool asyncpg (tamaño configurable via `db_pool_min_size`/`db_pool_max_size`), Unit of Work (rollback seguro ante excepciones), migraciones (soporte `-- non-transactional`), seed
+- `repositories/` — `BasePostgresRepository` (abstract), `MovementRepository`, `ProductRepository`, `CategoryRepository`, `StockQueryRepository` (todos heredan de `BasePostgresRepository`)
+- `repositories/mappers.py` — Funciones puras `asyncpg.Record → Entity`, tipado explícito, manejo `JSONDecodeError` con fallback
 - `scheduler/` — APScheduler con política de refresh, retry con backoff exponencial
 - `logging/` — Logging estructurado JSON con request_id
 
@@ -118,7 +119,7 @@ graph TB
 
 **Componentes:**
 - `routers/` — `health.py`, `categories.py`, `products.py`, `movements.py`, `stock.py`
-- `middleware/` — Error mapping, request logging
+- `middleware/` — Error mapping (domain exceptions → HTTP status codes: `ProductNotFoundError`→400, `CategoryNotFoundError`→400, `InsufficientStockError`→409, etc.), request logging
 - `dependencies.py` — Factory functions para DI
 
 **Regla de importación:** Importa de aplicación e infraestructura. Nunca importa directamente del dominio.
@@ -136,13 +137,15 @@ graph TB
 
 ### Repository Pattern
 
-Cada agregado tiene su repositorio definido como protocolo en el dominio e implementado en infraestructura:
+Cada agregado tiene su repositorio definido como protocolo en el dominio e implementado en infraestructura. Todos los repositorios concretos heredan de `BasePostgresRepository` (clase abstracta con `__init__` y `_get_conn()` compartidos):
 
 ```
 Domain: IMovementRepository (protocol)
-  ↓
-Infrastructure: MovementRepository (asyncpg implementation)
-  ↓
+↓
+Infrastructure: BasePostgresRepository (abstract — pool + connection)
+↓
+Infrastructure: MovementRepository (concrete, inherits BasePostgresRepository)
+↓
 Application: Use cases dependen del protocolo, no la implementación
 ```
 
@@ -157,6 +160,8 @@ async with uow:
     # Commit implícito al salir del context
     # Rollback automático en caso de excepción
 ```
+
+**Comportamiento en rollback fallido:** Si el rollback falla mientras ya existe una excepción activa, se loggea el error del rollback pero se preserva la excepción original (no se suprime).
 
 ### CQRS vía Materialized Views
 
@@ -178,11 +183,15 @@ async with uow:
 | Decisión | Racional |
 |---|---|
 | **SQL explícito (sin ORM)** | Control total sobre queries. Sin overhead de abstracción. Performance predecible |
-| **asyncpg** | Driver asíncrono nativo para PostgreSQL. Mayor rendimiento que psycopg en carga concurrente |
+| **asyncpg** | Driver asíncrono nativo para PostgreSQL. Mayor rendimiento que psycopg en carga concurrente. Maneja `dict → JSONB` nativamente (no requiere `json.dumps()`) |
+| **StrEnum (no `str, Enum`)** | `MovementType` usa `StrEnum` para serialización directa a string sin mixin boilerplate |
 | **APScheduler** | Scheduler interno (no requiere infraestructura adicional). Cron job para refresh de MV |
 | **Pydantic strict mode** | Validación estricta de tipos. Prevención de coerciones silenciosas |
 | **Hypothesis PBT** | Property-based testing para cubrir edge cases que los tests manuales pasan por alto |
 | **testcontainers** | PostgreSQL real en containers para tests de integración. Sin mocks de DB |
+| **BasePostgresRepository** | Clase abstracta que DRY up `__init__` y `_get_conn()` — 4 repos comparten la misma lógica de conexión |
+| **SQL parametrizado (`$1`)** | `SET statement_timeout = $1` en vez de f-string. Previene SQL injection y sigue convención asyncpg |
+| **`-- non-transactional` migrations** | Soporte para `CREATE INDEX CONCURRENTLY` y otras operaciones que no pueden ejecutarse dentro de una transacción |
 
 ## Diagrama de Datos (ER)
 

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from src.domain.entities.product import Product
+from src.domain.exceptions.category_not_found import CategoryNotFoundError
 from src.domain.value_objects.sku import SKU
 
 if TYPE_CHECKING:
@@ -61,14 +62,14 @@ class CreateProductUseCase:
             Product: El producto persistido con id asignado.
 
         Raises:
-            ValueError: Si la categoria no existe.
+            CategoryNotFoundError: Si la categoria no existe.
             InvalidSKUError: Si el SKU no cumple el patron requerido.
             ValueError: Si name o unit_of_measure son vacios.
         """
         # 1. Verificar que la categoria existe
         category = await self._category_repo.get_by_id(category_id)
         if category is None:
-            raise ValueError(f"Category {category_id} not found")
+            raise CategoryNotFoundError(category_id)
 
         # 2. Construir y persistir
         product = Product(

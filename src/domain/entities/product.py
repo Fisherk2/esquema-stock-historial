@@ -15,9 +15,13 @@ if TYPE_CHECKING:
     from src.domain.value_objects.sku import SKU
 
 
-@dataclass
+@dataclass(frozen=True)
 class Product:
     """Articulo del inventario.
+
+    Entidad inmutable: una vez construida, no puede modificarse.
+    Las actualizaciones se realizan creando un nuevo producto
+    desde la base de datos.
 
     Args:
         id: Identificador unico (None antes de persistir).
@@ -59,3 +63,5 @@ class Product:
                 "min_stock_threshold cannot be negative, "
                 f"got {self.min_stock_threshold}"
             )
+
+    __hash__ = None  # type: ignore[assignment]

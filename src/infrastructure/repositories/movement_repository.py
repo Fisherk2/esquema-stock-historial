@@ -19,20 +19,17 @@ Ejemplo de uso con Unit of Work::
 
 from __future__ import annotations
 
-import json  # Serializa dict → str para columna JSONB (asyncpg 0.31.0 + Python 3.14)
 from typing import TYPE_CHECKING
 
-import asyncpg
-
 from src.domain.ports.movement_repository import IMovementRepository
+from src.infrastructure.repositories.base_repository import BasePostgresRepository
 from src.infrastructure.repositories.mappers import map_movement_row
 
 if TYPE_CHECKING:
-
     from src.domain.entities.movement import Movement
 
 
-class PostgresMovementRepository(IMovementRepository):
+class PostgresMovementRepository(BasePostgresRepository, IMovementRepository):
     """Repositorio de movimientos con asyncpg y SQL explicito."""
 
     _CREATE_SQL = """
@@ -68,38 +65,17 @@ class PostgresMovementRepository(IMovementRepository):
         SELECT COUNT(*) FROM movements WHERE product_id = $1
     """
 
-    def __init__(
-        self,
-        pool: asyncpg.Pool,
-        connection: asyncpg.Connection | None = None,
-    ) -> None:
-        """Inicializa el repositorio con pool y conexion opcional.
-
-        Args:
-            pool: Pool de conexiones asyncpg (requerido).
-            connection: Conexion activa para transacciones (opcional).
-        """
-        self._pool = pool
-        self._connection = connection
-
-    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexion activa o el pool."""
-        return self._connection if self._connection else self._pool
-
     async def create(self, movement: Movement) -> Movement:
         """Persiste un nuevo movimiento y retorna la entidad con id asignado."""
-        try:
-            row = await self._get_conn().fetchrow(
-                self._CREATE_SQL,
-                movement.product_id,
-                movement.movement_type.value,
-                movement.quantity.value,
-                json.dumps(movement.metadata),
-                movement.reference,
-                movement.created_at,
-            )
-        except asyncpg.PostgresError as exc:
-            raise ValueError(f"Database error: {exc}") from exc
+        row = await self._get_conn().fetchrow(
+            self._CREATE_SQL,
+            movement.product_id,
+            movement.movement_type.value,
+            movement.quantity.value,
+            movement.metadata,
+            movement.reference,
+            movement.created_at,
+        )
         return map_movement_row(row)
 
     async def get_by_id(self, movement_id: int) -> Movement | None:

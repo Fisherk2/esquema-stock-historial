@@ -12,17 +12,18 @@ graph TD
         DB[(PostgreSQL 16+)]
     end
 
-    subgraph "Capa de Adaptadores (infrastructure/repositories/)"
-        IMovRepo[IMovementRepository Protocol]
-        IProdRepo[IProductRepository Protocol]
-        ICatRepo[ICategoryRepository Protocol]
-        IStockRepo[IStockQueryRepository Protocol]
-        MovRepoImpl[PostgresMovementRepository]
-        ProdRepoImpl[PostgresProductRepository]
-        CatRepoImpl[PostgresCategoryRepository]
-        StockRepoImpl[PostgresStockQueryRepository]
-        Mappers[mappers.py — Row → Entity]
-    end
+subgraph "Capa de Adaptadores (infrastructure/repositories/)"
+IMovRepo[IMovementRepository Protocol]
+IProdRepo[IProductRepository Protocol]
+ICatRepo[ICategoryRepository Protocol]
+IStockRepo[IStockQueryRepository Protocol]
+BaseRepo[BasePostgresRepository — abstract]
+MovRepoImpl[PostgresMovementRepository]
+ProdRepoImpl[PostgresProductRepository]
+CatRepoImpl[PostgresCategoryRepository]
+StockRepoImpl[PostgresStockQueryRepository]
+Mappers[mappers.py — asyncpg.Record → Entity]
+end
 
     subgraph "Capa de Aplicación"
         UseCase[RecordMovementUseCase]
@@ -31,12 +32,12 @@ graph TD
         UoW[PostgresUnitOfWork]
     end
 
-    subgraph "Capa de Dominio"
-        Ent[Entity: Product, Movement, Category]
-        Rules[Business Rules: StockValidation, Immutability]
-        Errs[Domain Exceptions]
-        VOs[Value Objects: SKU, Quantity, MovementType]
-    end
+subgraph "Capa de Dominio"
+Ent[Entity: Product, Movement, Category — frozen=True]
+Rules[Business Rules: StockValidation, Immutability]
+Errs[Domain Exceptions: DomainError, ProductNotFoundError, CategoryNotFoundError, InsufficientStockError, ...]
+VOs[Value Objects: SKU, Quantity, MovementType (StrEnum)]
+end
 
     API --> IMovRepo
     API --> IProdRepo
@@ -46,11 +47,15 @@ graph TD
     UseCase --> IStockRepo
     UseCase --> Rules
     UseCase --> DTOs
-    MovRepoImpl -.-> IMovRepo
-    ProdRepoImpl -.-> IProdRepo
-    CatRepoImpl -.-> ICatRepo
-    StockRepoImpl -.-> IStockRepo
-    MovRepoImpl --> Mappers
+MovRepoImpl -.-> IMovRepo
+ProdRepoImpl -.-> IProdRepo
+CatRepoImpl -.-> ICatRepo
+StockRepoImpl -.-> IStockRepo
+MovRepoImpl --> BaseRepo
+ProdRepoImpl --> BaseRepo
+CatRepoImpl --> BaseRepo
+StockRepoImpl --> BaseRepo
+MovRepoImpl --> Mappers
     ProdRepoImpl --> Mappers
     CatRepoImpl --> Mappers
     StockRepoImpl --> Mappers
@@ -96,12 +101,21 @@ Las siguientes reglas de importación son obligatorias y se verifican en CI:
 
 **Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/repositories/`.
 
-### Mappers (Row → Entity)
+### Mappers (asyncpg.Record → Entity)
 
-Los mappers son **funciones puras** ubicadas en `src/infrastructure/repositories/mappers.py`. Transforman `asyncpg.Record` en entidades de dominio (`@dataclass`). No tienen estado, no acceden a DB, y son determinísticas:
+Los mappers son **funciones puras** ubicadas en `src/infrastructure/repositories/mappers.py`. Transforman `asyncpg.Record` (tipado explícito) en entidades de dominio (`@dataclass(frozen=True)`). No tienen estado, no acceden a DB, y son determinísticas:
 
-- `_map_category_row(record) -> Category`
-- `_map_product_row(record) -> Product` — construye `SKU` VO desde string
-- `_map_movement_row(record) -> Movement` — parsea `movement_type` string → Enum, `quantity` int → `Quantity` VO, `metadata` JSONB → dict
+- `map_category_row(record: asyncpg.Record) -> Category`
+- `map_product_row(record: asyncpg.Record) -> Product` — construye `SKU` VO desde string
+- `map_movement_row(record: asyncpg.Record) -> Movement` — parsea `movement_type` string → `StrEnum`, `quantity` int → `Quantity` VO, `metadata` JSONB → `dict[str, Any]` con manejo de `JSONDecodeError` (fallback a `{}`)
 
 Esta separación mantiene los repositorios enfocados en I/O y delega la transformación a funciones testeables de forma aislada.
+
+### BasePostgresRepository (DRY)
+
+Clase abstracta en `src/infrastructure/repositories/base_repository.py` que centraliza la gestión de conexión compartida:
+
+- `__init__(pool, connection=None)` — acepta pool y conexión opcional (para UoW)
+- `_get_conn()` — retorna la conexión activa si existe (transacción), sino el pool
+
+Los 4 repositorios concretos heredan de esta clase, eliminando duplicación de `__init__` y `_get_conn()`.

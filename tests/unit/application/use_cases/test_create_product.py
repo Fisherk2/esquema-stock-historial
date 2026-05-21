@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.application.use_cases.create_product import CreateProductUseCase
+from src.domain.exceptions.category_not_found import CategoryNotFoundError
 from src.domain.exceptions.invalid_sku import InvalidSKUError
 
 
@@ -32,20 +33,22 @@ class TestCreateProductUseCase:
         product_repo.create.assert_awaited_once()
 
     async def test_raises_when_category_not_found(self) -> None:
-        """Verifica que lanza ValueError si la categoria no existe."""
+        """Verifica que lanza CategoryNotFoundError si la categoria no existe."""
         category_repo = AsyncMock()
         category_repo.get_by_id = AsyncMock(return_value=None)
         product_repo = AsyncMock()
 
         use_case = CreateProductUseCase(product_repo, category_repo)
 
-        with pytest.raises(ValueError, match=r"Category .* not found"):
+        with pytest.raises(CategoryNotFoundError) as exc_info:
             await use_case.execute(
                 sku="PROD-001",
                 name="Widget",
                 unit_of_measure="unit",
                 category_id=999,
             )
+
+        assert exc_info.value.category_id == 999
 
     async def test_raises_on_invalid_sku(self) -> None:
         """Verifica que lanza InvalidSKUError con SKU invalido."""

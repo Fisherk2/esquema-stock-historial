@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi.responses import JSONResponse
 
 from src.application.dtos.error_dtos import ErrorDetail, ErrorResponse
+from src.domain.exceptions.category_not_found import CategoryNotFoundError
 from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
 from src.domain.exceptions.domain_error import DomainError
 from src.domain.exceptions.immutability_violation import ImmutabilityViolationError
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI, Request
 from src.domain.exceptions.invalid_quantity import InvalidQuantityError
 from src.domain.exceptions.invalid_sku import InvalidSKUError
+from src.domain.exceptions.product_not_found import ProductNotFoundError
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -111,6 +113,38 @@ def register_error_handlers(app: FastAPI) -> None:
                     code="CONCURRENCY_CONFLICT",
                     message=str(exc),
                     details=details,
+                )
+            ).model_dump(),
+        )
+
+    @app.exception_handler(ProductNotFoundError)
+    async def handle_product_not_found(
+        request: Request, exc: ProductNotFoundError
+    ) -> JSONResponse:
+        """Mapea ProductNotFoundError a HTTP 400 Bad Request."""
+        return JSONResponse(
+            status_code=400,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="PRODUCT_NOT_FOUND",
+                    message=str(exc),
+                    details={"product_id": exc.product_id},
+                )
+            ).model_dump(),
+        )
+
+    @app.exception_handler(CategoryNotFoundError)
+    async def handle_category_not_found(
+        request: Request, exc: CategoryNotFoundError
+    ) -> JSONResponse:
+        """Mapea CategoryNotFoundError a HTTP 400 Bad Request."""
+        return JSONResponse(
+            status_code=400,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="CATEGORY_NOT_FOUND",
+                    message=str(exc),
+                    details={"category_id": exc.category_id},
                 )
             ).model_dump(),
         )

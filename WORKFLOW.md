@@ -33,6 +33,7 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > CI/CD: 5 gates secuenciales (lint → typecheck → test → coverage → docker-build).
 > 457 tests pasando (100% pass). Coverage global 90.98%, domain 100%, application 100%.
 > **Version 1.0.0 — lista para producción.**
+> **Revisión Post-F7 (F0→F3):** Hardening aplicado tras code review 5-axis. 14 cambios aplicados: nuevas excepciones de dominio, `BasePostgresRepository` abstracto, entidades `frozen=True`, `MovementType` → `StrEnum`, SQL parametrizado, pool configurable, migraciones non-transactional, UoW rollback seguro, eliminación de `json.dumps()`, validación centralizada en `Movement.__post_init__`, manejo `JSONDecodeError` en mappers. 211 tests pasando, `make lint` limpio.
 
 ## Detailed Docs
 

@@ -15,7 +15,8 @@ Implementar los adaptadores concretos de los 4 ports del dominio usando `asyncpg
 - **SQL explícito** — cada método contiene su query SQL legible, sin abstracciones ocultas
 - **Parámetros posicionales** — `$1`, `$2`, etc. Nunca concatenación de strings (SQL injection)
 - **Mappers como funciones puras** — transformación `asyncpg.Record` → entidad de dominio, separada del repositorio
-- **Conexión opcional** — `connection: asyncpg.Connection | None` en constructor para soporte de Unit of Work
+- **asyncpg maneja JSONB nativamente** — no usar `json.dumps()` para parámetros `metadata`
+- **BasePostgresRepository** — clase abstracta centraliza `__init__` y `_get_conn()` para DRY
 - **Interface Segregation** — cada repositorio implementa su protocol específico del dominio
 
 ---
@@ -27,8 +28,8 @@ Implementar los adaptadores concretos de los 4 ports del dominio usando `asyncpg
 | SQL explícito inline | Control total sobre `EXPLAIN ANALYZE`, sin ORM que oculte el plan |
 | Parámetros posicionales `$N` | Prevención de SQL injection, performance de query caching |
 | Mappers como funciones puras | Testeables aisladamente, sin estado, determinísticas |
-| `connection` opcional en constructor | Permite compartir conexión dentro de Unit of Work |
-| `pool` requerido en constructor | Cuando no hay transacción, usa el pool directamente |
+| `BasePostgresRepository` abstracto | DRY: centraliza `__init__` y `_get_conn()` — 4 repos comparten la misma lógica |
+| asyncpg maneja JSONB nativo | No usar `json.dumps()` para `metadata` — asyncpg convierte `dict` a JSONB automáticamente |
 | Sin paginación en `list_all()` de categorías | Se espera un conjunto pequeño (<100) |
 
 ---
@@ -104,11 +105,14 @@ def map_product_row(record) -> Product:
 ### `map_movement_row(record) -> Movement`
 
 ```python
-from datetime import datetime
+import json
+import logging
 from typing import Any
 from src.domain.entities.movement import Movement
 from src.domain.value_objects.movement_type import MovementType
 from src.domain.value_objects.quantity import Quantity
+
+logger = logging.getLogger(__name__)
 
 
 def map_movement_row(record) -> Movement:
@@ -128,12 +132,27 @@ def map_movement_row(record) -> Movement:
         ValueError: Si movement_type no es un valor válido del Enum.
         InvalidQuantityError: Si quantity <= 0 (no debería ocurrir con CHECK constraint).
     """
+    metadata_raw = record["metadata"]
+    if metadata_raw is None:
+        metadata: dict[str, object] = {}
+    elif isinstance(metadata_raw, dict):
+        metadata = metadata_raw
+    else:
+        try:
+            metadata = json.loads(metadata_raw)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Corrupted metadata for movement id=%s, defaulting to empty dict",
+                record.get("id"),
+            )
+            metadata = {}
+
     return Movement(
         id=record["id"],
         product_id=record["product_id"],
         movement_type=MovementType(record["movement_type"]),
         quantity=Quantity(record["quantity"]),
-        metadata=record["metadata"] or {},
+        metadata=metadata,
         reference=record["reference"],
         created_at=record["created_at"],
     )
@@ -142,6 +161,31 @@ def map_movement_row(record) -> Movement:
 ---
 
 ## Repositories
+
+> **Nota F3-hardening:** Todos los repositorios heredan de `BasePostgresRepository`
+> (clase abstracta en `src/infrastructure/repositories/base_repository.py`).
+> `BasePostgresRepository` centraliza `__init__(pool, connection)` y `_get_conn()`.
+> Los ejemplos a continuación muestran el patrón completo para referencia;
+> en la implementación real, los repos delegan `__init__` y `_get_conn` a la clase base.
+
+### `BasePostgresRepository` (abstract)
+
+```python
+class BasePostgresRepository:
+    """Clase base para repositorios que usan asyncpg."""
+
+    def __init__(
+        self,
+        pool: asyncpg.Pool,
+        connection: asyncpg.Connection | None = None,
+    ) -> None:
+        self._pool = pool
+        self._connection = connection
+
+    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
+        """Retorna la conexion activa o el pool."""
+        return self._connection if self._connection else self._pool
+```
 
 ### `PostgresMovementRepository`
 
@@ -484,11 +528,12 @@ class PostgresStockQueryRepository(IStockQueryRepository):
 
 | File | Description |
 |------|-------------|
-| `src/infrastructure/repositories/mappers.py` | Funciones puras: `map_category_row`, `map_product_row`, `map_movement_row` |
-| `src/infrastructure/repositories/movement_repository.py` | `PostgresMovementRepository` |
-| `src/infrastructure/repositories/product_repository.py` | `PostgresProductRepository` |
-| `src/infrastructure/repositories/category_repository.py` | `PostgresCategoryRepository` |
-| `src/infrastructure/repositories/stock_query_repository.py` | `PostgresStockQueryRepository` (cálculo directo) |
+| `src/infrastructure/repositories/base_repository.py` | `BasePostgresRepository` — clase abstracta con `__init__` y `_get_conn()` compartidos |
+| `src/infrastructure/repositories/mappers.py` | Funciones puras: `map_category_row`, `map_product_row`, `map_movement_row` (con manejo `JSONDecodeError`) |
+| `src/infrastructure/repositories/movement_repository.py` | `PostgresMovementRepository` (hereda `BasePostgresRepository`) |
+| `src/infrastructure/repositories/product_repository.py` | `PostgresProductRepository` (hereda `BasePostgresRepository`) |
+| `src/infrastructure/repositories/category_repository.py` | `PostgresCategoryRepository` (hereda `BasePostgresRepository`) |
+| `src/infrastructure/repositories/stock_query_repository.py` | `PostgresStockQueryRepository` (hereda `BasePostgresRepository`) |
 | `src/infrastructure/repositories/__init__.py` | Re-exports: todos los repositorios y mappers |
 
 ---
@@ -496,8 +541,11 @@ class PostgresStockQueryRepository(IStockQueryRepository):
 ## Acceptance Criteria
 
 - [ ] Los 4 repositorios implementan sus protocols respectivos (verificable con `isinstance(repo, Protocol)` a runtime)
+- [ ] Todos los repositorios heredan de `BasePostgresRepository` (no duplican `__init__` ni `_get_conn()`)
 - [ ] Todo SQL usa parámetros posicionales (`$1`, `$2`) — cero concatenación de strings
 - [ ] Los mappers son funciones puras (sin estado, sin I/O, testeables aisladamente)
+- [ ] `map_movement_row` maneja `JSONDecodeError` en metadata corrupta (fallback a `{}` con warning log)
+- [ ] **No** se usa `json.dumps()` para parámetros JSONB — asyncpg maneja `dict → JSONB` nativamente
 - [ ] Constructor acepta `connection` opcional para integración con Unit of Work (Spec-32)
 - [ ] `PostgresMovementRepository` **no** tiene métodos `update()` ni `delete()`
 - [ ] Tests de integración con `testcontainers.postgres` validan: CRUD, paginación, cálculo de stock, mapeo de tipos

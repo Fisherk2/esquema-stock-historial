@@ -1,25 +1,28 @@
 """RecordMovementUseCase — orquesta registro de movimientos de stock.
 
 El caso de uso mas complejo. Verifica existencia del producto, valida
-stock para movimientos que reducen inventario (OUT, TRANSFER), valida
-consistencia de metadata, y persiste dentro de una transaccion atomica
-(Unit of Work).
+stock para movimientos que reducen inventario (OUT, TRANSFER), y persiste
+dentro de una transaccion atomica (Unit of Work).
 
 La validacion de stock se ejecuta dos veces: fail-fast antes del UoW
 (sin adquirir connexion) y dentro del UoW (proteccion race conditions).
+
+La validacion de metadata (TRANSFER requiere origin/destination, ADJUSTMENT
+requiere reason) se realiza en Movement.__post_init__ al construir la entidad.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from src.domain.rules.movement_consistency import validate_movement_type_consistency
+from src.domain.entities.movement import Movement
+from src.domain.exceptions.product_not_found import ProductNotFoundError
 from src.domain.rules.stock_validation import validate_stock_not_negative
 from src.domain.value_objects.movement_type import MovementType
+from src.domain.value_objects.quantity import Quantity
 
 if TYPE_CHECKING:
-    from src.domain.entities.movement import Movement
     from src.domain.ports.movement_repository import IMovementRepository
     from src.domain.ports.product_repository import IProductRepository
     from src.domain.ports.stock_query_repository import IStockQueryRepository
@@ -64,7 +67,7 @@ class RecordMovementUseCase:
         product_id: int,
         movement_type: MovementType,
         quantity: int,
-        metadata: dict[str, str],
+        metadata: dict[str, Any],
         reference: str | None = None,
     ) -> Movement:
         """Ejecuta el caso de uso de registro de movimiento.
@@ -80,15 +83,16 @@ class RecordMovementUseCase:
             Movement: La entidad movimiento persistida con id asignado.
 
         Raises:
-            ValueError: Si el producto no existe.
-            ValueError: Si la metadata es inconsistente con el tipo de movimiento.
+            ProductNotFoundError: Si el producto no existe.
             InsufficientStockError: Si el movimiento resultaria en stock negativo.
             InvalidQuantityError: Si quantity <= 0 (validado por el VO Quantity).
+            ValueError: Si la metadata es inconsistente con el tipo de movimiento
+                (validado en Movement.__post_init__).
         """
         # 1. Verificar que el producto existe
         product = await self._product_repo.get_by_id(product_id)
         if product is None:
-            raise ValueError(f"Product {product_id} not found")
+            raise ProductNotFoundError(product_id)
 
         # 2. Fail-fast: validar stock antes de adquirir transaccion
         if movement_type in (MovementType.OUT, MovementType.TRANSFER):
@@ -97,13 +101,7 @@ class RecordMovementUseCase:
                 movement_type, quantity, current_stock, product_id
             )
 
-        # 3. Validar consistencia de metadata
-        validate_movement_type_consistency(movement_type, metadata)
-
-        # 4. Construir entidad
-        from src.domain.entities.movement import Movement
-        from src.domain.value_objects.quantity import Quantity
-
+        # 3. Construir entidad (valida metadata en __post_init__)
         movement = Movement(
             id=None,
             product_id=product_id,
@@ -114,7 +112,7 @@ class RecordMovementUseCase:
             created_at=datetime.now(tz=UTC),
         )
 
-        # 5. Persistir dentro de UoW con re-validacion de stock
+        # 4. Persistir dentro de UoW con re-validacion de stock
         async with self._unit_of_work:
             if movement_type in (MovementType.OUT, MovementType.TRANSFER):
                 current_stock = await self._stock_query_repo.get_current_stock(

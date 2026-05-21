@@ -167,6 +167,10 @@ def enforce_immutability(entity: Movement) -> None:
 
 Valida que el metadata sea consistente con el tipo de movimiento.
 
+> **Nota:** Esta función se invoca desde `Movement.__post_init__` al construir
+> la entidad. Es la **única fuente de verdad** para esta validación.
+> Los use cases NO llaman esta función directamente (evita duplicación).
+
 ```python
 from typing import Any
 
@@ -189,32 +193,19 @@ def validate_movement_type_consistency(
 
     Raises:
         ValueError: Si el metadata es inconsistente con el tipo de movimiento.
-
-    Examples:
-        >>> validate_movement_type_consistency(
-        ...     MovementType.TRANSFER,
-        ...     {"origin": "warehouse_A", "destination": "warehouse_B"}
-        ... )
-        # No exception
-
-        >>> validate_movement_type_consistency(MovementType.TRANSFER, {})
-        # Raises ValueError
     """
-    if movement_type == MovementType.TRANSFER:
-        if "origin" not in metadata or "destination" not in metadata:
-            raise ValueError(
-                "TRANSFER movements require 'origin' and 'destination' in metadata"
-            )
-    elif movement_type == MovementType.ADJUSTMENT:
-        if "reason" not in metadata:
-            raise ValueError(
-                "ADJUSTMENT movements require 'reason' in metadata"
-            )
+    if movement_type == MovementType.TRANSFER and (
+        "origin" not in metadata or "destination" not in metadata
+    ):
+        raise ValueError("TRANSFER requires 'origin' and 'destination' in metadata")
+    elif movement_type == MovementType.ADJUSTMENT and "reason" not in metadata:
+        raise ValueError("ADJUSTMENT requires 'reason' in metadata")
 ```
 
 **Design Notes:**
-- Usa `ValueError` en lugar de excepción de dominio porque es un error de validación de input, no una regla de negocio
-- El use case debe capturar este `ValueError` y mapearlo a una respuesta HTTP 400
+- Se llama desde `Movement.__post_init__` — **single source of truth**
+- Usa `ValueError` porque es error de validación de input (no regla de negocio)
+- Condiciones mutuamente exclusivas usan `elif` (no dos `if` independientes)
 - IN y OUT no requieren metadata — la función retorna silenciosamente
 
 ---
@@ -236,8 +227,10 @@ def validate_movement_type_consistency(
 - [ ] `validate_stock_not_negative` raises `InsufficientStockError` with full context (product_id, requested, available)
 - [ ] `calculate_stock_delta` returns correct sign for each `MovementType` (IN=+, OUT=-, ADJUSTMENT=+, TRANSFER=-)
 - [ ] `validate_movement_type_consistency` enforces metadata requirements for TRANSFER and ADJUSTMENT
+- [ ] `validate_movement_type_consistency` se invoca desde `Movement.__post_init__` (single source of truth)
 - [ ] `enforce_immutability` exists as explicit documentation of the immutability rule
 - [ ] `domain/rules/` imports only from `domain/` (no external dependencies)
+- [ ] Use cases NO llaman `validate_movement_type_consistency` directamente (evita duplicación)
 - [ ] `make lint` passes with zero errors on all rule files
 - [ ] Unit tests with parametrized cases for each rule (covering all MovementType variants)
 
@@ -246,5 +239,5 @@ def validate_movement_type_consistency(
 ## Open Questions
 
 1. Should `validate_stock_not_negative` accept `product_id` as a parameter instead of using `0` as placeholder?
-2. Should `ValueError` in `validate_movement_type_consistency` be replaced with a domain exception (`InvalidMovementError`)?
-3. Should `enforce_immutability` be removed entirely since `frozen=True` handles it at the language level?
+2. ~~Should `ValueError` in `validate_movement_type_consistency` be replaced with a domain exception?~~ → **Resolved:** Se mantiene `ValueError` porque es validación de input. Se invoca desde `Movement.__post_init__` como single source of truth.
+3. ~~Should `enforce_immutability` be removed entirely?~~ → **Resolved:** Se mantiene como documentación explícita de la regla.

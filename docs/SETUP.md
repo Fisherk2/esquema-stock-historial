@@ -147,6 +147,8 @@ DEMO_BASE_URL=http://localhost:8000 make demo
 | `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | 60 | Tolerancia jobs retrasados | F5 |
 | `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | 30 | Timeout refresh job | F5 |
 | `API_STATEMENT_TIMEOUT_SECONDS` | 5 | Timeout queries API | F5 |
+| `DB_POOL_MIN_SIZE` | 2 | Tamaño mínimo pool asyncpg | F3 |
+| `DB_POOL_MAX_SIZE` | 10 | Tamaño máximo pool asyncpg | F3 |
 | `POSTGRES_USER` | stock_user | Usuario PostgreSQL prod | F7 |
 | `POSTGRES_PASSWORD` | — | Contraseña PostgreSQL prod | F7 |
 | `POSTGRES_DB` | stock_historial | Base de datos prod | F7 |
@@ -168,6 +170,7 @@ Las migraciones están en `migrations/` y se ejecutan con el módulo `src.infras
 
 | Problema | Solución |
 |---|---|
+| **`DATABASE_URL is required`** | `DATABASE_URL` no está configurada en `.env`. Configúrala antes de iniciar la app. |
 | **`asyncpg.exceptions.ConnectionDoesNotExistError`** | Verifica que PostgreSQL está corriendo. Revisa `DATABASE_URL` en `.env` |
 | **`Connection refused` al hacer `make docker-up`** | Puerto 5432 en uso por otra instancia de PostgreSQL. Detén la instancia local o cambia el puerto |
 | **`POSTGRES_PASSWORD is required`** | Define `POSTGRES_PASSWORD` en tu archivo `.env` antes de `make docker-prod-up` |

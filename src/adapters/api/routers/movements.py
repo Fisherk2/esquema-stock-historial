@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.adapters.api.dependencies import (
     get_movement_repo,
@@ -25,9 +25,24 @@ from src.application.dtos.movement_dtos import (
     MovementOutput,
 )
 from src.application.use_cases.record_movement import RecordMovementUseCase
+from src.domain.entities.movement import Movement
 from src.domain.ports.movement_repository import IMovementRepository
+from src.domain.value_objects.movement_type import MovementType
 
 router = APIRouter(prefix="/movements", tags=["movements"])
+
+
+def _movement_to_output(movement: Movement) -> MovementOutput:
+    """Convierte una entidad Movement a su DTO de salida."""
+    return MovementOutput(
+        id=movement.id,  # type: ignore[arg-type]
+        product_id=movement.product_id,
+        movement_type=movement.movement_type.value,
+        quantity=movement.quantity.value,  # type: ignore[arg-type]
+        metadata=movement.metadata,
+        reference=movement.reference,
+        created_at=movement.created_at,
+    )
 
 
 @router.post(
@@ -43,8 +58,6 @@ async def create_movement(
     use_case: Annotated[RecordMovementUseCase, Depends(get_record_movement_use_case)],
 ) -> MovementOutput:
     """Crea un nuevo movimiento de stock."""
-    from src.domain.value_objects.movement_type import MovementType
-
     movement = await use_case.execute(
         product_id=body.product_id,
         movement_type=MovementType(body.movement_type.value),
@@ -52,16 +65,12 @@ async def create_movement(
         metadata=body.metadata,
         reference=body.reference,
     )
-    assert movement.id is not None
-    return MovementOutput(
-        id=movement.id,
-        product_id=movement.product_id,
-        movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,  # type: ignore[arg-type]
-        metadata=movement.metadata,
-        reference=movement.reference,
-        created_at=movement.created_at,
-    )
+    if movement.id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create movement: no ID generated",
+        )
+    return _movement_to_output(movement)
 
 
 @router.get(
@@ -76,18 +85,8 @@ async def get_movement(
     """Recupera un movimiento por su ID."""
     movement = await repo.get_by_id(movement_id)
     if movement is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Movement not found")
-    return MovementOutput(
-        id=movement.id,  # type: ignore[arg-type]
-        product_id=movement.product_id,
-        movement_type=movement.movement_type.value,
-        quantity=movement.quantity.value,  # type: ignore[arg-type]
-        metadata=movement.metadata,
-        reference=movement.reference,
-        created_at=movement.created_at,
-    )
+    return _movement_to_output(movement)
 
 
 @router.get(
@@ -105,18 +104,7 @@ async def list_movements(
     movements = await repo.list_by_product(product_id, limit=limit, offset=offset)
     total = await repo.count_by_product(product_id)
     return MovementListOutput(
-        items=[
-            MovementOutput(
-                id=m.id,  # type: ignore[arg-type]
-                product_id=m.product_id,
-                movement_type=m.movement_type.value,
-                quantity=m.quantity.value,  # type: ignore[arg-type]
-                metadata=m.metadata,
-                reference=m.reference,
-                created_at=m.created_at,
-            )
-            for m in movements
-        ],
+        items=[_movement_to_output(m) for m in movements],
         total=total,
         limit=limit,
         offset=offset,

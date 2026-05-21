@@ -25,12 +25,12 @@ Todos los errores retornan un cuerpo JSON con el siguiente formato:
 
 | Código HTTP | Significado | Cuándo se retorna |
 |---|---|---|
-| `400` | Bad Request | Payload inválido, validación Pydantic fallida |
-| `404` | Not Found | Recurso no encontrado (producto, movimiento, categoria) |
-| `405` | Method Not Allowed | Intento de modificar movimiento inmutable |
-| `409` | Conflict | Stock negativo, conflicto de concurrencia |
-| `422` | Unprocessable Entity | Error de validación de campos Pydantic |
-| `500` | Internal Server Error | Error interno del servidor |
+| `400` | Bad Request | Producto no encontrado (`PRODUCT_NOT_FOUND`), categoría no encontrada (`CATEGORY_NOT_FOUND`), payload inválido, validación Pydantic fallida |
+| `403` | Forbidden | Intento de modificar movimiento inmutable (`IMMUTABILITY_VIOLATION`) |
+| `404` | Not Found | Recurso no encontrado (movimiento, categoría por ID) |
+| `409` | Conflict | Stock negativo (`INSUFFICIENT_STOCK`), conflicto de concurrencia (`CONCURRENCY_CONFLICT`) |
+| `422` | Unprocessable Entity | Error de validación de campos Pydantic, SKU inválido (`INVALID_SKU`), cantidad inválida (`INVALID_QUANTITY`) |
+| `500` | Internal Server Error | Error interno del servidor, error de PostgreSQL no manejado |
 
 ## Endpoints
 
@@ -211,10 +211,20 @@ Crea un nuevo producto en el inventario. La categoria debe existir previamente.
 **Ejemplo de error:**
 
 ```bash
-# categoria_id no existe → 404 (FK violation)
+# category_id no existe → 400 (CategoryNotFoundError)
 curl -X POST http://localhost:8000/v1/products \
-  -H "Content-Type: application/json" \
-  -d '{"sku": "X-999", "name": "Ghost", "unit_of_measure": "unit", "category_id": 9999}'
+-H "Content-Type: application/json" \
+-d '{"sku": "X-999", "name": "Ghost", "unit_of_measure": "unit", "category_id": 9999}'
+```
+
+```json
+{
+  "error": {
+    "code": "CATEGORY_NOT_FOUND",
+    "message": "Category with id 9999 not found",
+    "details": {"category_id": 9999}
+  }
+}
 ```
 
 **Ejemplo:**
@@ -337,7 +347,7 @@ Registra un nuevo movimiento de inventario. Tipos: `IN`, `OUT`, `ADJUSTMENT`, `T
 | `product_id` | int | Sí | ID del producto (debe existir) |
 | `movement_type` | string | Sí | `IN`, `OUT`, `ADJUSTMENT` o `TRANSFER` |
 | `quantity` | int | Sí | Cantidad positiva (> 0) |
-| `metadata` | object | Condicional | Contexto. Obligatorio para TRANSFER y ADJUSTMENT |
+| `metadata` | object | Condicional | Contexto (`dict[str, Any]`). Obligatorio para TRANSFER y ADJUSTMENT |
 | `reference` | string | No | Referencia externa (max 255) |
 
 **Metadata condicional:**
@@ -375,13 +385,34 @@ Registra un nuevo movimiento de inventario. Tipos: `IN`, `OUT`, `ADJUSTMENT`, `T
 ```bash
 # OUT con stock insuficiente → 409
 curl -X POST http://localhost:8000/v1/movements \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": 1, "movement_type": "OUT", "quantity": 9999}'
+-H "Content-Type: application/json" \
+-d '{"product_id": 1, "movement_type": "OUT", "quantity": 9999}'
 ```
 
 ```json
 {
-  "detail": "Insufficient stock: cannot remove 9999 units, only X available"
+  "error": {
+    "code": "INSUFFICIENT_STOCK",
+    "message": "Insufficient stock: cannot remove 9999 units, only X available",
+    "details": {"product_id": 1, "requested": 9999, "available": 0}
+  }
+}
+```
+
+```bash
+# product_id no existe → 400 (ProductNotFoundError)
+curl -X POST http://localhost:8000/v1/movements \
+-H "Content-Type: application/json" \
+-d '{"product_id": 9999, "movement_type": "IN", "quantity": 10}'
+```
+
+```json
+{
+  "error": {
+    "code": "PRODUCT_NOT_FOUND",
+    "message": "Product with id 9999 not found",
+    "details": {"product_id": 9999}
+  }
 }
 ```
 

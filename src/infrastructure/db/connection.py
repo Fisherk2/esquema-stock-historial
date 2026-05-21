@@ -47,12 +47,16 @@ async def get_pool() -> asyncpg.Pool | None:
 async def init_pool(settings: Settings) -> None:
     """Inicializa el pool de conexiones asyncpg.
 
-    Crea un pool con tamaño mínimo de 2 conexiones y máximo de 10.
-    Si la base de datos no está disponible, captura el error y deja
-    el pool como None (fallback graceful para startup sin DB).
+    Crea un pool con tamaño configurable via Settings
+    (``db_pool_min_size`` y ``db_pool_max_size``, por defecto 2 y 10).
+    En ``development`` permite un fallback graceful si la DB no está lista.
+    En ``production`` falla explícitamente para evitar startup silencioso.
 
     Args:
         settings: Configuración con el DSN de conexión.
+
+    Raises:
+        RuntimeError: Si la DB no está disponible en producción.
 
     Ejemplo::
 
@@ -64,18 +68,28 @@ async def init_pool(settings: Settings) -> None:
     try:
         _pool = await asyncpg.create_pool(
             dsn=settings.database_url,
-            min_size=2,
-            max_size=10,
+            min_size=settings.db_pool_min_size,
+            max_size=settings.db_pool_max_size,
         )
         # F5: Configurar statement_timeout para queries de API
+        # El timeout es un entero, no requiere comillas.
+        # Se usa parametro $1 para seguir la convencion de SQL parametrizado.
         timeout_ms = settings.api_statement_timeout_seconds * 1000
-        await _pool.execute(f"SET statement_timeout = '{timeout_ms}'")
+        await _pool.execute("SET statement_timeout = $1", timeout_ms)
         logger.info("Database pool initialized")
-    except Exception:
-        # Fallback graceful: la DB puede no estar lista durante el
-        # startup temprano. Se reintentará en el siguiente request.
+    except Exception as exc:
+        # En producción, fallar hard — no permitir startup sin DB
+        if settings.environment == "production":
+            logger.error(
+                "Database pool initialization FAILED in production. "
+                "Application cannot start without database."
+            )
+            raise RuntimeError(
+                "Database connection required in production but not available"
+            ) from exc
+        # En development, fallback graceful: la DB puede no estar lista
         logger.warning(
-            "Database pool initialization failed " "(DB may not be available yet)"
+            "Database pool initialization failed (DB may not be available yet)"
         )
         _pool = None
 

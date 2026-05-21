@@ -17,6 +17,7 @@ Ejemplo::
 
 from __future__ import annotations
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -32,17 +33,8 @@ class Settings(BaseSettings):
         app_port: Puerto de escucha del servidor HTTP.
         log_level: Nivel de logging (debug, info, warning, error).
         environment: Entorno de ejecución (development, staging, production).
-        database_url: DSN de conexión asyncpg a PostgreSQL.
-
-    Ejemplo de uso con archivo .env::
-
-        # .env
-        APP_NAME=Mi App
-        APP_PORT=9000
-        DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
-
-        settings = Settings()
-        settings.app_port  # 9000 (sobreescribe el default 8000)
+        database_url: DSN de conexión asyncpg a PostgreSQL. REQUERIDO — la app
+            falla al startup si no está configurado.
     """
 
     app_name: str = "Stock Historial"
@@ -50,9 +42,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "info"
     environment: str = "development"
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial"
-    )
+    database_url: str = ""
 
     # F5: Scheduler settings
     scheduler_enabled: bool = True
@@ -64,9 +54,13 @@ class Settings(BaseSettings):
     log_format: str = "text"
     api_statement_timeout_seconds: int = 5
 
-    # F7: Docker Compose Prod (para docker-compose, no usadas por la app)
+    # F3: Database pool settings
+    db_pool_min_size: int = 2
+    db_pool_max_size: int = 10
+
+    # F7: Docker Compose Prod (solo para docker-compose, no usadas por la app)
     postgres_user: str = "stock_user"
-    postgres_password: str = ""
+    postgres_password: str = ""  # Solo usada por docker-compose.prod.yml
     postgres_db: str = "stock_historial"
 
     # F7: Demo Script
@@ -74,3 +68,14 @@ class Settings(BaseSettings):
 
     # Estrategia de carga: .env → env vars del sistema → defaults de la clase
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+
+    @model_validator(mode="after")
+    def _validate_database_url(self) -> Settings:
+        """Valida que DATABASE_URL esté configurada."""
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL is required. "
+                "Set it via environment variable or .env file. "
+                "Example: postgresql+asyncpg://user:pass@host:5432/dbname"
+            )
+        return self

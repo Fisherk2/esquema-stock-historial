@@ -94,7 +94,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Stock Historial",
         description="Sistema de gestion de inventario con Source of Truth Inmutable",
-        version="0.6.0",
+        version="1.0.0",
         lifespan=lifespan,
     )
 

@@ -40,6 +40,23 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ── Fixture autouse: DATABASE_URL por defecto para tests ────────────────
+
+
+@pytest.fixture(autouse=True)
+def _default_database_url_for_tests(monkeypatch):
+    """Asegura DATABASE_URL valida en todos los tests.
+
+    Desde v1.0.0 Settings requiere DATABASE_URL (no tiene default).
+    Este fixture autouse provee un DSN de test para que los tests que
+    instancian Settings() no fallen por validacion.
+    """
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial_test",
+    )
+
+
 # ── Fixtures de base de datos (session + function scoped) ────────────────
 
 _TRUNCATE_SQL = """

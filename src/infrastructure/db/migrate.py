@@ -100,13 +100,25 @@ async def run_migrations(pool: asyncpg.Pool) -> list[str]:
         logger.info("Applying migration: %s", version)
         sql = migration_file.read_text(encoding="utf-8")
 
-        # Ejecutar dentro de una transacción para atomicidad
-        async with pool.acquire() as conn, conn.transaction():
-            await conn.execute(sql)
-            await conn.execute(
-                "INSERT INTO schema_migrations (version) VALUES ($1)",
+        # Algunas migraciones no pueden ejecutarse dentro de una transaccion
+        # (ej: CREATE INDEX CONCURRENTLY, VACUUM). Se marcan con el comentario
+        # "-- non-transactional" en la primera linea del archivo SQL.
+        is_non_transactional = sql.lstrip().startswith("-- non-transactional")
+
+        if is_non_transactional:
+            logger.info(
+                "Migration %s is non-transactional, executing without transaction",
                 version,
             )
+            await pool.execute(sql)
+        else:
+            # Ejecutar dentro de una transaccion para atomicidad
+            async with pool.acquire() as conn, conn.transaction():
+                await conn.execute(sql)
+                await conn.execute(
+                    "INSERT INTO schema_migrations (version) VALUES ($1)",
+                    version,
+                )
 
         applied_this_run.append(version)
         logger.info("Migration applied successfully: %s", version)

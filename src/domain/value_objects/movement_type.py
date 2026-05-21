@@ -5,10 +5,10 @@ Cada movimiento es inmutable y representa una operacion atomica
 sobre el stock de un producto.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class MovementType(str, Enum):  # noqa: UP042 — plan specifies Enum, not StrEnum
+class MovementType(StrEnum):
     """Tipo de movimiento de inventario.
 
     Attributes:

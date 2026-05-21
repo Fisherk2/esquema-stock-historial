@@ -7,6 +7,58 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [1.0.1] — 2026-05-20 — Revisión Post-F7 (F0→F3)
+
+#### Agregado
+- **Excepciones de dominio específicas:** `ProductNotFoundError` y `CategoryNotFoundError` (heredan de `DomainError`) reemplazan `ValueError` genérico. Mapeadas a HTTP 400 con `code` y `details` estructurados.
+- **`BasePostgresRepository`:** Clase abstracta en `src/infrastructure/repositories/base_repository.py` centraliza `__init__(pool, connection)` y `_get_conn()`. Los 4 repositorios concretos heredan de esta clase (DRY).
+- **Validación de metadata centralizada:** `Movement.__post_init__` es la única fuente de verdad para validación de metadata condicional (TRANSFER requiere origin/destination, ADJUSTMENT requiere reason). Eliminada llamada duplicada desde use case.
+- **Soporte migraciones non-transactional:** `migrate.py` detecta `-- non-transactional` en primera línea de SQL para soportar `CREATE INDEX CONCURRENTLY`.
+- **Tests de configuración:** `tests/unit/core/test_config.py` — validación de `DATABASE_URL` requerida, mensaje de error, defaults intactos.
+- **Manejo `JSONDecodeError` en mappers:** Metadata JSONB corrupta fallback a `{}` con warning log (no crash).
+
+#### Cambiado
+- **Entidades `frozen=True`:** `Product` y `Category` ahora usan `@dataclass(frozen=True) + __hash__ = None` (consistente con `Movement`).
+- **`MovementType` migrado a `StrEnum`:** De `str, Enum` a `StrEnum` nativo (Python 3.11+). Serialización directa sin mixin boilerplate.
+- **`metadata: dict[str, Any]`:** DTOs `CreateMovementInput` y `MovementOutput` usan `dict[str, Any]` en vez de `dict[str, str]`. Acepta cualquier valor JSON.
+- **Pool configurable:** `db_pool_min_size=2` y `db_pool_max_size=10` via Settings (antes hardcodeado en connection.py).
+- **SQL parametrizado:** `SET statement_timeout = $1` en lugar de f-string. Previene SQL injection y sigue convención asyncpg.
+- **`asyncpg.PostgresError` burbujea:** Repositorios ya no envuelven errores de DB en `ValueError`. Dejan que lleguen al middleware existente (HTTP 500).
+- **UoW rollback seguro:** Si rollback falla con excepción activa, se loggea pero se preserva la excepción original (no se suprime).
+- **Imports top-level:** En `record_movement.py`, `Movement` y `Quantity` movidos de imports inline a scope del módulo.
+
+#### Eliminado
+- **`json.dumps()` en movement_repository:** asyncpg maneja `dict → JSONB` nativamente. Eliminada serialización redundante.
+- **Validación duplicada:** Eliminada llamada a `validate_movement_type_consistency` desde `record_movement.py` — validación ahora solo en `Movement.__post_init__`.
+
+#### Corregido
+- **Error handler 400 → 400:** `ProductNotFoundError` y `CategoryNotFoundError` retornan HTTP 400 (cliente error, no 404) con response estructurado `ErrorDetail`.
+- **`elif` en `movement_consistency.py`:** Condiciones mutuamente exclusivas usan `elif` en vez de `if` independiente.
+- **Tests actualizados:** 2 test files esperan `ProductNotFoundError`/`CategoryNotFoundError` en lugar de `ValueError`.
+
+### [1.0.0] — 2026-05-20 — F7: Despliegue & Documentación + Hardening Pre-Release
+
+#### Agregado
+- **Validacion obligatoria de DATABASE_URL:** `@model_validator` en `Settings` fail-fast al startup si `DATABASE_URL` no esta configurada. El mensaje de error incluye un ejemplo de DSN.
+- **DB init environment-aware:** En produccion, `init_pool()` eleva `RuntimeError` si la DB no esta disponible (no permite startup silencioso). En desarrollo, mantiene fallback graceful.
+- **Tests de validacion de configuracion:** `tests/unit/core/test_config.py` — cobertura de `DATABASE_URL` requerida, mensaje de error, defaults intactos.
+- **Refactor DRY en movements router:** Helper `_movement_to_output()` elimina 3 bloques duplicados de conversion Movement → MovementOutput.
+- **docker-compose.yml externaliza credenciales:** Todas las variables sensibles usan `${VAR:-default}` (ver `.env.example`). No mas credenciales hardcodeadas.
+
+#### Cambiado
+- **Breaking: `DATABASE_URL` ya no tiene valor por defecto.** Antes era `"postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial"`. Ahora es `""` (requerida). Configura tu `.env` segun `.env.example` o setea la variable de entorno.
+- **Version bump:** 0.6.0 → 1.0.0 (primer lanzamiento estable).
+- **Imports en movements.py:** `HTTPException`, `Movement`, `MovementType` movidos al scope del modulo (antes imports inline en funciones).
+- **`assert` → `HTTPException`:** El check `assert movement.id is not None` reemplazado por `HTTPException(500)` para evitar que se elimine con `python -O`.
+
+#### Corregido
+- **`statement_timeout` sin cast innecesario:** Eliminado `int()` redundante (`api_statement_timeout_seconds` ya es `int`).
+- **Log warning legible:** Implicit string concatenation consolidado en string unico.
+
+#### Seguridad
+- Credenciales removidas de `docker-compose.yml` (ahora via variables de entorno).
+- `DATABASE_URL` ya no expone credenciales en el default de `Settings`.
+
 ### [0.6.0] — 2026-05-20 — F6: Testing Integral (Completado)
 
 #### Agregado

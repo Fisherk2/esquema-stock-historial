@@ -4,6 +4,19 @@
 
 Las consultas analíticas usan SQL directo con CTEs y Window Functions. Sin ORM. Cada query compleja debe incluir su `EXPLAIN ANALYZE` en el spec correspondiente para validar el plan de ejecución.
 
+**SQL parametrizado obligatorio:** Todos los queries usan parámetros posicionales (`$1`, `$2`). Nunca f-strings, ni siquiera para valores numéricos. Ejemplo:
+```python
+# Correcto: SET statement_timeout = $1", timeout_ms
+# Incorrecto: f"SET statement_timeout = {timeout_ms}"
+```
+
+## Pool de Conexiones
+
+- **Tamaño configurable** via `db_pool_min_size` (default: 2) y `db_pool_max_size` (default: 10) en `Settings`.
+- El pool se inicializa al startup de FastAPI y se cierra en shutdown.
+- En producción, la app falla explícitamente si la DB no está disponible (no startup silencioso).
+- `BasePostgresRepository` comparte el pool entre todos los repositorios, evitando conexiones duplicadas.
+
 ## Vistas Materializadas
 
 - Vista principal: `mv_stock_historical` con `REFRESH CONCURRENTLY`.
@@ -25,6 +38,12 @@ Las consultas analíticas usan SQL directo con CTEs y Window Functions. Sin ORM.
 
 ## Manejo de Fallos
 
-- `statement_timeout=5s` en queries analíticas.
+- `statement_timeout=5s` en queries analíticas (parametrizado: `SET statement_timeout = $1`).
 - Timeouts explícitos en `asyncpg.connect()`.
 - Fallback a 503 si la vista no responde dentro del SLA.
+
+## Migraciones Non-Transactionales
+
+- Soporte para migraciones que no pueden ejecutarse dentro de una transacción (ej: `CREATE INDEX CONCURRENTLY`, `VACUUM`).
+- Se marcan con el comentario `-- non-transactional` en la primera línea del archivo SQL.
+- El ejecutor de migraciones (`migrate.py`) detecta esta marca y ejecuta sin `BEGIN/COMMIT`.

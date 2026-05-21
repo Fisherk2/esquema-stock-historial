@@ -17,13 +17,15 @@ F1 — Infraestructura DB
 
 ## Criterios de Aceptación
 
-- [x] `init_pool(Settings())` crea pool asyncpg con `min_size=2`, `max_size=10`
+- [x] `init_pool(Settings())` crea pool asyncpg con `min_size` y `max_size` configurables via Settings (`db_pool_min_size`, `db_pool_max_size`, default: 2 y 10)
 - [x] Pool se inicializa al arrancar FastAPI y se cierra al apagar (lifespan)
 - [x] `get_pool()` retorna el pool activo o `None` si no inicializado
 - [x] `get_db()` es dependency de FastAPI que inyecta el pool en endpoints
 - [x] `GET /v1/health` retorna `{"status": "ok", "db": "connected"}` con DB disponible
 - [x] `GET /v1/health` retorna `{"status": "degraded", "db": "unavailable"}` sin DB
-- [x] Pool initialization failure es graceful (log warning, pool=None)
+- [x] Pool initialization failure es graceful en development (log warning, pool=None)
+- [x] En **production**, `init_pool()` lanza `RuntimeError` si la DB no está disponible (no permite startup silencioso)
+- [x] `statement_timeout` para queries de API se configura con **SQL parametrizado** (`SET statement_timeout = $1`), no f-string
 - [x] DSN de testcontainers convertido de `postgresql+psycopg2://` a `postgresql://` para asyncpg
 - [x] Tests unitarios de health endpoint validan ambos escenarios
 
@@ -31,8 +33,10 @@ F1 — Infraestructura DB
 
 | Decisión | Racional |
 |----------|----------|
-| Pool size 2-10 | Balance entre recursos y concurrencia para fase inicial |
-| Graceful fallback en startup | La DB puede no estar lista durante startup temprano |
+| Pool size configurable via Settings | Permite ajuste sin modificar código. Default 2-10 balance entre recursos y concurrencia |
+| Production fail-hard | En producción, no permitir startup silencioso sin DB — mejor crash que servicio degradado invisible |
+| SQL parametrizado (`$1`) | `SET statement_timeout = $1` sigue la convención asyncpg y previene SQL injection incluso para valores numéricos |
+| Graceful fallback en development | La DB puede no estar lista durante startup temprano en modo desarrollo |
 | Health degraded (no error HTTP) | Indicador informativo, no error — la app funciona sin datos |
 | Singleton a nivel de módulo | Pool gestionado por lifespan, no necesita clase |
 

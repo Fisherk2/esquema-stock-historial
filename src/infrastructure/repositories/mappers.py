@@ -18,7 +18,8 @@ Ejemplo de uso::
 from __future__ import annotations
 
 import json
-from typing import Any
+import logging
+from typing import TYPE_CHECKING
 
 from src.domain.entities.category import Category
 from src.domain.entities.movement import Movement
@@ -27,8 +28,13 @@ from src.domain.value_objects.movement_type import MovementType
 from src.domain.value_objects.quantity import Quantity
 from src.domain.value_objects.sku import SKU
 
+if TYPE_CHECKING:
+    import asyncpg
 
-def map_category_row(record: Any) -> Category:
+logger = logging.getLogger(__name__)
+
+
+def map_category_row(record: asyncpg.Record) -> Category:
     """Transforma un asyncpg.Record en una entidad Category.
 
     Args:
@@ -45,7 +51,7 @@ def map_category_row(record: Any) -> Category:
     )
 
 
-def map_product_row(record: Any) -> Product:
+def map_product_row(record: asyncpg.Record) -> Product:
     """Transforma un asyncpg.Record en una entidad Product.
 
     Construye el Value Object SKU desde el string almacenado en DB.
@@ -72,7 +78,7 @@ def map_product_row(record: Any) -> Product:
     )
 
 
-def map_movement_row(record: Any) -> Movement:
+def map_movement_row(record: asyncpg.Record) -> Movement:
     """Transforma un asyncpg.Record en una entidad Movement.
 
     Parsea el string movement_type al Enum MovementType y construye
@@ -96,7 +102,14 @@ def map_movement_row(record: Any) -> Movement:
     elif isinstance(metadata_raw, dict):
         metadata = metadata_raw
     else:
-        metadata = json.loads(metadata_raw)
+        try:
+            metadata = json.loads(metadata_raw)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Corrupted metadata for movement id=%s, defaulting to empty dict",
+                record.get("id"),
+            )
+            metadata = {}
 
     return Movement(
         id=record["id"],

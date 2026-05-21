@@ -11,9 +11,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 
-@dataclass
+@dataclass(frozen=True)
 class Category:
     """Clasificacion de productos.
+
+    Entidad inmutable: una vez construida, no puede modificarse.
+    Las actualizaciones se realizan creando una nueva categoria
+    desde la base de datos.
 
     Args:
         id: Identificador unico (None antes de persistir).
@@ -38,3 +42,5 @@ class Category:
         """
         if not self.name:
             raise ValueError("Category name cannot be empty")
+
+    __hash__ = None  # type: ignore[assignment]

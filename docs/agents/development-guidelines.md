@@ -2,7 +2,7 @@
 
 ## Principios SOLID Aplicados
 
-1. **SRP:** Cada archivo cumple una única responsabilidad. `repositories.py` solo maneja I/O de datos. `use_cases.py` solo orquesta lógica.
+1. **SRP:** Cada archivo cumple una única responsabilidad. `repositories.py` solo maneja I/O de datos. `use_cases.py` solo orquesta lógica. `base_repository.py` centraliza gestión de conexión.
 2. **OCP:** Nuevos tipos de movimientos se añaden extendiendo clases o enums, no modificando condicionales existentes.
 3. **LSP:** Las implementaciones de repositorio deben ser sustituibles por mocks sin alterar contratos Pydantic.
 4. **DIP:** Los casos de uso dependen de protocolos (`abc.ABC` o `typing.Protocol`), no de `asyncpg` directamente.
@@ -10,8 +10,8 @@
 
 ## Patrones de Diseño
 
-- **Repository Pattern:** Abstrae acceso a PostgreSQL. `create_movement()`, `get_stock_at_date()`.
-- **Unit of Work:** Transacciones explícitas vía `asyncpg.transaction()`. Commit/Rollback determinístico.
+- **Repository Pattern:** Abstrae acceso a PostgreSQL. `create_movement()`, `get_stock_at_date()`. Todos los repos heredan de `BasePostgresRepository`.
+- **Unit of Work:** Transacciones explícitas vía `asyncpg.transaction()`. Commit/Rollback determinístico. Si rollback falla con excepción activa, se preserva la excepción original.
 - **Humble Object:** Lógica compleja en SQL puro. Python solo valida, mapea y coordina.
 - **Strategy (Refresh):** Scheduler inyecta política de refresco. Permite swapping futuro sin tocar dominio.
 
@@ -21,9 +21,9 @@
 src/
 ├── domain/          # Entidades, excepciones, reglas de negocio puras, ports (protocols)
 ├── application/     # UseCases, DTOs, Interfaces (Protocols)
-├── infrastructure/  # DB (connection, uow, migrations, seed), repositories (asyncpg wrappers), scheduler, logging
-│   ├── db/          # connection.py, uow.py, migrate.py, seed.py
-│   ├── repositories/  # movement_repository.py, product_repository.py, category_repository.py, stock_query_repository.py, mappers.py
+├── infrastructure/ # DB (connection, uow, migrations, seed), repositories (asyncpg wrappers), scheduler, logging
+│ ├── db/ # connection.py, uow.py, migrate.py (non-transactional support), seed.py
+│ ├── repositories/ # base_repository.py, movement_repository.py, product_repository.py, category_repository.py, stock_query_repository.py, mappers.py
 │   ├── scheduler/   # APScheduler config
 │   └── logging/     # Logging estructurado
 ├── adapters/        # FastAPI routers, controllers, dependency injection
@@ -44,6 +44,8 @@ tests/
 
 ## Manejo de Errores y Fallbacks
 
-- **Errores DB:** Captura explícita de `asyncpg.PostgresError`. Mapeo a `HTTP 4xx/5xx` o excepciones de dominio (`InsufficientStockError`).
-- **Timeouts:** `statement_timeout=5s` en queries analíticas. Fallback a respuesta cached o `503 Service Unavailable`.
+- **Errores de dominio:** Excepciones específicas (`ProductNotFoundError`, `CategoryNotFoundError`, `InsufficientStockError`) se mapean a HTTP status codes en middleware. Los use cases lanzan excepciones de dominio (no `ValueError` genérico).
+- **Errores DB:** `asyncpg.PostgresError` y `asyncpg.DataError` se capturan en middleware → HTTP 500. Los repositorios NO envuelven errores de asyncpg en `ValueError`; dejan que bubblen up al handler existente.
+- **Timeouts:** `statement_timeout=5s` en queries analíticas (SQL parametrizado: `SET statement_timeout = $1`). Fallback a respuesta cached o `503 Service Unavailable`.
 - **Reintentos:** Decorador `@retry` con backoff exponencial para conflictos de concurrencia.
+- **Mappers:** `JSONDecodeError` en metadata JSONB se maneja con fallback a `{}` y warning log (no crash).

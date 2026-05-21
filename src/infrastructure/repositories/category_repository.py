@@ -20,52 +20,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.domain.ports.category_repository import ICategoryRepository
+from src.infrastructure.repositories.base_repository import BasePostgresRepository
 from src.infrastructure.repositories.mappers import map_category_row
 
 if TYPE_CHECKING:
-    import asyncpg
-
     from src.domain.entities.category import Category
 
 
-class PostgresCategoryRepository(ICategoryRepository):
+class PostgresCategoryRepository(BasePostgresRepository, ICategoryRepository):
     """Repositorio de categorias con asyncpg y SQL explicito."""
-
-    _CREATE_SQL = """
-        INSERT INTO categories (name, description, created_at)
-        VALUES ($1, $2, $3)
-        RETURNING id, name, description, created_at
-    """
-
-    _GET_BY_ID_SQL = """
-        SELECT id, name, description, created_at
-        FROM categories
-        WHERE id = $1
-    """
-
-    _LIST_ALL_SQL = """
-        SELECT id, name, description, created_at
-        FROM categories
-        ORDER BY name
-    """
-
-    def __init__(
-        self,
-        pool: asyncpg.Pool,
-        connection: asyncpg.Connection | None = None,
-    ) -> None:
-        """Inicializa el repositorio con pool y conexion opcional.
-
-        Args:
-            pool: Pool de conexiones asyncpg (requerido).
-            connection: Conexion activa para transacciones (opcional).
-        """
-        self._pool = pool
-        self._connection = connection
-
-    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexion activa o el pool."""
-        return self._connection if self._connection else self._pool
 
     async def create(self, category: Category) -> Category:
         """Persiste una nueva categoria y retorna la entidad con id asignado."""

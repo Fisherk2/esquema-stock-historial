@@ -26,13 +26,15 @@ Definir las entidades centrales del dominio (`Category`, `Product`, `Movement`) 
 ```python
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 
-@dataclass
+@dataclass(frozen=True)
 class Category:
     """Categoría de productos del inventario.
+
+    Entidad inmutable: una vez construida, no puede modificarse.
 
     Attributes:
         id: Identificador técnico (None hasta persistencia).
@@ -44,11 +46,13 @@ class Category:
     id: int | None
     name: str
     description: str | None
-    created_at: datetime
+    created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
-            raise ValueError("category name cannot be empty")
+            raise ValueError("Category name cannot be empty")
+
+    __hash__ = None  # type: ignore[assignment]
 ```
 
 **Invariants:**
@@ -62,22 +66,24 @@ class Category:
 ```python
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from src.domain.value_objects.sku import SKU
 
 
-@dataclass
+@dataclass(frozen=True)
 class Product:
     """Producto del inventario.
+
+    Entidad inmutable: una vez construida, no puede modificarse.
 
     Attributes:
         id: Identificador técnico (None hasta persistencia).
         sku: Identificador de negocio (Value Object validado).
         name: Nombre del producto (no vacío).
         description: Descripción opcional.
-        unit_of_measure: Unidad de medida (default: "unit").
+        unit_of_measure: Unidad de medida.
         category_id: Referencia FK a Category (no navegación).
         min_stock_threshold: Umbral mínimo de stock (>= 0).
         created_at: Marca de tiempo de creación (timezone-aware).
@@ -89,16 +95,18 @@ class Product:
     description: str | None
     unit_of_measure: str
     category_id: int
-    min_stock_threshold: int
-    created_at: datetime
+    min_stock_threshold: int = 0
+    created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
-            raise ValueError("product name cannot be empty")
+            raise ValueError("Product name cannot be empty")
         if self.min_stock_threshold < 0:
             raise ValueError("min_stock_threshold cannot be negative")
         if not self.unit_of_measure or not self.unit_of_measure.strip():
             raise ValueError("unit_of_measure cannot be empty")
+
+    __hash__ = None  # type: ignore[assignment]
 ```
 
 **Invariants:**
@@ -182,13 +190,15 @@ class Movement:
 ```python
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class MovementType(Enum):
+class MovementType(StrEnum):
     """Tipo de movimiento de inventario.
 
-    Mapea 1:1 con el ENUM nativo de PostgreSQL `movement_type`.
+    Usa StrEnum (Python 3.11+) para serialización directa a string
+    sin mixin boilerplate. Mapea 1:1 con el ENUM nativo de PostgreSQL
+    `movement_type`.
 
     Values:
         IN: Entrada de stock al inventario.
@@ -304,6 +314,10 @@ class DomainError(Exception):
 
 ```
 DomainError (Exception)
+├── ProductNotFoundError
+│   └── product_id: int
+├── CategoryNotFoundError
+│   └── category_id: int
 ├── InsufficientStockError
 │   ├── product_id: int
 │   ├── requested: int
@@ -311,6 +325,8 @@ DomainError (Exception)
 ├── ImmutabilityViolationError
 │   ├── entity_type: str
 │   └── entity_id: int | None
+├── ConcurrencyConflictError
+│   └── operation: str
 ├── InvalidSKUError
 │   └── value: str
 └── InvalidQuantityError
@@ -319,6 +335,22 @@ DomainError (Exception)
 
 ```python
 from src.domain.exceptions.domain_error import DomainError
+
+
+class ProductNotFoundError(DomainError):
+    """Producto no encontrado en el inventario."""
+
+    def __init__(self, product_id: int) -> None:
+        self.product_id = product_id
+        super().__init__(f"Product with id {product_id} not found")
+
+
+class CategoryNotFoundError(DomainError):
+    """Categoría no encontrada en el inventario."""
+
+    def __init__(self, category_id: int) -> None:
+        self.category_id = category_id
+        super().__init__(f"Category with id {category_id} not found")
 
 
 class InsufficientStockError(DomainError):
@@ -386,13 +418,16 @@ class InvalidQuantityError(DomainError):
 
 ## Acceptance Criteria
 
-- [ ] All entities use `@dataclass` (Movement with `frozen=True`)
+- [ ] All entities use `@dataclass(frozen=True)` (Movement, Product, Category)
+- [ ] All entities have `__hash__ = None` to prevent use in sets/dicts (identity semantics)
 - [ ] No Pydantic imports in `domain/` — pure Python dataclasses only
 - [ ] `domain/` imports only from stdlib and internal domain modules (no `application/`, `infrastructure/`, `adapters/`)
 - [ ] `SKU.__post_init__` validates non-empty, max 50 chars, alphanumeric+hyphens+underscores
 - [ ] `Quantity.__post_init__` validates `value > 0`
-- [ ] `MovementType` maps 1:1 to PostgreSQL ENUM (`IN`, `OUT`, `ADJUSTMENT`, `TRANSFER`)
+- [ ] `MovementType` uses `StrEnum` (not `str, Enum`) for direct string serialization
 - [ ] `InsufficientStockError` carries `product_id`, `requested`, `available`
+- [ ] `ProductNotFoundError` carries `product_id`
+- [ ] `CategoryNotFoundError` carries `category_id`
 - [ ] All exceptions inherit from `DomainError`
 - [ ] `make lint` passes with zero errors on all domain files
 - [ ] Unit tests for value object validation and entity construction
@@ -403,4 +438,4 @@ class InvalidQuantityError(DomainError):
 
 1. Should `SKU` allow dots (`.`) in addition to hyphens and underscores? (Some industries use `PROD.001`)
 2. Should `Product.__post_init__` validate `unit_of_measure` against a known set of values?
-3. Should `Movement` have a `__hash__` method for use in sets/dicts? (frozen dataclass auto-generates it)
+3. ~~Should `Movement` have a `__hash__` method for use in sets/dicts?~~ → **Resolved:** Todas las entidades tienen `__hash__ = None` para prevenir uso en sets/dicts (semántica de identidad, no valor).

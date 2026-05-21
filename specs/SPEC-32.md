@@ -123,7 +123,14 @@ class PostgresUnitOfWork(IUnitOfWork):
         exc_val: BaseException | None,
         exc_tb: object | None,
     ) -> None:
-        """Commit si no hay excepción, rollback si la hay."""
+        """Commit si no hay excepción, rollback si la hay.
+
+        Si el rollback falla y ya había una excepción activa, se loggea
+        el error del rollback pero se re-lanza la excepción original
+        (que es más importante para el caller).
+        """
+        if self._transaction is None:
+            return
         try:
             if exc_type is None:
                 await self._transaction.commit()
@@ -131,9 +138,18 @@ class PostgresUnitOfWork(IUnitOfWork):
             else:
                 await self._transaction.rollback()
                 logger.debug("UnitOfWork transaction rolled back")
-        except Exception:
-            logger.exception("Error during transaction commit/rollback")
-            raise
+        except Exception as tx_exc:
+            if exc_type is not None:
+                # Ya había una excepción activa: loggear el error del
+                # rollback pero re-lanzar la excepción original.
+                logger.exception(
+                    "Error during rollback (original exception preserved): %s", tx_exc
+                )
+            else:
+                # No había excepción: el error del commit/rollback es
+                # el problema principal.
+                logger.exception("Error during transaction commit/rollback")
+                raise
         finally:
             if self._connection is not None:
                 await self._pool.release(self._connection)
@@ -202,9 +218,11 @@ movement = await repo.create(new_movement)
 - [ ] `PostgresUnitOfWork` funciona como context manager asíncrono (`async with`)
 - [ ] Rollback automático cuando una excepción ocurre dentro del context
 - [ ] Commit automático al salir del context sin excepción
+- [ ] **Si el rollback falla con excepción activa:** se loggea el error pero se preserva la excepción original (no se suprime)
 - [ ] Conexión compartida entre múltiples repositorios inyectada en constructor
 - [ ] Conexión siempre liberada al pool (incluso si `__aexit__` falla)
-- [ ] Tests de integración con `testcontainers.postgres` validan: commit, rollback, conexión compartida
+- [ ] `__aexit__` retorna early si `self._transaction is None` (idempotencia)
+- [ ] Tests de integración con `testcontainers.postgres` validan: commit, rollback, conexión compartida, rollback fallido
 - [ ] `IUnitOfWork` es verificable como Protocol con `isinstance(uow, IUnitOfWork)`
 
 ---
@@ -215,6 +233,7 @@ movement = await repo.create(new_movement)
 - **Test de rollback**: lanzar excepción dentro de UoW, verificar que no persiste
 - **Test de conexión compartida**: crear 2 repos con la misma conexión, insertar y verificar que ambos operan en la misma transacción
 - **Test de aislamiento**: verificar que operaciones fuera de UoW no ven cambios no commiteados
+- **Test de rollback fallido**: simular error en rollback con excepción activa, verificar que la excepción original se preserva
 
 ---
 

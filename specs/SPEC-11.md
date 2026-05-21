@@ -29,6 +29,7 @@ F1 — Infraestructura DB
 - [x] Migration runner ejecuta archivos `.sql` en orden numérico con tracking
 - [x] Migraciones idempotentes: re-ejecutar no duplica datos ni errores
 - [x] `schema_migrations` table rastrea versiones aplicadas con timestamp
+- [x] Soporte para migraciones **non-transactional**: archivos con `-- non-transactional` en primera línea se ejecutan sin transacción (ej: `CREATE INDEX CONCURRENTLY`, `VACUUM`)
 - [x] FK en products(category_id) con ON DELETE RESTRICT
 - [x] FK en movements(product_id) con ON DELETE RESTRICT
 - [x] Tests de integración validan: existencia tablas, ENUM, FK, CHECK, UNIQUE, trigger
@@ -46,6 +47,7 @@ F1 — Infraestructura DB
 | ON DELETE RESTRICT | No se pueden eliminar productos/categorías con movimientos |
 | Trigger + código para inmutabilidad | Defensa en profundidad: DB bloquea, repo solo expone INSERT |
 | Migraciones SQL manuales | No Alembic — más simple, explícito, fácil de revisar |
+| Soporte `-- non-transactional` | Permite `CREATE INDEX CONCURRENTLY` y otras operaciones que no pueden ejecutarse dentro de una transacción |
 
 ## Dependencias
 
