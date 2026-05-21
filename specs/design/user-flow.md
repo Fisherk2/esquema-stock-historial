@@ -1,2 +1,0 @@
-# User Flow
-User flows.
