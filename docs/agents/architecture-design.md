@@ -101,7 +101,7 @@ Las siguientes reglas de importación son obligatorias y se verifican en CI:
 
 **Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/repositories/`.
 
-**Separación DTO/VO (v1.0.2):** Los DTOs del application layer (`CreateMovementInput`, etc.) usan enums propios (`MovementTypeInput`) para mantener la independencia de Clean Architecture. El mapping `MovementTypeInput → MovementType` (domain VO) se hace en el router adapter, no en el DTO. Esto evita que la capa de aplicación dependa directamente de value objects del dominio, manteniendo el principio de que los DTOs son el contrato público de la API.
+**Separación DTO/VO:** Los DTOs del application layer (`CreateMovementInput`, etc.) usan enums propios (`MovementTypeInput`) para mantener la independencia de Clean Architecture. El mapping `MovementTypeInput → MovementType` (domain VO) se hace en el router adapter, no en el DTO. Esto evita que la capa de aplicación dependa directamente de value objects del dominio, manteniendo el principio de que los DTOs son el contrato público de la API.
 
 ### Mappers (asyncpg.Record → Entity)
 

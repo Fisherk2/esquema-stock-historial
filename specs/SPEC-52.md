@@ -243,9 +243,9 @@ def get_request_id() -> str | None:
 
 ## DB Timeout Configuration
 
-### Actualización de `src/infrastructure/db/connection.py` (v1.0.2)
+### Actualización de `src/infrastructure/db/connection.py`
 
-**Desde v1.0.2, `statement_timeout` se configura via `server_settings` en `create_pool()`**, no via `SET statement_timeout` después de crear el pool. Esto asegura que el timeout se aplique a **todas** las conexiones del pool, no solo a la primera.
+`statement_timeout` se configura via `server_settings` en `create_pool()`, no via `SET statement_timeout` después de crear el pool. Esto asegura que el timeout se aplique a **todas** las conexiones del pool, no solo a la primera.
 
 ```python
 # En la funcion init_pool(), al crear el pool:
@@ -267,10 +267,9 @@ _pool = await asyncpg.create_pool(
 
 | Operación | Timeout | Configuración |
 |-----------|---------|---------------|
-| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` via pool `server_settings` (v1.0.2) |
-| Refresh de vista materializada | 5s (heredado) | Hereda el timeout del pool. Si necesita más, ajustar `API_STATEMENT_TIMEOUT_SECONDS` |
+| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` via pool `server_settings` |
 
-**Nota v1.0.2:** El refresh job ya no usa `SET LOCAL statement_timeout` porque no funcionaba con `pool.execute()` sin transaccion. Ahora hereda el timeout del pool via `server_settings`. El `retry_with_backoff` en `_do_refresh` tolera timeouts y conflictos.
+**Nota:** El refresh job ya no usa `SET LOCAL statement_timeout` porque no funcionaba con `pool.execute()` sin transaccion. Ahora hereda el timeout del pool via `server_settings`. El `retry_with_backoff` en `_do_refresh` tolera timeouts y conflictos.
 
 ---
 

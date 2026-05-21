@@ -60,11 +60,11 @@ para consistencia con la configuración de producción.
 ## Métricas de Calidad
 
 - **Cobertura:** `>85%` en `domain/` y `application/`. `>70%` en `infrastructure/`. Global `>80%`.
-- **Tests totales:** 477 (v1.0.2) — unitarios + integracion + e2e + seguridad.
+- **Tests totales:** 477 — unitarios + integracion + e2e + seguridad.
 - **Complejidad Ciclomática:** `<10` por función. Si supera, refactorizar con SRP.
 - **Deuda Técnica:** Cero `FIXME` o `TODO` críticos en rama `main`.
 
-### Nuevos tipos de tests de integracion (v1.0.2)
+### Nuevos tipos de tests de integracion
 
 | Tipo | Cubre | Ejemplo |
 |------|-------|---------|

@@ -30,7 +30,7 @@ Implementar los adaptadores concretos de los 4 ports del dominio usando `asyncpg
 | Mappers como funciones puras | Testeables aisladamente, sin estado, determinísticas |
 | `BasePostgresRepository` abstracto | DRY: centraliza `__init__` y `_get_conn()` — 4 repos comparten la misma lógica |
 | asyncpg maneja JSONB nativo | No usar `json.dumps()` para `metadata` — asyncpg convierte `dict` a JSONB automáticamente |
-| Sin paginación en `list_all()` de categorías | Se esperaba un conjunto pequeño (<100). **Desde v1.0.2:** `list_all()` ahora acepta `limit` y `offset` con `LIMIT $1 OFFSET $2` en SQL para evitar fetch de todas las filas en memoria. |
+| Sin paginación en `list_all()` de categorías | Se esperaba un conjunto pequeño (<100). **Desde v1.0.0:** `list_all()` ahora acepta `limit` y `offset` con `LIMIT $1 OFFSET $2` en SQL para evitar fetch de todas las filas en memoria. |
 
 ---
 
@@ -395,9 +395,9 @@ class PostgresProductRepository(IProductRepository):
 
 ---
 
-### `PostgresCategoryRepository` (actualizado v1.0.2)
+### `PostgresCategoryRepository` (actualizado v1.0.0)
 
-Implementa `ICategoryRepository` del dominio. **Desde v1.0.2, `list_all()` acepta `limit` y `offset` para paginacion en base de datos.**
+Implementa `ICategoryRepository` del dominio. **Desde v1.0.0, `list_all()` acepta `limit` y `offset` para paginacion en base de datos.**
 
 ```python
 class PostgresCategoryRepository(ICategoryRepository):

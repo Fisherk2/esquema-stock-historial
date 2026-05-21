@@ -54,7 +54,7 @@ Variables de entorno correspondientes:
 - `SCHEDULER_REFRESH_INTERVAL_MINUTES=5`
 - `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS=60`
 
-> **Nota v1.0.2:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` ya no se usa directamente.
+> **Nota:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` ya no se usa directamente.
 > El timeout se hereda del pool via `server_settings={"statement_timeout": ...}` configurado
 > en `init_pool()`. Si el refresh necesita más tiempo, ajustar `API_STATEMENT_TIMEOUT_SECONDS`.
 

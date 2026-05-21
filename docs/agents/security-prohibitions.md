@@ -37,12 +37,12 @@
 | **Rate Limiting** | ❌ No implementado | `slowapi` o middleware manual |
 | **CORS** | ❌ No implementado | `CORSMiddleware` con allowlist de origenes |
 | **OpenAPI Docs** | ⚠️ Activos en prod | Deshabilitar `/docs`, `/redoc`, `/openapi.json` |
-| **Security Headers** | ✅ Implementado (v1.0.2) | `nosniff`, `deny`, `no-store`, `referrer-policy` |
+| **Security Headers** | ✅ Implementado | `nosniff`, `deny`, `no-store`, `referrer-policy` |
 | **SQL Injection** | ✅ Prevenido | asyncpg parametrizado en todos los queries |
 | **Input Validation** | ✅ Implementado | Pydantic `strict=True`, `extra="forbid"` |
-| **Error Handling** | ✅ Implementado (v1.0.2) | Sin leakage de stack traces. ValueError handler verifica origen del traceback. |
-| **Race Conditions** | ✅ Prevenido (v1.0.2) | `SELECT FOR UPDATE` + calculo directo dentro del UoW |
-| **Statement Timeout** | ✅ Enforcement (v1.0.2) | `server_settings` en pool — aplica a todas las conexiones |
+| **Error Handling** | ✅ Implementado | Sin leakage de stack traces. ValueError handler verifica origen del traceback. |
+| **Race Conditions** | ✅ Prevenido | `SELECT FOR UPDATE` + calculo directo dentro del UoW |
+| **Statement Timeout** | ✅ Enforcement | `server_settings` en pool — aplica a todas las conexiones |
 
 ### Checklist pre-despliegue a produccion
 

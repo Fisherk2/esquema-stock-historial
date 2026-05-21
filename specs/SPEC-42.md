@@ -740,7 +740,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
 **Design Notes:**
 - El orden de registro importa: los handlers específicos se registran antes que el handler genérico de `DomainError`
-- **`ValueError` handler con verificación de origen:** Desde v1.0.2, el handler `handle_value_error` no captura todos los `ValueError` indiscriminadamente. Verifica el traceback de la excepción para determinar si se originó en módulos de validación (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Si la excepción vino de infraestructura o código interno, se re-lanza (llega al handler `Exception` → HTTP 500). Esto previene enmascarar bugs internos como errores de cliente (400).
+- **`ValueError` handler con verificación de origen:** El handler `handle_value_error` no captura todos los `ValueError` indiscriminadamente. Verifica el traceback de la excepción para determinar si se originó en módulos de validación (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Si la excepción vino de infraestructura o código interno, se re-lanza (llega al handler `Exception` → HTTP 500). Esto previene enmascarar bugs internos como errores de cliente (400).
 - FastAPI ya maneja `ValidationError` de Pydantic automáticamente (422) — no necesitamos handler para eso
 - El handler de `DomainError` es un catch-all para subclases no mapeadas — retorna 500 porque es un error inesperado del dominio
 

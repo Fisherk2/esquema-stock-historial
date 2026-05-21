@@ -14,12 +14,22 @@ Sistema de gestión de inventario con Source of Truth Inmutable, API REST y stoc
 > **F4: Capa API** completada el 2026-05-19. Specs Spec-40/41/42 en estado Completado.
 > **F5: Scheduler & Concurrencia** completada el 2026-05-19. Specs Spec-50/51/52 en estado Completado.
 > **F6: Testing Integral** completada el 2026-05-20. Specs Spec-60/61/62/63 en estado Completado.
-> **F7: Despliegue & Documentación** completada el 2026-05-20. Specs Spec-70/71/72 en estado Completado.
+> **F7: Despliegue & Documentación** completada el 2026-05-21. Specs Spec-70/71/72 en estado Completado.
+> Dockerfile hardened: non-root USER app, OCI labels, --chown. .dockerignore con 15+ patrones.
+> docker-compose.prod.yml: app + db, PostgreSQL no expuesto, restart policies, .env vars.
+> .env.example: 17 variables F0-F7. Makefile: demo, docker-prod-up, docker-prod-down.
+> scripts/demo.sh: 9 pasos de flujo completo. README v1.0.0 con badges y quick start.
+> docs/ARCHITECTURE.md: 3 diagramas Mermaid, import rules, patrones.
+> docs/API_REFERENCE.md: 11 endpoints con curl + error examples.
+> docs/SETUP.md: prereqs, dev/prod Docker, tabla 17 env vars, troubleshooting.
+> CONTRIBUTING.md: guía para contribuidores con convenciones y flujo PR.
+> CI/CD: 5 gates secuenciales (lint → typecheck → test → coverage → docker-build).
+> 477 tests pasando (100% pass). Coverage global >85%, domain >99%, application >99%.
+> SecurityHeadersMiddleware implementado. Race conditions prevenidas con SELECT FOR UPDATE.
+> statement_timeout via pool server_settings aplicado a todas las conexiones.
+> ValueError handler con verificacion de origen del traceback.
+> Paginacion de categorias en base de datos (LIMIT/OFFSET SQL).
 > **Version 1.0.0 — lista para producción.**
-> **Hardening post-v1.0.0 /ship review:** 2 commits de hardening aplicados tras revision /ship (3-axis: code-reviewer, security-auditor, test-engineer).
-> **Revisión Post-F7 (F0→F3):** Hardening aplicado tras code review 5-axis. 14 cambios aplicados: nuevas excepciones de dominio, `BasePostgresRepository` abstracto, entidades `frozen=True`, `MovementType` → `StrEnum`, SQL parametrizado, pool configurable, migraciones non-transactional, UoW rollback seguro, eliminación de `json.dumps()`, validación centralizada en `Movement.__post_init__`, manejo `JSONDecodeError` en mappers. 211 tests pasando, `make lint` limpio.
-> **Revisión Post-F7 (F4→F5):** Hardening aplicado tras code review 5-axis de capas API y Scheduler. 5 correcciones: (1) SQL injection latente en scheduler.py `SET LOCAL` → query parametrizada `$1` (Critical), (2) `assert` reemplazado por `HTTPException(500)` en products.py y categories.py (seguro con `-O`) (Important), (3) Retry decorator `exceptions` default cambiado de `(Exception,)` a `()` con validación `ValueError` (Important), (4) `extra="forbid"` agregado a `CreateProductInput` y `CreateCategoryInput` (Suggestion), (5) `metadata` tipo actualizado a `dict[str, Any]` (Suggestion). 212 tests pasando, `make lint` limpio.
-> **Revisión Post-F7 (F6+F7 — 5-Axis Review Fixes):** Hardening aplicado tras code review post-release de cambios F6/F7. 6 correcciones: (1) **Critical:** `Movement.__post_init__` delega a `validate_movement_type_consistency()` — single source of truth (SPEC-21), (2) **Pre-existing bug:** SQL constants restauradas en `PostgresProductRepository` y `PostgresCategoryRepository` (perdidas en refactor `BasePostgresRepository`), (3) CI coverage gate consolidado: 1× pytest run → 3 verificaciones de umbral (3× menos tiempo CI), (4) `db_pool` fixture usa `Settings` pool sizes configurables, (5) docstrings actualizados en `movement_consistency.py`, (6) campos docker-only en `Settings` documentados. 212 tests pasando, `make lint` + `make typecheck` limpios.
 
 ## Detailed Docs
 
