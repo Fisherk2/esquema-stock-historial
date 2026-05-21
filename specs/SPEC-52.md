@@ -243,24 +243,34 @@ def get_request_id() -> str | None:
 
 ## DB Timeout Configuration
 
-### Actualización de `src/infrastructure/db/connection.py`
+### Actualización de `src/infrastructure/db/connection.py` (v1.0.2)
 
-Configurar `statement_timeout` al inicializar el pool, usando el valor configurable de Settings:
+**Desde v1.0.2, `statement_timeout` se configura via `server_settings` en `create_pool()`**, no via `SET statement_timeout` después de crear el pool. Esto asegura que el timeout se aplique a **todas** las conexiones del pool, no solo a la primera.
 
 ```python
-# En la funcion init_pool(), despues de crear el pool:
-# Timeout para queries de API (configurable via API_STATEMENT_TIMEOUT_SECONDS)
-await pool.execute(f"SET statement_timeout = '{settings.api_statement_timeout_seconds * 1000}'")
+# En la funcion init_pool(), al crear el pool:
+_pool = await asyncpg.create_pool(
+    dsn=settings.database_url,
+    min_size=settings.db_pool_min_size,
+    max_size=settings.db_pool_max_size,
+    server_settings={
+        "statement_timeout": str(settings.api_statement_timeout_seconds * 1000)
+    },
+)
 ```
+
+**Bug corregido:** El enfoque anterior (`SET statement_timeout = $1` despues de crear el pool) solo afectaba la primera conexion, dejando las demas sin timeout. Con `server_settings`, cada conexion del pool hereda el timeout automaticamente.
+
+**Double-init guard:** Si `init_pool()` se llama cuando ya existe un pool (ej: en tests o hot reload), se cierra el pool existente antes de crear uno nuevo, con un warning log.
 
 ### Timeout por operación
 
 | Operación | Timeout | Configuración |
 |-----------|---------|---------------|
-| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` |
-| Refresh de vista materializada | 30s (default) | `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` (ver Spec-50) |
+| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` via pool `server_settings` (v1.0.2) |
+| Refresh de vista materializada | 5s (heredado) | Hereda el timeout del pool. Si necesita más, ajustar `API_STATEMENT_TIMEOUT_SECONDS` |
 
-El refresh job usa `SET LOCAL statement_timeout` dentro de su transacción para elevar el timeout temporalmente, sin afectar otras conexiones del pool.
+**Nota v1.0.2:** El refresh job ya no usa `SET LOCAL statement_timeout` porque no funcionaba con `pool.execute()` sin transaccion. Ahora hereda el timeout del pool via `server_settings`. El `retry_with_backoff` en `_do_refresh` tolera timeouts y conflictos.
 
 ---
 

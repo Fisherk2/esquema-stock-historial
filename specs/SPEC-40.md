@@ -158,8 +158,11 @@ class RecordMovementUseCase:
 
         async with self._unit_of_work as uow:
             # Re-validar stock dentro de la transaccion para evitar race conditions
+            # Se usa get_current_stock_with_lock (SELECT FOR UPDATE) para
+            # serializar transacciones concurrentes del mismo producto.
+            # La MV puede estar stale; calcular directamente dentro del lock.
             if movement_type in (MovementType.OUT, MovementType.TRANSFER):
-                current_stock = await self._stock_query_repo.get_current_stock(product_id)
+                current_stock = await self._stock_query_repo.get_current_stock_with_lock(product_id)
                 validate_stock_not_negative(movement_type, quantity, current_stock)
 
             result = await self._movement_repo.create(movement)
@@ -169,6 +172,7 @@ class RecordMovementUseCase:
 
 **Design Notes:**
 - La validación de stock se ejecuta **dos veces**: antes del UoW (fail-fast sin adquirir conexión) y dentro del UoW (protección contra race conditions)
+- **Dentro del UoW se usa `get_current_stock_with_lock()`** que ejecuta `SELECT ... FOR UPDATE` + cálculo directo desde la tabla `movements` (no la MV). Esto serializa transacciones concurrentes del mismo producto, previniendo que dos movimientos OUT/TRANSFER simultáneos lean el mismo stock stale de la MV y ambos pasen la validación.
 - La validación de metadata se ejecuta en `Movement.__post_init__` al construir la entidad — **single source of truth** (SPEC-21). El use case NO llama `validate_movement_type_consistency` directamente. Si la metadata es inconsistente, `ValueError` se eleva desde el constructor y se traduce a HTTP 400.
 - El UoW garantiza que si `create()` falla (FK violation, constraint), todo se revierte
 - `RecordMovementUseCase` es el único use case que usa UoW; los demás son operaciones individuales

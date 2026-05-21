@@ -30,7 +30,7 @@ Implementar los adaptadores concretos de los 4 ports del dominio usando `asyncpg
 | Mappers como funciones puras | Testeables aisladamente, sin estado, determinísticas |
 | `BasePostgresRepository` abstracto | DRY: centraliza `__init__` y `_get_conn()` — 4 repos comparten la misma lógica |
 | asyncpg maneja JSONB nativo | No usar `json.dumps()` para `metadata` — asyncpg convierte `dict` a JSONB automáticamente |
-| Sin paginación en `list_all()` de categorías | Se espera un conjunto pequeño (<100) |
+| Sin paginación en `list_all()` de categorías | Se esperaba un conjunto pequeño (<100). **Desde v1.0.2:** `list_all()` ahora acepta `limit` y `offset` con `LIMIT $1 OFFSET $2` en SQL para evitar fetch de todas las filas en memoria. |
 
 ---
 
@@ -395,9 +395,9 @@ class PostgresProductRepository(IProductRepository):
 
 ---
 
-### `PostgresCategoryRepository`
+### `PostgresCategoryRepository` (actualizado v1.0.2)
 
-Implementa `ICategoryRepository` del dominio.
+Implementa `ICategoryRepository` del dominio. **Desde v1.0.2, `list_all()` acepta `limit` y `offset` para paginacion en base de datos.**
 
 ```python
 class PostgresCategoryRepository(ICategoryRepository):
@@ -419,34 +419,14 @@ class PostgresCategoryRepository(ICategoryRepository):
         SELECT id, name, description, created_at
         FROM categories
         ORDER BY name
+        LIMIT $1 OFFSET $2
     """
 
-    def __init__(
-        self,
-        pool: asyncpg.Pool,
-        connection: asyncpg.Connection | None = None,
-    ) -> None:
-        self._pool = pool
-        self._connection = connection
+    # ... __init__, _get_conn, create, get_by_id heredados de BasePostgresRepository ...
 
-    def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        return self._connection if self._connection else self._pool
-
-    async def create(self, category: Category) -> Category:
-        row = await self._get_conn().fetchrow(
-            self._CREATE_SQL,
-            category.name,
-            category.description,
-            category.created_at,
-        )
-        return map_category_row(row)
-
-    async def get_by_id(self, category_id: int) -> Category | None:
-        row = await self._get_conn().fetchrow(self._GET_BY_ID_SQL, category_id)
-        return map_category_row(row) if row else None
-
-    async def list_all(self) -> list[Category]:
-        rows = await self._get_conn().fetch(self._LIST_ALL_SQL)
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[Category]:
+        """Lista categorias con paginacion en base de datos."""
+        rows = await self._get_conn().fetch(self._LIST_ALL_SQL, limit, offset)
         return [map_category_row(r) for r in rows]
 ```
 

@@ -59,9 +59,19 @@ para consistencia con la configuración de producción.
 
 ## Métricas de Calidad
 
-- **Cobertura:** `>85%` en `domain/` y `application/`. `>70%` en `infrastructure/`.
+- **Cobertura:** `>85%` en `domain/` y `application/`. `>70%` en `infrastructure/`. Global `>80%`.
+- **Tests totales:** 477 (v1.0.2) — unitarios + integracion + e2e + seguridad.
 - **Complejidad Ciclomática:** `<10` por función. Si supera, refactorizar con SRP.
 - **Deuda Técnica:** Cero `FIXME` o `TODO` críticos en rama `main`.
+
+### Nuevos tipos de tests de integracion (v1.0.2)
+
+| Tipo | Cubre | Ejemplo |
+|------|-------|---------|
+| Security headers | Verifica cabeceras en respuestas | `X-Content-Type-Options: nosniff` presente |
+| Pagination bounds | Validacion de limit/offset | `limit=0` → 422, `limit=1001` → 422 |
+| Timezone handling | Datetime naive → UTC | `_ensure_timezone_aware` unit + integration |
+| Error handler origin | Traceback verification | ValueError desde DTO → 400, desde infra → 500 |
 
 ## Mockeo y Aislamiento
 

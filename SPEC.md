@@ -10,7 +10,7 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
-**Fase actual:** F7 — Despliegue & Documentación ✅ Completada
+**Fase actual:** F7 — Despliegue & Documentación ✅ Completada · v1.0.2 Hardening post-launch ✅
 
 ---
 
@@ -154,6 +154,10 @@ Decisiones que afectan múltiples fases y no pertenecen a un solo spec:
 | Cero nuevas dependencias de producción en F7 | F7 | F7 es infraestructura + docs, no lógica |
 | Docker local + demo (no cloud) | F7 | Target de despliegue es Docker Compose local |
 | API abierta (sin auth) | F4, F7 | Sin autenticación en MVP. Infraestructura preparada |
+| SecurityHeadersMiddleware | F7+ | `nosniff`, `DENY`, `no-store`, `referrer-policy` en todas las respuestas (v1.0.2) |
+| `statement_timeout` via `server_settings` | F5, F7 | Bug corregido: timeout ahora aplica a todas las conexiones del pool, no solo la primera (v1.0.2) |
+| `SELECT FOR UPDATE` para race conditions | F4, F5 | Dentro del UoW, `get_current_stock_with_lock()` serializa transacciones concurrentes (v1.0.2) |
+| Pagination en DB para categorias | F4 | `LIMIT $1 OFFSET $2` en SQL, no slicing en memoria (v1.0.2) |
 | Non-root container (`USER app`) | F7 | Best practice de seguridad en Docker |
 
 ---
@@ -205,3 +209,5 @@ stock-historial/
 | 0.5.0 | F5 — Scheduler & Concurrencia | 2026-05-17 |
 | 0.6.0 | F6 — Testing Integral | 2026-05-18 |
 | 1.0.0 | F7 — Despliegue & Documentación | 2026-05-20 |
+| 1.0.1 | Revisión Post-F7 (F0→F5 hardening) | 2026-05-20 |
+| 1.0.2 | /ship Post-Launch Hardening | 2026-05-21 |

@@ -7,6 +7,39 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [1.0.2] — 2026-05-21 — Revisión /ship Post-Launch Hardening
+
+#### Corregido (Critical)
+- **Dead code eliminado en error_handler.py.** Duplicado de bloque `if not is_validation_error` y `return JSONResponse` tras el return de la funcion (lineas 209-221). Bug de merge/copy-paste.
+- **Race condition en stock validation corregido.** Dentro del UoW, `RecordMovementUseCase` ahora usa `get_current_stock_with_lock()` con `SELECT ... FOR UPDATE` + cálculo directo (no MV stale). Previene que dos transacciones OUT/TRANSFER concurrentes lean el mismo stock de la MV y ambas pasen la validación.
+
+#### Corregido (High)
+- **statement_timeout ahora se aplica a todas las conexiones del pool.** Configurado via `server_settings` en `create_pool()` (antes usaba `SET statement_timeout` que solo afectaba la primera conexion). Bug corregido que dejaba queries sin timeout SLA.
+- **Naive datetime convertido a UTC en stock router.** `_ensure_timezone_aware()` asegura que datetimes sin timezone se asuman como UTC antes de consultar la DB (TIMESTAMPTZ).
+- **SET LOCAL removido del scheduler.** No funcionaba con `pool.execute()` sin transaccion. El timeout ahora se hereda del pool.
+
+#### Cambiado
+- **Clean Architecture restaurada en DTOs.** `CreateMovementInput` usa `MovementTypeInput` (enum Pydantic en application layer) en lugar de importar `MovementType` del dominio. El router mapea `MovementTypeInput → MovementType` al llamar al use case.
+- **Paginacion de categorias en base de datos.** `ICategoryRepository.list_all()` ahora acepta `limit` y `offset` con `LIMIT $1 OFFSET $2` en SQL (antes slicing en memoria de todas las filas).
+- **Parametro `statement_timeout` eliminado del scheduler.** Las funciones `_refresh_job()`, `create_scheduler()`, y `start_scheduler()` ya no aceptan este parametro misleading (el timeout real viene del pool).
+
+#### Agregado
+- **SecurityHeadersMiddleware.** Cabeceras `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, `Referrer-Policy: strict-origin-when-cross-origin` en todas las respuestas.
+- **ValueError handler con verificacion de origen.** Verifica el traceback para distinguir errores de validacion de input (400) de errores internos de programacion (500).
+- **Guard contra double init_pool().** Cierra pool existente antes de re-inicializar con warning log.
+- **Nuevo middleware `security_headers.py`.**
+- **13 nuevos tests de integracion:**
+  - Security headers verification (4 tests)
+  - Category pagination: limit, offset, bounds validation (5 tests)
+  - Datetime timezone handling (2 tests)
+  - ValueError handler behavior (1 test)
+  - `_ensure_timezone_aware` unit test (1 test)
+
+#### Validacion
+- 477 tests pasando (100% pass, antes 464)
+- `make lint` sin errores
+- Coverage global mantenida sobre 80%
+
 ### [1.0.2] — 2026-05-20 — Revisión 5-Axis F6/F7 (Hardening Post-Release)
 
 #### Corregido

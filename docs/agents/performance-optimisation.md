@@ -38,9 +38,10 @@ Las consultas analíticas usan SQL directo con CTEs y Window Functions. Sin ORM.
 
 ## Manejo de Fallos
 
-- `statement_timeout=5s` en queries analíticas (parametrizado: `SET statement_timeout = $1`).
+- **`statement_timeout` configurado via `server_settings` en pool (v1.0.2).** `asyncpg.create_pool(server_settings={"statement_timeout": ...})` asegura que el timeout se aplique a **todas** las conexiones del pool. El enfoque anterior (`SET statement_timeout` post-creacion) era un bug: solo afectaba la primera conexion, dejando las demas sin timeout.
 - Timeouts explícitos en `asyncpg.connect()`.
 - Fallback a 503 si la vista no responde dentro del SLA.
+- **Scheduler timeout:** El refresh job ya no usa `SET LOCAL` (no funcionaba sin transaccion). Hereda el timeout del pool. `retry_with_backoff` tolera timeouts y conflictos.
 
 ## Migraciones Non-Transactionales
 

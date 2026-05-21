@@ -378,6 +378,7 @@ async def get_stock_at_date(
 
 **Design Notes:**
 - `date` como query param con tipo `datetime` — FastAPI lo parsea automáticamente desde ISO 8601
+- **Timezone handling:** Si el cliente envía un datetime naive (sin timezone), el router lo convierte a UTC-aware via `_ensure_timezone_aware()` antes de pasar al use case. Esto es necesario porque la DB usa `TIMESTAMPTZ` y un datetime naive podría producir resultados incorrectos dependiendo del timezone del servidor.
 - No se valida que el producto exista aquí — el use case/repositorio retorna 0 si no hay movimientos (comportamiento esperado)
 - El endpoint histórico usa cálculo directo (no vista materializada), por lo que puede ser más lento; esto se documenta en la descripción
 
@@ -590,8 +591,9 @@ async def list_categories(
 ```
 
 **Design Notes:**
-- Sin paginación en `list_categories` — Se espera un conjunto pequeño (<100 categorías)
+- Paginación en base de datos: `list_all(limit, offset)` usa `LIMIT $1 OFFSET $2` en SQL (no slicing en memoria). Ver SPEC-30 para detalles de la implementación del repositorio.
 - `response_model=list[CategoryOutput]` — FastAPI serializa la lista automáticamente
+- Query params `limit` (default=100, max=1000) y `offset` (default=0) validados por FastAPI
 
 ---
 
@@ -738,7 +740,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
 **Design Notes:**
 - El orden de registro importa: los handlers específicos se registran antes que el handler genérico de `DomainError`
-- `ValueError` se captura a nivel de app (no en cada endpoint) para centralizar el manejo de "producto no encontrado", "categoría no encontrada", etc.
+- **`ValueError` handler con verificación de origen:** Desde v1.0.2, el handler `handle_value_error` no captura todos los `ValueError` indiscriminadamente. Verifica el traceback de la excepción para determinar si se originó en módulos de validación (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Si la excepción vino de infraestructura o código interno, se re-lanza (llega al handler `Exception` → HTTP 500). Esto previene enmascarar bugs internos como errores de cliente (400).
 - FastAPI ya maneja `ValidationError` de Pydantic automáticamente (422) — no necesitamos handler para eso
 - El handler de `DomainError` es un catch-all para subclases no mapeadas — retorna 500 porque es un error inesperado del dominio
 
