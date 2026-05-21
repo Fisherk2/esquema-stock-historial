@@ -2,7 +2,7 @@
 description: Architect of Specifications - Spec-Driven Analysis
 mode: primary
 color: "#FF8C00"
-model: nvidia/moonshotai/kimi-k2.6
+model: opencode/qwen3.6-plus-free
 temperature: 0.9
 permission:
   write: ask
