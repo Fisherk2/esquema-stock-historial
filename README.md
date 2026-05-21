@@ -64,13 +64,18 @@ Cada movimiento es atómico e inalterable. Las consultas de stock se resuelven m
 ## Quick Start
 
 ```bash
-# 1. Instalar dependencias
+# 1. Crear y activar entorno virtual
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
+
+# 2. Instalar dependencias
 make install
 
-# 2. Levantar stack de producción (app + PostgreSQL)
+# 3. Levantar stack de producción (app + PostgreSQL)
 make docker-prod-up
 
-# 3. Ejecutar demo completo
+# 4. Ejecutar demo completo
 make demo
 ```
 
@@ -78,32 +83,66 @@ make demo
 
 ```
 src/
+├── core/                # Config, retry decorator
+│   ├── config.py        # Settings vía pydantic-settings
+│   └── retry.py         # Decorador @retry con backoff exponencial
 ├── domain/              # Entidades, value objects, excepciones, reglas de negocio
 │   ├── entities/        # Product, Movement, Category
 │   ├── value_objects/   # MovementType, SKU, Quantity
-│   ├── exceptions/      # InsufficientStockError, ImmutabilityViolationError
-│   ├── rules/           # Validación de stock, inmutabilidad
-│   └── ports/           # Protocolos: IMovementRepository, IStockQueryRepository
+│   ├── exceptions/      # InsufficientStockError, ImmutabilityViolationError, etc.
+│   ├── rules/           # Validación de stock, inmutabilidad, consistencia
+│   └── ports/           # Protocolos: repositorios + Unit of Work
 ├── application/         # Casos de uso, DTOs
-│   ├── use_cases/       # CreateMovementUseCase, QueryStockAtDateUseCase, etc.
+│   ├── use_cases/       # RecordMovementUseCase, QueryStockAtDateUseCase, etc.
 │   └── dtos/            # Modelos Pydantic input/output
 ├── infrastructure/      # DB, scheduler, logging
-│   ├── db/              # Pool asyncpg, migraciones, Unit of Work
-│   ├── repositories/    # Implementaciones PostgresRepository
+│   ├── db/              # Pool asyncpg, migraciones, Unit of Work, refresh MV
+│   ├── repositories/    # Implementaciones Postgres + base_repository + mappers
 │   ├── scheduler/       # APScheduler, política de refresh
-│   └── logging/         # Logging estructurado
+│   └── logging/         # Logging estructurado JSON
 ├── adapters/            # Capa HTTP: routers FastAPI, middleware
 │   └── api/
-│       ├── routers/     # /v1/movements, /v1/stock, /v1/products, /v1/categories
-│       └── middleware/  # Mapeo de errores, request logging
-└── main.py              # App factory, entrypoint
+│       ├── dependencies.py  # Inyección de dependencias FastAPI
+│       ├── routers/         # /v1/health, movements, stock, products, categories
+│       └── middleware/      # Mapeo de errores, request logging, security headers
+└── main.py              # App factory, DI container, entrypoint
 ```
 
 ## Arquitectura
 
 Clean Architecture + Ports & Adapters. El dominio no importa de infraestructura ni adaptadores. Las dependencias apuntan siempre hacia el centro.
 
-Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para diagramas y detalles técnicos.
+```mermaid
+graph TB
+    subgraph "Adapters (HTTP)"
+        API[FastAPI Routers / Middleware]
+    end
+    subgraph "Application"
+        UC[Use Cases / DTOs Pydantic]
+    end
+    subgraph "Domain"
+        ENT[Entities & Value Objects]
+        RULES[Business Rules]
+        PORTS[Repository Ports]
+    end
+    subgraph "Infrastructure"
+        REPO[Postgres Repositories]
+        DB[(PostgreSQL 16+)]
+        MV[Materialized Views]
+    end
+
+    API --> UC
+    UC --> PORTS
+    PORTS -.-> REPO
+    REPO --> DB
+    MV --> DB
+
+    style ENT fill:#4CAF50,color:#fff
+    style RULES fill:#4CAF50,color:#fff
+    style PORTS fill:#4CAF50,color:#fff
+```
+
+> Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para diagramas detallados y decisiones técnicas.
 
 ## Documentación
 

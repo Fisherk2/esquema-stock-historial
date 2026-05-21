@@ -20,13 +20,21 @@ git clone https://github.com/Fisherk2/esquema-stock-historial.git
 cd esquema-stock-historial
 ```
 
-### 2. Instalar dependencias
+### 2. Crear y activar entorno virtual
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
+```
+
+### 3. Instalar dependencias
 
 ```bash
 make install
 ```
 
-### 3. Configurar variables de entorno
+### 4. Configurar variables de entorno
 
 Copiar `.env.example` a `.env` y ajustar las credenciales:
 
@@ -40,13 +48,13 @@ Editar `.env` con tu editor favorito. La variable más importante es `DATABASE_U
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial
 ```
 
-### 4. Ejecutar migraciones
+### 5. Ejecutar migraciones
 
 ```bash
 make migrate
 ```
 
-### 5. (Opcional) Insertar datos de prueba
+### 6. (Opcional) Insertar datos de prueba
 
 ```bash
 make seed
@@ -56,10 +64,11 @@ make seed
 
 ### Con PostgreSQL local
 
-1. Asegúrate de que PostgreSQL está corriendo localmente
-2. Configura `DATABASE_URL` en `.env` apuntando a tu instancia local
-3. Ejecuta las migraciones: `make migrate`
-4. Inicia el servidor:
+1. Asegúrate de que el entorno virtual está activado: `source .venv/bin/activate`
+2. Asegúrate de que PostgreSQL está corriendo localmente
+3. Configura `DATABASE_URL` en `.env` apuntando a tu instancia local
+4. Ejecuta las migraciones: `make migrate`
+5. Inicia el servidor:
 
 ```bash
 make dev
@@ -170,6 +179,7 @@ Las migraciones están en `migrations/` y se ejecutan con el módulo `src.infras
 
 | Problema | Solución |
 |---|---|
+| **`make` commands fallan con `ModuleNotFoundError`** | El entorno virtual no está activado. Ejecuta `source .venv/bin/activate` (Linux/Mac) o `.venv\Scripts\activate` (Windows) antes de usar `make` |
 | **`DATABASE_URL is required`** | `DATABASE_URL` no está configurada en `.env`. Configúrala antes de iniciar la app. |
 | **`asyncpg.exceptions.ConnectionDoesNotExistError`** | Verifica que PostgreSQL está corriendo. Revisa `DATABASE_URL` en `.env` |
 | **`Connection refused` al hacer `make docker-up`** | Puerto 5432 en uso por otra instancia de PostgreSQL. Detén la instancia local o cambia el puerto |
