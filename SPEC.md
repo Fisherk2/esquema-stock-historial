@@ -10,7 +10,7 @@
 
 Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
 
-**Fase actual:** F7 — Despliegue & Documentación ✅ Completada · v1.0.2 Hardening post-launch ✅
+**Fase actual:** F7 — Despliegue & Documentación ✅ Completada · Hardening post-launch ✅
 
 ---
 
@@ -202,12 +202,12 @@ stock-historial/
 
 | Versión | Fase | Fecha |
 |---------|------|-------|
-| 0.1.0 | F0 — Preparación | 2026-05-14 |
-| 0.2.0 | F1 — Infraestructura DB | 2026-05-14 |
-| 0.3.0 | F2 — Núcleo de Dominio | 2026-05-15 |
-| 0.4.0 | F4 — Capa API | 2026-05-16 |
-| 0.5.0 | F5 — Scheduler & Concurrencia | 2026-05-17 |
-| 0.6.0 | F6 — Testing Integral | 2026-05-18 |
-| 1.0.0 | F7 — Despliegue & Documentación | 2026-05-20 |
-| 1.0.1 | Revisión Post-F7 (F0→F5 hardening) | 2026-05-20 |
-| 1.0.2 | /ship Post-Launch Hardening | 2026-05-21 |
+| 0.1.0   | F0 — Preparación | 2026-05-14 |
+| 0.2.0   | F1 — Infraestructura DB | 2026-05-14 |
+| 0.3.0   | F2 — Núcleo de Dominio | 2026-05-15 |
+| 0.4.0   | F4 — Capa API | 2026-05-16 |
+| 0.5.0   | F5 — Scheduler & Concurrencia | 2026-05-17 |
+| 0.6.0   | F6 — Testing Integral | 2026-05-18 |
+| 1.0.0   | F7 — Despliegue & Documentación | 2026-05-20 |
+| 1.0.0   | Revisión Post-F7 (F0→F5 hardening) | 2026-05-20 |
+| 1.0.0   | /ship Post-Launch Hardening | 2026-05-21 |
