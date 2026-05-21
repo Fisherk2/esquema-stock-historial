@@ -322,7 +322,8 @@ Los DTOs Pydantic con `strict=True` y `Field` constraints son la primera línea 
 3. **Campos requeridos ausentes** → 422 con detalle del campo faltante
 4. **Campos extra desconocidos** → `strict=True` los rechaza
 5. **Payloads malformados** → JSON inválido, body vacío, content-type incorrecto
-6. **Metadata injection** → dict[str,str] con claves/valores maliciosos
+6. **Metadata injection** → `dict[str, Any]` acepta cualquier valor JSON (no restricción a strings).
+   Validación de contenido malicioso se delega al repository layer (parameterized queries).
 7. **Unicode/encoding edge cases** → caracteres NULL, surrogates, overlong encoding
 
 ### `tests/security/test_input_validation.py`
@@ -504,14 +505,17 @@ class TestCreateMovementInputValidation:
     async def test_metadata_with_nested_objects(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """metadata con objetos anidados → 422 (dict[str,str] rechaza dict values)."""
+        """metadata con objetos anidados → acepta (dict[str, Any] permite cualquier valor JSON)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
             "quantity": 10,
             "metadata": {"nested": {"key": "value"}},
         })
-        assert resp.status_code == 422
+        # dict[str, Any] acepta objetos anidados, ints, bools, etc.
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["metadata"]["nested"] == {"key": "value"}
 
 
 class TestCreateProductInputValidation:

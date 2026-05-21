@@ -11,9 +11,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from src.domain.value_objects.movement_type import MovementType
+from src.domain.rules.movement_consistency import validate_movement_type_consistency
 
 if TYPE_CHECKING:
+    from src.domain.value_objects.movement_type import MovementType
     from src.domain.value_objects.quantity import Quantity
 
 
@@ -57,18 +58,11 @@ class Movement:
     def __post_init__(self) -> None:
         """Valida consistencia de metadata segun el tipo de movimiento.
 
+        Delega a ``validate_movement_type_consistency`` como unica fuente
+        de verdad para esta regla (SPEC-21).
+
         Raises:
             ValueError: Si TRANSFER no tiene origin/destination o
                 ADJUSTMENT no tiene reason en metadata.
         """
-        if self.movement_type == MovementType.TRANSFER and (
-            "origin" not in self.metadata or "destination" not in self.metadata
-        ):
-            raise ValueError(
-                "TRANSFER movement requires 'origin' and " "'destination' in metadata"
-            )
-        if (
-            self.movement_type == MovementType.ADJUSTMENT
-            and "reason" not in self.metadata
-        ):
-            raise ValueError("ADJUSTMENT movement requires 'reason' in metadata")
+        validate_movement_type_consistency(self.movement_type, self.metadata)

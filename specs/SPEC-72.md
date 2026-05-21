@@ -31,7 +31,7 @@ Extender el pipeline CI/CD existente (3 gates: lint → test → coverage) a 5 g
 | Docker build como último gate | Valida que el Dockerfile compila. Es el gate más lento, por eso va al final. Si lint/typecheck/test fallan, no se pierde tiempo en Docker build |
 | `docker/build-push-action` con `type=gha` cache | GitHub Actions cache es más rápido que registry cache para builds en CI. Reduce build time significativamente en runs subsecuentes |
 | No push a registry en CI | Solo valida que el build compila. No hay deploy automático. Push a registry es manual o en un workflow separado |
-| Coverage gate mantiene `--cov-fail-under=80` | El umbral global de 80% es el mínimo. Los thresholds por paquete (domain ≥90%, application ≥85%) se validan dentro del step de coverage |
+| Coverage gate usa 1× pytest + report | Los umbrales por paquete se verifican via `coverage report --include` sobre datos ya collectados — no se re-ejecutan tests (3× → 1×, ~80% menos tiempo) |
 | Sin deploy automático | Deploy es manual. El pipeline es de validación continua, no de entrega continua |
 
 ---
@@ -63,10 +63,10 @@ El `ci.yml` actual tiene 3 gates:
 5 gates secuenciales, cada uno como job independiente:
 
 ```
-lint ──→ typecheck ──→ test ──→ coverage ──→ docker-build
-  │          │            │         │              │
-  ruff     mypy --strict  pytest   --cov-fail-    docker build
-  check    src/                    under=80       (cached)
+    lint ──→ typecheck ──→ test ──→ coverage ──→ docker-build
+      │          │            │         │              │
+      ruff     mypy --strict  pytest   1× pytest     docker build
+      check    src/                   + report        (cached)
 ```
 
 ---
@@ -212,12 +212,12 @@ jobs:
 
 | Aspecto | Detalle |
 |---------|---------|
-| Herramienta | `pytest --cov` |
-| Comando | `pytest --cov=src --cov-fail-under=80` |
-| Sub-gates | `--cov=src.domain --cov-fail-under=90`, `--cov=src.application --cov-fail-under=85` |
+| Herramienta | `pytest --cov` + `coverage report --include` |
+| Comando | `pytest --cov=src --cov-report=term-missing --cov-report=json` |
+| Sub-gates | `coverage report --include="src/domain/*" --fail-under=90`, `coverage report --include="src/application/*" --fail-under=85` |
 | Fallo si | Coverage global <80%, domain <90%, o application <85% |
-| Duración estimada | ~60s (misma suite que test, con measurement overhead) |
-| Nota | Los 3 sub-gates corren en el mismo job (secuenciales). Si el primero falla, los otros no corren |
+| Duración estimada | ~60s (1 run de tests + verificaciones de umbral sin re-ejecutar) |
+| Nota | 1 solo `pytest --cov` run; los sub-gates usan `coverage report` sobre datos ya colectados — no re-ejecutan tests |
 
 ### Gate 5: Docker Build
 
@@ -239,29 +239,36 @@ jobs:
 
 coverage.py no soporta `fail_under` por paquete nativamente. El `--cov-fail-under=80` es un gate global.
 
-### Solution
+### Solution (v1.0.0+)
 
-Ejecutar 3 comandos pytest secuenciales en el job de coverage:
+Un solo run de pytest con coverage, luego verificaciones de umbral por paquete via `coverage report`:
 
 ```bash
-# Gate global: ≥80%
-pytest --cov=src --cov-report=term-missing --cov-fail-under=80
+# Un solo run: genera coverage data completa
+pytest --cov=src --cov-report=term-missing --cov-report=json
 
-# Gate domain: ≥90%
-pytest --cov=src.domain --cov-report=term-missing --cov-fail-under=90
+# Verificacion de umbral global ≥80% (via script inline)
+python -c "import json; d=json.load(open('coverage.json')); \
+  pct=d['totals']['percent_covered_display']; \
+  print(f'Global coverage: {pct}%'); \
+  exit(0 if float(pct)>=80 else 1)"
 
-# Gate application: ≥85%
-pytest --cov=src.application --cov-report=term-missing --cov-fail-under=85
+# Verificacion de umbrales por paquete sin re-ejecutar tests
+coverage report --include="src/domain/*" --fail-under=90
+coverage report --include="src/application/*" --fail-under=85
 ```
 
-Cada comando corre la suite completa pero solo mide coverage del paquete especificado. Si el primer gate falla, los siguientes no se ejecutan (fail fast).
+### Performance Improvement
 
-### Performance Consideration
+| Metrica | Antes (3× pytest) | Después (1× pytest) | Mejora |
+|---------|-------------------|---------------------|--------|
+| Test suite runs | 3 | 1 | **66% menos** |
+| Tiempo estimado | ~3min total | ~60s | **~80% menos** |
+| Contenedores testcontainers | 3 lifecycle | 1 lifecycle | **66% menos overhead** |
 
-Los 3 comandos corren la misma suite 3 veces. Esto es aceptable porque:
-- La suite completa toma ~60s (3 runs = ~3min total)
-- El coverage job es el 4to de 5 gates — no bloquea lint/typecheck
-- La alternativa (custom plugin o script) añade complejidad sin beneficio claro
+### Rationale
+
+`coverage report --include` lee datos de coverage ya colectados (archivo `.coverage`). Verificar umbrales por paquete no requiere re-ejecutar los tests, solo re-analizar los datos existentes.
 
 ---
 
@@ -300,16 +307,16 @@ cache-to: type=gha,mode=max  # Escribir cache completo (todas las layers)
 ## Pipeline Flow Diagram
 
 ```
-┌──────────┐    ┌────────────┐    ┌──────────┐    ┌───────────┐    ┌──────────────┐
-│   LINT   │───→│ TYPECHECK  │───→│   TEST   │───→│ COVERAGE  │───→│ DOCKER BUILD │
-│  ruff    │    │  mypy      │    │  pytest  │    │  ≥80%     │    │  docker build│
-│  check   │    │  --strict  │    │  205+    │    │  ≥90% dom │    │  cached gha  │
-│          │    │  src/      │    │  tests   │    │  ≥85% app │    │  push:false  │
-└──────────┘    └────────────┘    └──────────┘    └───────────┘    └──────────────┘
-    ↓ fail          ↓ fail           ↓ fail          ↓ fail           ↓ fail
-  SKIPPED         SKIPPED          SKIPPED         SKIPPED          SKIPPED
-  remaining       remaining        remaining       remaining        remaining
-  gates           gates            gates           gates            gates
+┌──────────┐    ┌────────────┐    ┌──────────┐    ┌───────────────────┐    ┌──────────────┐
+│   LINT   │───→│ TYPECHECK  │───→│   TEST   │───→│    COVERAGE       │───→│ DOCKER BUILD │
+│  ruff    │    │  mypy      │    │  pytest  │    │  1× pytest --cov  │    │  docker build│
+│  check   │    │  --strict  │    │  205+    │    │  + report checks  │    │  cached gha  │
+│          │    │  src/      │    │  tests   │    │  ≥90% dom ≥85% app│    │  push:false  │
+└──────────┘    └────────────┘    └──────────┘    └───────────────────┘    └──────────────┘
+    ↓ fail          ↓ fail           ↓ fail          ↓ fail                 ↓ fail
+  SKIPPED         SKIPPED          SKIPPED         SKIPPED                 SKIPPED
+  remaining       remaining        remaining       remaining               remaining
+  gates           gates            gates           gates                   gates
 ```
 
 ---
@@ -368,10 +375,10 @@ make typecheck
 # 3. Validar test gate localmente
 make test
 
-# 4. Validar coverage gate localmente
-pytest --cov=src --cov-report=term-missing --cov-fail-under=80
-pytest --cov=src.domain --cov-report=term-missing --cov-fail-under=90
-pytest --cov=src.application --cov-report=term-missing --cov-fail-under=85
+# 4. Validar coverage gate localmente (1× pytest + coverage report)
+pytest --cov=src --cov-report=term-missing --cov-report=json
+coverage report --include="src/domain/*" --fail-under=90
+coverage report --include="src/application/*" --fail-under=85
 
 # 5. Validar Docker build gate localmente
 docker build -t stock-historial:latest .

@@ -34,7 +34,7 @@ Los tests de integración usan **un solo contenedor PostgreSQL por sesión**, co
 ### Implementación
 
 ```python
-# tests/integration/conftest.py
+# tests/conftest.py (raíz del proyecto)
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def db_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     """1 contenedor session-scoped: migraciones + seed + MV."""
@@ -43,6 +43,12 @@ async def db_pool() -> AsyncGenerator[asyncpg.Pool, None]:
 async def db_clean(db_pool: asyncpg.Pool) -> AsyncGenerator[asyncpg.Pool, None]:
     """Datos limpios por test: TRUNCATE + re-seed + refresh MV."""
 ```
+
+Los fixtures `db_pool` y `db_clean` están definidos en `tests/conftest.py`
+(raíz) y están disponibles automáticamente en `tests/integration/`,
+`tests/e2e/` y `tests/security/` gracias al mecanismo de conftest de pytest.
+El fixture `db_pool` usa `Settings.db_pool_min_size` y `db_pool_max_size`
+para consistencia con la configuración de producción.
 
 ### Reglas
 

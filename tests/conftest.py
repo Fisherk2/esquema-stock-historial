@@ -30,6 +30,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from testcontainers.postgres import PostgresContainer
 
+from src.core.config import Settings
 from src.infrastructure.db.migrate import run_migrations
 from src.infrastructure.db.refresh import refresh_stock_view
 from src.infrastructure.db.seed import run_seed
@@ -85,7 +86,12 @@ async def db_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     with PostgresContainer("postgres:16-alpine") as postgres:
         dsn = postgres.get_connection_url()
         dsn = dsn.replace("postgresql+psycopg2://", "postgresql://")
-        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
+        settings = Settings(database_url=dsn)
+        pool = await asyncpg.create_pool(
+            dsn=dsn,
+            min_size=settings.db_pool_min_size,
+            max_size=settings.db_pool_max_size,
+        )
 
         try:
             logger.info("Applying migrations (session setup)...")

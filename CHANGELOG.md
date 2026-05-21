@@ -7,6 +7,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Sin Lanzar]
 
+### [1.0.2] — 2026-05-20 — Revisión 5-Axis F6/F7 (Hardening Post-Release)
+
+#### Corregido
+- **Critical: Validación de metadata desduplicada.** `Movement.__post_init__` delega a `validate_movement_type_consistency()` como única fuente de verdad (SPEC-21). Eliminada lógica duplicada inline en la entidad. Import de `MovementType` movido a `TYPE_CHECKING` block (TC001).
+- **Pre-existing bug: SQL constants perdidos en repositorios.** `PostgresProductRepository` y `PostgresCategoryRepository` habían perdido sus constantes `_CREATE_SQL`, `_GET_BY_ID_SQL`, etc. durante la refactorización a `BasePostgresRepository`. Restauradas todas las constantes SQL.
+
+#### Cambiado
+- **CI/CD coverage optimizado:** Gate de cobertura ejecuta `pytest --cov` una sola vez (antes 3× redundante). Umbrales por paquete verificados via `coverage report --fail-under` sobre datos ya collectados.
+- **Test fixtures consistentes con Settings:** `db_pool` fixture usa `settings.db_pool_min_size` y `settings.db_pool_max_size` en lugar de valores hardcodeados.
+- **Docstrings actualizados:** `movement_consistency.py` refleja que se invoca desde `Movement.__post_init__` (no desde use case). `Settings` documenta campos docker-only como "no usados por la app".
+
+#### Mejora CI
+- **Coverage gate: 1× pytest → 3 verificaciones.** Reducción de ~3× en tiempo de CI para el gate de cobertura.
+
 ### [1.0.1] — 2026-05-20 — Revisión Post-F7 (F0→F3)
 
 #### Agregado

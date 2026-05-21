@@ -35,6 +35,12 @@ class Settings(BaseSettings):
         environment: Entorno de ejecución (development, staging, production).
         database_url: DSN de conexión asyncpg a PostgreSQL. REQUERIDO — la app
             falla al startup si no está configurado.
+
+    Note:
+        Los campos ``postgres_user``, ``postgres_password``, ``postgres_db``
+        y ``demo_base_url`` NO son leídos por la aplicación — solo sirven
+        como fuente de variables de entorno para ``docker-compose.prod.yml``
+        y ``scripts/demo.sh``.
     """
 
     app_name: str = "Stock Historial"
@@ -58,12 +64,13 @@ class Settings(BaseSettings):
     db_pool_min_size: int = 2
     db_pool_max_size: int = 10
 
-    # F7: Docker Compose Prod (solo para docker-compose, no usadas por la app)
+    # F7: Docker Compose Prod — SOLO usadas por docker-compose.prod.yml
+    # (inyectadas como env vars al contenedor, no leídas por la app)
     postgres_user: str = "stock_user"
-    postgres_password: str = ""  # Solo usada por docker-compose.prod.yml
-    postgres_db: str = "stock_historial"
+    postgres_password: str = ""  # docker-compose.prod.yml → POSTGRES_PASSWORD
+    postgres_db: str = "stock_historial"  # docker-compose.prod.yml → POSTGRES_DB
 
-    # F7: Demo Script
+    # F7: Demo Script — SOLO usada por scripts/demo.sh (no por la app)
     demo_base_url: str = "http://localhost:8000"
 
     # Estrategia de carga: .env → env vars del sistema → defaults de la clase

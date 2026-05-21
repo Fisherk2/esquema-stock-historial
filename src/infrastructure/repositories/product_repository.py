@@ -31,6 +31,68 @@ if TYPE_CHECKING:
 class PostgresProductRepository(BasePostgresRepository, IProductRepository):
     """Repositorio de productos con asyncpg y SQL explicito."""
 
+    _CREATE_SQL = """
+        INSERT INTO products (
+            sku, name, description, unit_of_measure,
+            category_id, min_stock_threshold, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING
+            id, sku, name, description, unit_of_measure,
+            category_id, min_stock_threshold, created_at
+    """
+
+    _GET_BY_ID_SQL = """
+        SELECT
+            id, sku, name, description, unit_of_measure,
+            category_id, min_stock_threshold, created_at
+        FROM products
+        WHERE id = $1
+    """
+
+    _GET_BY_SKU_SQL = """
+        SELECT
+            id, sku, name, description, unit_of_measure,
+            category_id, min_stock_threshold, created_at
+        FROM products
+        WHERE sku = $1
+    """
+
+    _LIST_ALL_SQL = """
+        SELECT
+            id, sku, name, description, unit_of_measure,
+            category_id, min_stock_threshold, created_at
+        FROM products
+        ORDER BY id
+        LIMIT $1 OFFSET $2
+    """
+
+    _COUNT_ALL_SQL = """
+        SELECT COUNT(*) FROM products
+    """
+
+    _LIST_BELOW_THRESHOLD_SQL = """
+        SELECT
+            p.id, p.sku, p.name, p.description,
+            p.unit_of_measure, p.category_id,
+            p.min_stock_threshold, p.created_at
+        FROM products p
+        LEFT JOIN movements m ON m.product_id = p.id
+        GROUP BY p.id
+        HAVING COALESCE(
+            SUM(
+                CASE m.movement_type
+                    WHEN 'IN' THEN m.quantity
+                    WHEN 'OUT' THEN -m.quantity
+                    WHEN 'ADJUSTMENT' THEN m.quantity
+                    WHEN 'TRANSFER' THEN -m.quantity
+                    ELSE 0
+                END
+            ), 0
+        ) < p.min_stock_threshold
+        LIMIT $1
+    """
+
     async def create(self, product: Product) -> Product:
         """Persiste un nuevo producto y retorna la entidad con id asignado."""
         row = await self._get_conn().fetchrow(

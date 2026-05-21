@@ -345,12 +345,15 @@ async def test_record_movement_product_not_found() -> None:
         uow=mock_uow,
     )
 
-    with pytest.raises(ValueError, match="Product not found"):
+    with pytest.raises(ProductNotFoundError) as exc_info:
         await use_case.execute(
             product_id=999,
             movement_type=MovementType.IN,
             quantity=10,
+            metadata={},
         )
+
+    assert exc_info.value.product_id == 999
 ```
 
 ---

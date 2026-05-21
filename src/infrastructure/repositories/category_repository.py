@@ -30,6 +30,24 @@ if TYPE_CHECKING:
 class PostgresCategoryRepository(BasePostgresRepository, ICategoryRepository):
     """Repositorio de categorias con asyncpg y SQL explicito."""
 
+    _CREATE_SQL = """
+        INSERT INTO categories (name, description, created_at)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, description, created_at
+    """
+
+    _GET_BY_ID_SQL = """
+        SELECT id, name, description, created_at
+        FROM categories
+        WHERE id = $1
+    """
+
+    _LIST_ALL_SQL = """
+        SELECT id, name, description, created_at
+        FROM categories
+        ORDER BY name
+    """
+
     async def create(self, category: Category) -> Category:
         """Persiste una nueva categoria y retorna la entidad con id asignado."""
         row = await self._get_conn().fetchrow(

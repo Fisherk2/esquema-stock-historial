@@ -50,7 +50,6 @@ from src.domain.ports.movement_repository import IMovementRepository
 from src.domain.ports.product_repository import IProductRepository
 from src.domain.ports.stock_query_repository import IStockQueryRepository
 from src.domain.ports.unit_of_work import IUnitOfWork
-from src.domain.rules.movement_consistency import validate_movement_type_consistency
 from src.domain.rules.stock_validation import validate_stock_not_negative
 
 if TYPE_CHECKING:
@@ -68,11 +67,11 @@ class RecordMovementUseCase:
         2. Si el tipo de movimiento es OUT o TRANSFER:
            a. Consultar stock actual del producto.
            b. Validar que el stock no quede negativo.
-        3. Validar consistencia de metadata (TRANSFER requiere
-           origin/destination, ADJUSTMENT requiere reason).
-        4. Construir la entidad Movement.
-        5. Persistir dentro de una transaccion (UoW).
-        6. Retornar el movimiento persistido.
+        3. Construir la entidad Movement (validación de metadata en
+           ``__post_init__`` — TRANSFER requiere origin/destination,
+           ADJUSTMENT requiere reason).
+        4. Persistir dentro de una transaccion (UoW).
+        5. Retornar el movimiento persistido.
 
     Args:
         movement_repo: Repositorio de movimientos.
@@ -98,7 +97,7 @@ class RecordMovementUseCase:
         product_id: int,
         movement_type: MovementType,
         quantity: int | float,
-        metadata: dict[str, str],
+        metadata: dict[str, Any],
         reference: str | None = None,
     ) -> Movement:
         """Ejecuta el caso de uso de registro de movimiento.
@@ -132,24 +131,20 @@ class RecordMovementUseCase:
         """
         # 1. Verificar que el producto existe
         product = await self._product_repo.get_by_id(product_id)
-        if product is None:
-            raise ValueError(f"Product {product_id} not found")
+         if product is None:
+             raise ProductNotFoundError(product_id)
 
         # 2. Para movimientos que reducen stock, validar que no quede negativo
         if movement_type in (MovementType.OUT, MovementType.TRANSFER):
             # Consultar stock actual dentro de la misma transaccion
             current_stock = await self._stock_query_repo.get_current_stock(product_id)
-            validate_stock_not_negative(movement_type, quantity, current_stock)
+            validate_stock_not_negative(movement_type, quantity, current_stock, product_id)
 
-        # 3. Validar consistencia de metadata
-        validate_movement_type_consistency(movement_type, metadata)
-
-        # 4-5. Construir y persistir dentro de UoW
+        # 3. Construir y persistir dentro de UoW
+        # (La validación de metadata se ejecuta en Movement.__post_init__)
         from datetime import UTC, datetime
 
         from src.domain.entities.movement import Movement
-        from src.domain.value_objects.movement_type import MovementType as MT
-        from src.domain.value_objects.quantity import Quantity
 
         movement = Movement(
             id=None,
@@ -174,7 +169,7 @@ class RecordMovementUseCase:
 
 **Design Notes:**
 - La validación de stock se ejecuta **dos veces**: antes del UoW (fail-fast sin adquirir conexión) y dentro del UoW (protección contra race conditions)
-- `validate_movement_type_consistency()` lanza `ValueError` (no `DomainError`) porque es un error de validación de input, no una regla de negocio
+- La validación de metadata se ejecuta en `Movement.__post_init__` al construir la entidad — **single source of truth** (SPEC-21). El use case NO llama `validate_movement_type_consistency` directamente. Si la metadata es inconsistente, `ValueError` se eleva desde el constructor y se traduce a HTTP 400.
 - El UoW garantiza que si `create()` falla (FK violation, constraint), todo se revierte
 - `RecordMovementUseCase` es el único use case que usa UoW; los demás son operaciones individuales
 

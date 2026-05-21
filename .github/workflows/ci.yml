@@ -51,7 +51,8 @@ jobs:
       - name: Run tests
         run: make test
 
-  # Gate 4: Coverage — 3 sub-gates (global, domain, application)
+  # Gate 4: Coverage — umbral global + por capa (dominio criticos)
+  # Un solo run de tests con verificaciones de coverage por paquete
   coverage:
     runs-on: ubuntu-latest
     needs: test
@@ -64,14 +65,22 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Coverage — global ≥80%
-        run: pytest --cov=src --cov-report=term-missing --cov-fail-under=80
+      # Un solo run genera el reporte completo
+      - name: Run tests with coverage
+        run: pytest --cov=src --cov-report=term-missing --cov-report=json
 
-      - name: Coverage — domain ≥90%
-        run: pytest --cov=src.domain --cov-report=term-missing --cov-fail-under=90
+      # Verificacion de umbrales sin re-ejecutar tests
+      - name: Coverage — global >=80%
+        run: python -c "import json; d=json.load(open('coverage.json')); \
+          pct=d['totals']['percent_covered_display']; \
+          print(f'Global coverage: {pct}%'); \
+          exit(0 if float(pct)>=80 else 1)"
 
-      - name: Coverage — application ≥85%
-        run: pytest --cov=src.application --cov-report=term-missing --cov-fail-under=85
+      - name: Coverage — domain >=90%
+        run: python -m coverage report --include="src/domain/*" --fail-under=90
+
+      - name: Coverage — application >=85%
+        run: python -m coverage report --include="src/application/*" --fail-under=85
 
   # Gate 5: Docker build — validar que el Dockerfile compila (push: false)
   docker-build:

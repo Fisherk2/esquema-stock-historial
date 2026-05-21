@@ -13,7 +13,7 @@
 | **F4: Capa de Aplicación/API** | 4-5 días | Completado | Casos de uso, validación Pydantic (`extra="forbid"`, `StrEnum`), rutas FastAPI `/v1/movements`, `/v1/stock`, `/v1/products`, manejo de errores, OpenAPI, helper `_to_output`. 235 tests (147 unit + 88 integration, 100% pass). 10 endpoints operativos. Testcontainers optimizado: 1 contenedor/session (~20s vs ~20 min). |
 | **F5: Scheduler & Concurrencia** | 2-3 días | ✅ Completada | APScheduler, política de refresh, optimistic concurrency, logging estructurado |
 | **F6: Testing Integral** | 3-4 días | ✅ Completada | Hypothesis PBT (100 ejemplos, seed=0), mypy --strict (74 archivos), 205 tests unitarios (99.34% cobertura), edge cases de integración, E2E con SLA p95<100ms, seguridad OWASP (SQLi + input validation + error leakage) |
-| **F7: Despliegue & Documentación** | 2-3 días | ✅ Aprobada — lista para iniciar | Docker multi-stage, docker-compose, README técnico, demo script, CI/CD pipeline |
+| **F7: Despliegue & Documentación** | 2-3 días | ✅ Completada | Docker multi-stage (non-root, OCI labels), docker-compose prod, .env.example 17 vars, demo.sh, README v1.0.0, ARCHITECTURE.md, API_REFERENCE.md, SETUP.md, CONTRIBUTING.md, CI/CD 5 gates. Hardening post-release: validación metadata centralizada en `Movement.__post_init__` (SPEC-21), SQL constants restauradas en repos, CI coverage optimizado (1× pytest → 3 verificaciones), fixtures consistentes con Settings. |
 
 ## Dependencias entre Fases
 
