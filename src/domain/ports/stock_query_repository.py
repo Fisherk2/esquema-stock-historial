@@ -48,3 +48,18 @@ class IStockQueryRepository(Protocol):
             Stock del producto en la fecha especificada.
         """
         ...
+
+    async def get_current_stock_with_lock(self, product_id: int) -> float:
+        """Obtiene stock con lock pessimista (SELECT FOR UPDATE).
+
+        Serializa transacciones concurrentes del mismo producto y
+        calcula el stock directamente desde movements (no MV).
+        Solo debe usarse dentro de una transaccion activa (UoW).
+
+        Args:
+            product_id: ID del producto a bloquear y consultar.
+
+        Returns:
+            Stock actual calculado directamente.
+        """
+        ...

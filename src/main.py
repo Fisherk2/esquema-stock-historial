@@ -106,6 +106,11 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RequestLoggingMiddleware)
 
+    # F5: Security headers (nosniff, frame-options, cache-control)
+    from src.adapters.api.middleware.security_headers import SecurityHeadersMiddleware
+
+    app.add_middleware(SecurityHeadersMiddleware)
+
     # F4: Routers de dominio
     from src.adapters.api.middleware.error_handler import register_error_handlers
     from src.adapters.api.routers.categories import router as categories_router

@@ -3,19 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 — Pydantic needs runtime datetime
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
-class MovementTypeInput(StrEnum):
-    """Tipo de movimiento de inventario (serializable a JSON)."""
-
-    IN = "IN"
-    OUT = "OUT"
-    ADJUSTMENT = "ADJUSTMENT"
-    TRANSFER = "TRANSFER"
+from src.domain.value_objects.movement_type import MovementType
 
 
 class CreateMovementInput(BaseModel):
@@ -39,7 +31,7 @@ class CreateMovementInput(BaseModel):
         description="ID del producto al que afecta el movimiento.",
         json_schema_extra={"examples": [1]},
     )
-    movement_type: MovementTypeInput = Field(
+    movement_type: MovementType = Field(
         description="Tipo de movimiento: IN, OUT, ADJUSTMENT, TRANSFER.",
         json_schema_extra={"examples": ["IN"]},
     )
@@ -64,17 +56,17 @@ class CreateMovementInput(BaseModel):
     @classmethod
     def coerce_movement_type(
         cls,
-        v: str | MovementTypeInput,
-    ) -> MovementTypeInput:
-        """Convierte strings a MovementTypeInput enum.
+        v: str | MovementType,
+    ) -> MovementType:
+        """Convierte strings a MovementType enum.
 
         Con strict=True, Pydantic requiere enum instances, no strings.
         Este validator permite que la API acepte strings (ej: "IN") y los
         convierta a enum antes de la validacion estricta.
         """
-        if isinstance(v, MovementTypeInput):
+        if isinstance(v, MovementType):
             return v
-        return MovementTypeInput(v)
+        return MovementType(v)
 
     @model_validator(mode="after")
     def validate_movement_metadata(self) -> CreateMovementInput:
@@ -86,14 +78,14 @@ class CreateMovementInput(BaseModel):
         Raises:
             ValueError: Si la metadata es insuficiente para el tipo.
         """
-        if self.movement_type == MovementTypeInput.TRANSFER and (
+        if self.movement_type == MovementType.TRANSFER and (
             "origin" not in self.metadata or "destination" not in self.metadata
         ):
             raise ValueError(
                 "TRANSFER movement requires 'origin' and 'destination' in metadata"
             )
         elif (
-            self.movement_type == MovementTypeInput.ADJUSTMENT
+            self.movement_type == MovementType.ADJUSTMENT
             and "reason" not in self.metadata
         ):
             raise ValueError("ADJUSTMENT movement requires 'reason' in metadata")

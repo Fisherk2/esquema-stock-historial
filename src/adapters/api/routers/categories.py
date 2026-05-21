@@ -1,15 +1,15 @@
 """Router de categorias — creacion y consulta de categorias.
 
 Endpoints:
-    POST   /v1/categories    — Crear categoria
-    GET    /v1/categories    — Listar categorias
+    POST   /v1/categories            — Crear categoria
+    GET    /v1/categories            — Listar categorias (paginado)
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.adapters.api.dependencies import (
     get_category_repo,
@@ -23,6 +23,11 @@ from src.application.use_cases.create_category import CreateCategoryUseCase
 from src.domain.ports.category_repository import ICategoryRepository
 
 router = APIRouter(prefix="/categories", tags=["categories"])
+
+# Paginacion por defecto: 100 categorias por pagina (suficiente para
+# la mayoria de sistemas; las categorias son tipicamente < 100).
+_MAX_LIMIT = 1000
+_DEFAULT_LIMIT = 100
 
 
 @router.post(
@@ -60,8 +65,19 @@ async def create_category(
 )
 async def list_categories(
     repo: Annotated[ICategoryRepository, Depends(get_category_repo)],
+    limit: int = Query(
+        default=_DEFAULT_LIMIT,
+        ge=1,
+        le=_MAX_LIMIT,
+        description="Numero maximo de categorias a retornar.",
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Numero de categorias a saltar.",
+    ),
 ) -> list[CategoryOutput]:
-    """Lista todas las categorias (sin paginacion)."""
+    """Lista categorias con paginacion."""
     categories = await repo.list_all()
     return [
         CategoryOutput(
@@ -70,5 +86,5 @@ async def list_categories(
             description=c.description,
             created_at=c.created_at,
         )
-        for c in categories
+        for c in categories[offset : offset + limit]
     ]

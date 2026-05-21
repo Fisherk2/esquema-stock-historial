@@ -7,6 +7,7 @@ dentro de tests async para evitar conflictos con el event loop.
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -87,9 +88,9 @@ async def _measure_stock_latency(
     """Mide latencia de endpoint de stock N veces. Retorna lista en ms."""
     latencies = []
     for _ in range(iterations):
-        start = __import__("time").perf_counter()
+        start = time.perf_counter()
         resp = await api_client.get(f"/v1/stock/{product_id}/{endpoint}")
-        elapsed_ms = (__import__("time").perf_counter() - start) * 1000
+        elapsed_ms = (time.perf_counter() - start) * 1000
         latencies.append(elapsed_ms)
         assert resp.status_code == 200, f"Request failed: {resp.json()}"
     return latencies
@@ -128,12 +129,12 @@ class TestStockLatency:
 
         latencies = []
         for _ in range(BENCHMARK_ITERATIONS):
-            start = __import__("time").perf_counter()
+            start = time.perf_counter()
             resp = await api_client.get(
                 f"/v1/stock/{product_id}/at-date",
                 params={"date": now},
             )
-            elapsed_ms = (__import__("time").perf_counter() - start) * 1000
+            elapsed_ms = (time.perf_counter() - start) * 1000
             latencies.append(elapsed_ms)
             assert resp.status_code == 200
 

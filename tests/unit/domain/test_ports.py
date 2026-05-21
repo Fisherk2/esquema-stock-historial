@@ -85,5 +85,8 @@ class TestIStockQueryRepository:
             async def get_stock_at_date(self, product_id: int, date: datetime) -> float:
                 return 0.0
 
+            async def get_current_stock_with_lock(self, product_id: int) -> float:
+                return 0.0
+
         mock = MockStockQueryRepository()
         assert isinstance(mock, IStockQueryRepository)

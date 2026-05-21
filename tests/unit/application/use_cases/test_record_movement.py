@@ -91,6 +91,7 @@ class TestRecordMovementUseCase:
         """Verifica que OUT valida stock suficiente."""
         product_repo.get_by_id = AsyncMock(return_value=MagicMock())
         stock_query_repo.get_current_stock = AsyncMock(return_value=20)
+        stock_query_repo.get_current_stock_with_lock = AsyncMock(return_value=20)
 
         await use_case.execute(
             product_id=1,
@@ -181,6 +182,7 @@ class TestRecordMovementUseCase:
         """Verifica que OUT usa UoW para atomicidad."""
         product_repo.get_by_id = AsyncMock(return_value=MagicMock())
         stock_query_repo.get_current_stock = AsyncMock(return_value=20)
+        stock_query_repo.get_current_stock_with_lock = AsyncMock(return_value=20)
 
         await use_case.execute(
             product_id=1,

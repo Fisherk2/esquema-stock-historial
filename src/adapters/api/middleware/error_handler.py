@@ -16,13 +16,13 @@ from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
 from src.domain.exceptions.domain_error import DomainError
 from src.domain.exceptions.immutability_violation import ImmutabilityViolationError
 from src.domain.exceptions.insufficient_stock import InsufficientStockError
+from src.domain.exceptions.invalid_quantity import InvalidQuantityError
+from src.domain.exceptions.invalid_sku import InvalidSKUError
+from src.domain.exceptions.product_not_found import ProductNotFoundError
 
 if TYPE_CHECKING:
     import asyncpg
     from fastapi import FastAPI, Request
-from src.domain.exceptions.invalid_quantity import InvalidQuantityError
-from src.domain.exceptions.invalid_sku import InvalidSKUError
-from src.domain.exceptions.product_not_found import ProductNotFoundError
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -167,12 +167,49 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(ValueError)
-    async def handle_value_error(request: Request, exc: ValueError) -> JSONResponse:
+    async def handle_value_error(
+        request: Request, exc: ValueError
+    ) -> JSONResponse:
         """Mapea ValueError a HTTP 400 Bad Request.
 
-        Se usa para errores de validacion de input (metadata inconsistente,
-        producto/categoria no encontrado, etc.).
+        Solo captura errores de validacion de input (metadata inconsistente
+        en DTOs, domain value objects). Errores internos de programacion
+        se delegan al handler de Exception (HTTP 500).
         """
+        _validation_modules = (
+            "src/application/dtos",
+            "src/domain/value_objects",
+            "src/domain/entities",
+            "src/domain/rules",
+        )
+        is_validation_error = False
+        if exc.__traceback__:
+            tb = exc.__traceback__
+            while tb is not None:
+                fname = tb.tb_frame.f_code.co_filename
+                if any(mod in fname for mod in _validation_modules):
+                    is_validation_error = True
+                    break
+                tb = tb.tb_next
+
+        if not is_validation_error:
+            # Error interno de programacion — no enmascarar como 400
+            raise exc
+
+        return JSONResponse(
+            status_code=400,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    code="VALIDATION_ERROR",
+                    message=str(exc),
+                )
+            ).model_dump(),
+        )
+
+        if not is_validation_error:
+            # Error interno de programacion — no enmascarar como 400
+            raise exc
+
         return JSONResponse(
             status_code=400,
             content=ErrorResponse(

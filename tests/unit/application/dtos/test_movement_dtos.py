@@ -11,8 +11,8 @@ from src.application.dtos.movement_dtos import (
     CreateMovementInput,
     MovementListOutput,
     MovementOutput,
-    MovementTypeInput,
 )
+from src.domain.value_objects.movement_type import MovementType
 
 
 class TestCreateMovementInput:
@@ -22,19 +22,19 @@ class TestCreateMovementInput:
         """Verifica que crea un input IN valido."""
         body = CreateMovementInput(
             product_id=1,
-            movement_type=MovementTypeInput.IN,
+            movement_type=MovementType.IN,
             quantity=10,
             metadata={"supplier": "ACME"},
         )
         assert body.product_id == 1
-        assert body.movement_type == MovementTypeInput.IN
+        assert body.movement_type == MovementType.IN
         assert body.quantity == 10
 
     def test_valid_out_movement(self) -> None:
         """Verifica que crea un input OUT valido."""
         body = CreateMovementInput(
             product_id=1,
-            movement_type=MovementTypeInput.OUT,
+            movement_type=MovementType.OUT,
             quantity=5,
         )
         assert body.quantity == 5
@@ -44,7 +44,7 @@ class TestCreateMovementInput:
         with pytest.raises(ValidationError):
             CreateMovementInput(
                 product_id=1,
-                movement_type=MovementTypeInput.TRANSFER,
+                movement_type=MovementType.TRANSFER,
                 quantity=5,
                 metadata={"origin": "A"},
             )
@@ -53,7 +53,7 @@ class TestCreateMovementInput:
         """Verifica que TRANSFER con origin y destination pasa."""
         body = CreateMovementInput(
             product_id=1,
-            movement_type=MovementTypeInput.TRANSFER,
+            movement_type=MovementType.TRANSFER,
             quantity=5,
             metadata={"origin": "A", "destination": "B"},
         )
@@ -64,7 +64,7 @@ class TestCreateMovementInput:
         with pytest.raises(ValidationError):
             CreateMovementInput(
                 product_id=1,
-                movement_type=MovementTypeInput.ADJUSTMENT,
+                movement_type=MovementType.ADJUSTMENT,
                 quantity=5,
                 metadata={},
             )
@@ -73,7 +73,7 @@ class TestCreateMovementInput:
         """Verifica que ADJUSTMENT con reason pasa."""
         body = CreateMovementInput(
             product_id=1,
-            movement_type=MovementTypeInput.ADJUSTMENT,
+            movement_type=MovementType.ADJUSTMENT,
             quantity=5,
             metadata={"reason": "inventory count"},
         )
@@ -84,7 +84,7 @@ class TestCreateMovementInput:
         with pytest.raises(ValidationError):
             CreateMovementInput(
                 product_id=1,
-                movement_type=MovementTypeInput.IN,
+                movement_type=MovementType.IN,
                 quantity=0,
             )
 
@@ -93,7 +93,7 @@ class TestCreateMovementInput:
         with pytest.raises(ValidationError):
             CreateMovementInput(
                 product_id=1,
-                movement_type=MovementTypeInput.IN,
+                movement_type=MovementType.IN,
                 quantity=-5,
             )
 
@@ -102,7 +102,7 @@ class TestCreateMovementInput:
         with pytest.raises(ValidationError):
             CreateMovementInput(
                 product_id=0,
-                movement_type=MovementTypeInput.IN,
+                movement_type=MovementType.IN,
                 quantity=10,
             )
 
@@ -110,7 +110,7 @@ class TestCreateMovementInput:
         """Verifica que metadata por defecto es dict vacio."""
         body = CreateMovementInput(
             product_id=1,
-            movement_type=MovementTypeInput.IN,
+            movement_type=MovementType.IN,
             quantity=10,
         )
         assert body.metadata == {}

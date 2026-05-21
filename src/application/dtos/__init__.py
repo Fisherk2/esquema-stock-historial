@@ -6,7 +6,6 @@ from src.application.dtos.movement_dtos import (
     CreateMovementInput,
     MovementListOutput,
     MovementOutput,
-    MovementTypeInput,
 )
 from src.application.dtos.product_dtos import (
     CreateProductInput,
@@ -25,7 +24,6 @@ __all__ = [
     "ErrorResponse",
     "MovementListOutput",
     "MovementOutput",
-    "MovementTypeInput",
     "ProductListOutput",
     "ProductOutput",
     "StockAtDateOutput",

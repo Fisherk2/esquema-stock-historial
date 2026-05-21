@@ -23,3 +23,36 @@
 6. `print()` en producción. Usar `logging` o `structlog`.
 7. Ignorar `async/await`: mezclar código síncrono en rutas async bloquea el event loop.
 8. Modificar datos históricos: `UPDATE` o `DELETE` en tabla `movements`. Solo `INSERT`. Si hay error, insertar movimiento compensatorio.
+
+## Estado de Seguridad MVP (Pre-Produccion)
+
+> **Nota:** Este proyecto en su estado actual es un **MVP sin despliegue real a produccion**. Las siguientes limitaciones son conocidas y deben resolverse antes de un despliegue productivo.
+
+### Limitaciones conocidas del MVP
+
+| Componente | Estado MVP | Requisito Pre-Produccion |
+|---|---|---|
+| **Authentication** | ❌ No implementado | API keys o JWT/OAuth2 con RBAC |
+| **Authorization** | ❌ No implementado | Roles: admin, warehouse, readonly |
+| **Rate Limiting** | ❌ No implementado | `slowapi` o middleware manual |
+| **CORS** | ❌ No implementado | `CORSMiddleware` con allowlist de origenes |
+| **OpenAPI Docs** | ⚠️ Activos en prod | Deshabilitar `/docs`, `/redoc`, `/openapi.json` |
+| **Security Headers** | ✅ Implementado | `nosniff`, `deny`, `no-store` |
+| **SQL Injection** | ✅ Prevenido | asyncpg parametrizado en todos los queries |
+| **Input Validation** | ✅ Implementado | Pydantic `strict=True`, `extra="forbid"` |
+| **Error Handling** | ✅ Implementado | Sin leakage de stack traces |
+
+### Checklist pre-despliegue a produccion
+
+Antes de desplegar a produccion, completar:
+
+- [ ] Implementar autenticacion (API key o JWT)
+- [ ] Configurar autorizacion por roles
+- [ ] Agregar rate limiting (slowapi)
+- [ ] Configurar CORS con origenes especificos
+- [ ] Deshabilitar OpenAPI docs en produccion
+- [ ] Agregar HSTS via reverse proxy (nginx/traefik)
+- [ ] Configurar monitorizacion y alertas
+- [ ] Documentar plan de rollback
+- [ ] Ejecutar auditoria de dependencias (`pip-audit`)
+- [ ] Verificar que todas las variables de entorno estan configuradas

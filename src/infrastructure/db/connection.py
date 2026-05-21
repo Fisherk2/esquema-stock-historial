@@ -65,18 +65,25 @@ async def init_pool(settings: Settings) -> None:
         pool = await get_pool()  # asyncpg.Pool activo
     """
     global _pool
+
+    # Guard: cerrar pool existente antes de crear uno nuevo
+    if _pool is not None:
+        logger.warning(
+            "Pool already initialized — closing existing pool before re-init"
+        )
+        await close_pool()
+
     try:
+        timeout_ms = settings.api_statement_timeout_seconds * 1000
         _pool = await asyncpg.create_pool(
             dsn=settings.database_url,
             min_size=settings.db_pool_min_size,
             max_size=settings.db_pool_max_size,
+            # server_settings aplica statement_timeout a TODAS las conexiones
+            # del pool — correccion del bug donde SET solo afectaba una conexion
+            server_settings={"statement_timeout": str(timeout_ms)},
         )
-        # F5: Configurar statement_timeout para queries de API
-        # El timeout es un entero, no requiere comillas.
-        # Se usa parametro $1 para seguir la convencion de SQL parametrizado.
-        timeout_ms = settings.api_statement_timeout_seconds * 1000
-        await _pool.execute("SET statement_timeout = $1", timeout_ms)
-        logger.info("Database pool initialized")
+        logger.info("Database pool initialized (statement_timeout=%dms)", timeout_ms)
     except Exception as exc:
         # En producción, fallar hard — no permitir startup sin DB
         if settings.environment == "production":

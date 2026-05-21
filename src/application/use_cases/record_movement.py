@@ -113,10 +113,16 @@ class RecordMovementUseCase:
         )
 
         # 4. Persistir dentro de UoW con re-validacion de stock
+        # Se usa get_current_stock_with_lock (SELECT FOR UPDATE + calculo
+        # directo) para evitar race conditions: la MV puede estar stale y
+        # dos transacciones concurrentes podrian ambas pasar la validacion.
+        # El lock serializa movimientos del mismo producto.
         async with self._unit_of_work:
             if movement_type in (MovementType.OUT, MovementType.TRANSFER):
-                current_stock = await self._stock_query_repo.get_current_stock(
-                    product_id
+                current_stock = (
+                    await self._stock_query_repo.get_current_stock_with_lock(
+                        product_id
+                    )
                 )
                 validate_stock_not_negative(
                     movement_type, quantity, current_stock, product_id

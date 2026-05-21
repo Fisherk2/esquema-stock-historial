@@ -71,6 +71,10 @@ class PostgresStockQueryRepository(BasePostgresRepository, IStockQueryRepository
         WHERE product_id = $1
     """
 
+    _LOCK_PRODUCT_SQL = """
+        SELECT id FROM products WHERE id = $1 FOR UPDATE
+    """
+
     _STOCK_AT_DATE_SQL = """
         SELECT COALESCE(
             SUM(
@@ -118,3 +122,23 @@ class PostgresStockQueryRepository(BasePostgresRepository, IStockQueryRepository
         """Calcula el stock en una fecha especifica."""
         row = await self._get_conn().fetchrow(self._STOCK_AT_DATE_SQL, product_id, date)
         return float(row["stock"]) if row else 0.0
+
+    async def get_current_stock_with_lock(self, product_id: int) -> float:
+        """Obtiene stock con lock pessimista para evitar race conditions.
+
+        Ejecuta ``SELECT ... FOR UPDATE`` sobre el producto para serializar
+        transacciones concurrentes del mismo producto, luego calcula el
+        stock directamente desde la tabla movements (no la MV).
+
+        Solo debe usarse dentro de una transaccion activa (UoW).
+
+        Args:
+            product_id: ID del producto a bloquear y consultar.
+
+        Returns:
+            float: Stock actual calculado directamente.
+        """
+        # Bloquear la fila del producto para serializar movimientos concurrentes
+        await self._get_conn().fetchrow(self._LOCK_PRODUCT_SQL, product_id)
+        # Calcular stock directamente (no MV) dentro de la transaccion
+        return await self._get_stock_direct(product_id)

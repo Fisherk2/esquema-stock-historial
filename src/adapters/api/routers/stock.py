@@ -7,7 +7,7 @@ Endpoints:
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003 — needed by FastAPI query param
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -21,6 +21,18 @@ from src.application.use_cases.query_current_stock import QueryCurrentStockUseCa
 from src.application.use_cases.query_stock_at_date import QueryStockAtDateUseCase
 
 router = APIRouter(prefix="/stock", tags=["stock"])
+
+
+def _ensure_timezone_aware(dt: datetime) -> datetime:
+    """Asegura que el datetime tenga zona horaria (UTC por defecto).
+
+    FastAPI parsea datetimes naive si el cliente no envia timezone.
+    Como la DB usa TIMESTAMPTZ, un datetime naive podria producir
+    resultados incorrectos dependiendo del timezone del servidor.
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
 
 
 @router.get(
@@ -59,5 +71,6 @@ async def get_stock_at_date(
     ),
 ) -> StockAtDateOutput:
     """Obtiene el stock de un producto en una fecha."""
-    stock = await use_case.execute(product_id, date)
-    return StockAtDateOutput(product_id=product_id, stock=stock, date=date)
+    date_tz = _ensure_timezone_aware(date)
+    stock = await use_case.execute(product_id, date_tz)
+    return StockAtDateOutput(product_id=product_id, stock=stock, date=date_tz)
