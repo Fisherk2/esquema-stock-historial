@@ -1,18 +1,18 @@
-# Matriz de Stakeholders
+# Stakeholder Matrix
 
-| Rol | Nombre | Contacto | Responsabilidades |
+| Role | Name | Contact | Responsibilities |
 |-----|--------|----------|-------------------|
-| Arquitecto/Dev Principal | Fisherk2 | GitHub/Local | Diseño, implementación, revisión de specs, mantenimiento de `AGENTS.md` y `WORKFLOW.md` |
-| QA / Tester Automatizado | CI/CD Pipeline | GitHub Actions | Validación de contratos, ejecución de tests, métricas de cobertura |
-| Reviewer Técnico | Portfolio Evaluator | GitHub PRs | Validación de SLA, calidad arquitectónica, trazabilidad de specs |
+| Architect/Lead Dev | Fisherk2 | GitHub/Local | Design, implementation, spec review, maintenance of `AGENTS.md` and `WORKFLOW.md` |
+| QA / Automated Tester | CI/CD Pipeline | GitHub Actions | Contract validation, test execution, coverage metrics |
+| Technical Reviewer | Portfolio Evaluator | GitHub PRs | SLA validation, architectural quality, spec traceability |
 
-## Referencias
+## References
 
-| Documento | Ruta | Propósito |
-|-----------|------|-----------|
-| AGENTS.md | `/AGENTS.md` | Fuente de verdad arquitectónica, patrones, guías SOLID, prohibiciones |
-| WORKFLOW.md | `/WORKFLOW.md` | Orden de ejecución y trazabilidad de specs |
-| README.md | `/README.md` | Onboarding, setup local, estructura del proyecto |
-| specs/ | `/specs/` | Specs individuales con contratos, SQL, fixtures |
-| docs/openapi.json | `/docs/openapi.json` | Contrato REST generado desde FastAPI/Pydantic |
-| CONTRIBUTING.md | `/CONTRIBUTING.md` | Guía de estilo, pre-commit hooks, flujo de PRs |
+| Document | Path | Purpose |
+|-----------|------|---------|
+| AGENTS.md | `/AGENTS.md` | Architectural source of truth, patterns, SOLID guides, prohibitions |
+| WORKFLOW.md | `/WORKFLOW.md` | Execution order and spec traceability |
+| README.md | `/README.md` | Onboarding, local setup, project structure |
+| specs/ | `/specs/` | Individual specs with contracts, SQL, fixtures |
+| docs/openapi.json | `/docs/openapi.json` | REST contract generated from FastAPI/Pydantic |
+| CONTRIBUTING.md | `/CONTRIBUTING.md` | Style guide, pre-commit hooks, PR workflow |

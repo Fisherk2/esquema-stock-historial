@@ -1,2 +1,2 @@
-# User flow
-Flujos de usuario.
+# User Flow
+User flows.

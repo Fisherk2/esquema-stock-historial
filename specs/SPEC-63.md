@@ -1,35 +1,35 @@
-# SPEC-63: Pruebas de Seguridad — SQL Injection + Input Validation
+# SPEC-63: Security Tests — SQL Injection + Input Validation
 
-**Fase:** F6 — Testing Integral
-**Dependencias:** Spec-42 (Rutas FastAPI) ✅ Completado, Spec-52 (Logging & Errors) ✅ Completado
-**Prioridad:** Media
-**Estado:** Aprobado
+**Phase:** F6 — Comprehensive Testing
+**Dependencies:** Spec-42 (FastAPI Routes) ✅ Completed, Spec-52 (Logging & Errors) ✅ Completed
+**Priority:** Medium
+**Status:** Approved
 
 ---
 
 ## Objective
 
-Implementar la suite de tests de seguridad que valida las dos áreas críticas del sistema: (1) **SQL Injection** — verificar que los repositorios y endpoints son inmunes a payloads de inyección SQL; (2) **Input Validation** — verificar que los DTOs Pydantic rechazan inputs maliciosos, fuera de rango, o malformados. El scope se limita a estas dos áreas (no incluye autenticación, autorización, ni timing attacks).
+Implement the security test suite that validates the two critical areas of the system: (1) **SQL Injection** — verify that repositories and endpoints are immune to SQL injection payloads; (2) **Input Validation** — verify that Pydantic DTOs reject malicious, out-of-range, or malformed inputs. The scope is limited to these two areas (does not include authentication, authorization, or timing attacks).
 
-**Principios de diseño:**
-- **Tests de seguridad como regression suite** — no son one-time audits; se ejecutan en cada CI run
-- **Cero nuevas dependencias de producción** — los tests usan `httpx.AsyncClient` existente
-- **Payloads reales de OWASP** — no inventar payloads; usar los catalogados en OWASP Testing Guide v4
-- **Scope explícito** — solo SQL injection + input validation. Auth, rate limiting, y CORS quedan fuera de F6
-- **Cero regresiones** — todos los tests existentes deben seguir pasando
+**Design principles:**
+- **Security tests as regression suite** — they are not one-time audits; they run on every CI run
+- **Zero new production dependencies** — tests use existing `httpx.AsyncClient`
+- **Real OWASP payloads** — do not invent payloads; use those cataloged in OWASP Testing Guide v4
+- **Explicit scope** — only SQL injection + input validation. Auth, rate limiting, and CORS are out of F6
+- **Zero regressions** — all existing tests must continue passing
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Scope: SQL injection + input validation solo | Auth/authorization no existen en el sistema (no hay usuarios). Rate limiting y CORS son de F7+. Timing attacks requieren infraestructura de medición fuera de scope |
-| Payloads de OWASP Testing Guide v4 | Standard de la industria. No inventar payloads propios reduce falsos positivos |
-| Tests contra API (httpx) + tests contra repositorios (asyncpg) | Doble validación: la API es la primera línea de defensa (Pydantic), los repositorios son la última (parameterized queries) |
-| No añadir `sqlmap` ni herramientas externas | `sqlmap` requiere servidor corriendo y es no-determinista. Los tests de pytest son deterministas, reproducibles, y se integran en CI |
-| Directorio `tests/security/` separado | Separación clara de concerns. Los tests de seguridad no se mezclan con unit/integration/e2e |
-| Error leakage tests en security (no en integration) | La verificación de que los errores no exponen stack traces o SQL internals es inherentemente una preocupación de seguridad |
+| Scope: SQL injection + input validation only | Auth/authorization do not exist in the system (no users). Rate limiting and CORS are for F7+. Timing attacks require measurement infrastructure out of scope |
+| Payloads from OWASP Testing Guide v4 | Industry standard. Not inventing our own payloads reduces false positives |
+| Tests against API (httpx) + tests against repositories (asyncpg) | Double validation: the API is the first line of defense (Pydantic), repositories are the last (parameterized queries) |
+| Do not add `sqlmap` or external tools | `sqlmap` requires a running server and is non-deterministic. pytest tests are deterministic, reproducible, and integrate into CI |
+| Separate `tests/security/` directory | Clear separation of concerns. Security tests are not mixed with unit/integration/e2e |
+| Error leakage tests in security (not in integration) | Verifying that errors do not expose stack traces or SQL internals is inherently a security concern |
 
 ---
 
@@ -37,29 +37,29 @@ Implementar la suite de tests de seguridad que valida las dos áreas críticas d
 
 ### Strategy
 
-Los repositorios usan **parameterized queries** (`$1`, `$2`, `$3`) con asyncpg. Este patrón es inherentemente seguro contra SQL injection porque los parámetros se envían fuera del query text. Los tests verifican que:
+Repositories use **parameterized queries** (`$1`, `$2`, `$3`) with asyncpg. This pattern is inherently secure against SQL injection because parameters are sent outside the query text. Tests verify that:
 
-1. **Payloads de SQL injection en path params** → FastAPI type coercion (int) rechaza antes de llegar a SQL
-2. **Payloads de SQL injection en query params** → Pydantic validation rechaza antes de llegar a SQL
-3. **Payloads de SQL injection en body fields** → Pydantic `strict=True` rechaza tipos inesperados
-4. **Payloads de SQL injection en repositorios** → asyncpg parameterized queries tratan el payload como valor literal, no como SQL
+1. **SQL injection payloads in path params** → FastAPI type coercion (int) rejects before reaching SQL
+2. **SQL injection payloads in query params** → Pydantic validation rejects before reaching SQL
+3. **SQL injection payloads in body fields** → Pydantic `strict=True` rejects unexpected types
+4. **SQL injection payloads in repositories** → asyncpg parameterized queries treat the payload as a literal value, not as SQL
 
 ### `tests/security/test_sql_injection.py`
 
 ```python
-"""Tests de seguridad: SQL Injection.
+"""Security tests: SQL Injection.
 
-Valida que el sistema es inmune a payloads de SQL injection
-catalogados en OWASP Testing Guide v4. Los tests cubren:
+Validates that the system is immune to SQL injection payloads
+cataloged in OWASP Testing Guide v4. Tests cover:
 1. Path parameters (product_id, movement_id)
 2. Query parameters (date, limit, offset)
 3. Body fields (SKU, reference, metadata values)
 4. Repository-level parameterized queries
 
-La defensa opera en tres capas:
-- Capa 1: FastAPI type coercion (int para path params)
-- Capa 2: Pydantic strict validation (tipos, rangos, regex)
-- Capa 3: asyncpg parameterized queries ($1, $2, $3)
+Defense operates in three layers:
+- Layer 1: FastAPI type coercion (int for path params)
+- Layer 2: Pydantic strict validation (types, ranges, regex)
+- Layer 3: asyncpg parameterized queries ($1, $2, $3)
 """
 from __future__ import annotations
 
@@ -102,16 +102,16 @@ SQL_INJECTION_STRING_FIELDS = [
 
 
 class TestSQLInjectionPathParams:
-    """SQL injection en path parameters debe ser rechazado por FastAPI."""
+    """SQL injection in path parameters must be rejected by FastAPI."""
 
     @pytest.mark.parametrize("payload", SQL_INJECTION_PATH_PARAMS)
     async def test_stock_current_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """GET /v1/stock/{payload}/current → 422 (FastAPI rechaza non-int)."""
+        """GET /v1/stock/{payload}/current → 422 (FastAPI rejects non-int)."""
         resp = await api_client.get(f"/v1/stock/{payload}/current")
         assert resp.status_code in (404, 422)
-        # Verificar que no hay SQL error en la respuesta
+        # Verify no SQL error in response
         body = resp.json()
         assert "syntax error" not in str(body).lower()
         assert "sql" not in str(body).lower()
@@ -120,7 +120,7 @@ class TestSQLInjectionPathParams:
     async def test_stock_at_date_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """GET /v1/stock/{payload}/at-date → 422 (FastAPI rechaza non-int)."""
+        """GET /v1/stock/{payload}/at-date → 422 (FastAPI rejects non-int)."""
         resp = await api_client.get(f"/v1/stock/{payload}/at-date?date=2025-01-01T00:00:00Z")
         assert resp.status_code in (404, 422)
         body = resp.json()
@@ -130,7 +130,7 @@ class TestSQLInjectionPathParams:
     async def test_movement_get_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """GET /v1/movements/{payload} → 422 (FastAPI rechaza non-int)."""
+        """GET /v1/movements/{payload} → 422 (FastAPI rejects non-int)."""
         resp = await api_client.get(f"/v1/movements/{payload}")
         assert resp.status_code in (404, 422)
         body = resp.json()
@@ -140,13 +140,13 @@ class TestSQLInjectionPathParams:
     async def test_product_get_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """GET /v1/products/{payload} → 422 (FastAPI rechaza non-int)."""
+        """GET /v1/products/{payload} → 422 (FastAPI rejects non-int)."""
         resp = await api_client.get(f"/v1/products/{payload}")
         assert resp.status_code in (404, 422)
 
 
 class TestSQLInjectionQueryParams:
-    """SQL injection en query parameters debe ser rechazado por Pydantic/FastAPI."""
+    """SQL injection in query parameters must be rejected by Pydantic/FastAPI."""
 
     @pytest.mark.parametrize("payload", SQL_INJECTION_STRING_FIELDS)
     async def test_stock_at_date_date_injection(
@@ -180,14 +180,14 @@ class TestSQLInjectionQueryParams:
 
 
 class TestSQLInjectionBodyFields:
-    """SQL injection en body fields debe ser rechazado por Pydantic strict mode."""
+    """SQL injection in body fields must be rejected by Pydantic strict mode."""
 
     @pytest.mark.parametrize("payload", SQL_INJECTION_STRING_FIELDS)
     async def test_create_movement_reference_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """POST /v1/movements con reference={payload} → no causa SQL error."""
-        # Primero crear categoría y producto
+        """POST /v1/movements with reference={payload} → does not cause SQL error."""
+        # First create category and product
         cat = await api_client.post("/v1/categories", json={"name": "sec-test"})
         cat_id = cat.json()["id"]
         product = await api_client.post("/v1/products", json={
@@ -204,14 +204,14 @@ class TestSQLInjectionBodyFields:
             "quantity": 10,
             "reference": payload,
         })
-        # El movimiento se crea (el reference es un string válido para Pydantic)
-        # pero el payload NO debe ejecutarse como SQL
+        # The movement is created (reference is a valid string for Pydantic)
+        # but the payload must NOT execute as SQL
         assert resp.status_code in (201, 422)
         if resp.status_code == 201:
             body = resp.json()
-            # Verificar que el reference se almacenó literalmente
+            # Verify reference was stored literally
             assert body["reference"] == payload
-            # Verificar que no hay SQL error
+            # Verify no SQL error
             assert "syntax error" not in str(body).lower()
             assert "sql" not in str(body).lower()
 
@@ -219,7 +219,7 @@ class TestSQLInjectionBodyFields:
     async def test_create_product_sku_injection(
         self, api_client: httpx.AsyncClient, payload: str
     ) -> None:
-        """POST /v1/products con sku={payload} → 422 o almacenamiento literal."""
+        """POST /v1/products with sku={payload} → 422 or literal storage."""
         cat = await api_client.post("/v1/categories", json={"name": "sec-sku"})
         cat_id = cat.json()["id"]
 
@@ -229,8 +229,8 @@ class TestSQLInjectionBodyFields:
             "unit_of_measure": "unit",
             "category_id": cat_id,
         })
-        # SKU tiene regex validation — payloads con caracteres especiales → 422
-        # Si pasa, debe almacenarse literalmente (no ejecutarse como SQL)
+        # SKU has regex validation — payloads with special characters → 422
+        # If it passes, it must be stored literally (not executed as SQL)
         assert resp.status_code in (201, 409, 422)
         if resp.status_code == 201:
             body = resp.json()
@@ -239,32 +239,32 @@ class TestSQLInjectionBodyFields:
 
 
 class TestSQLInjectionRepositoryLevel:
-    """SQL injection a nivel de repositorio (parameterized queries asyncpg).
+    """SQL injection at repository level (asyncpg parameterized queries).
 
-    Estos tests validan la capa más baja de defensa: asyncpg parameterized
-    queries. Incluso si un payload pasara Pydantic y FastAPI, asyncpg
-    lo trataría como un valor literal, no como SQL ejecutable.
+    These tests validate the lowest defense layer: asyncpg parameterized
+    queries. Even if a payload passed Pydantic and FastAPI, asyncpg
+    would treat it as a literal value, not as executable SQL.
     """
 
     async def test_movement_repo_injection_in_product_id(
         self, db_pool: asyncpg.Pool
     ) -> None:
-        """MovementRepository.create() con string en product_id → error de tipo, no SQL."""
+        """MovementRepository.create() with string in product_id → type error, not SQL."""
         from src.infrastructure.repositories.movement_repository import (
             PostgresMovementRepository,
         )
 
         repo = PostgresMovementRepository(db_pool)
-        # Si se intenta pasar un string como product_id, asyncpg lanzaría
-        # TypeError o ProgrammingError (no SQL injection)
+        # If a string is passed as product_id, asyncpg would raise
+        # TypeError or ProgrammingError (not SQL injection)
         with pytest.raises((TypeError, Exception)):
-            # Esto falla porque product_id es int en la firma del método
+            # This fails because product_id is int in the method signature
             await repo.get_by_id("1 OR 1=1")  # type: ignore[arg-type]
 
     async def test_stock_repo_injection_in_product_id(
         self, db_pool: asyncpg.Pool
     ) -> None:
-        """StockQueryRepository con string en product_id → error de tipo, no SQL."""
+        """StockQueryRepository with string in product_id → type error, not SQL."""
         from src.infrastructure.repositories.stock_query_repository import (
             PostgresStockQueryRepository,
         )
@@ -276,8 +276,8 @@ class TestSQLInjectionRepositoryLevel:
     async def test_parameterized_query_treats_payload_as_literal(
         self, db_pool: asyncpg.Pool
     ) -> None:
-        """Un payload de SQL injection se almacena como string literal, no se ejecuta."""
-        # Crear categoría y producto para el test
+        """A SQL injection payload is stored as a string literal, not executed."""
+        # Create category and product for the test
         cat_id = await db_pool.fetchval(
             "INSERT INTO categories (name) VALUES ($1) RETURNING id",
             "sec-literal-test",
@@ -288,7 +288,7 @@ class TestSQLInjectionRepositoryLevel:
             "SEC-LIT-001", "Security Literal", "unit", cat_id,
         )
 
-        # Insertar un movimiento con reference que contiene SQL
+        # Insert a movement with reference containing SQL
         injection = "'; DROP TABLE movements;--"
         movement_id = await db_pool.fetchval(
             "INSERT INTO movements (product_id, movement_type, quantity, metadata, reference, created_at) "
@@ -296,13 +296,13 @@ class TestSQLInjectionRepositoryLevel:
             product_id, "IN", 10, "{}", injection,
         )
 
-        # Verificar: el movimiento se creó con el reference literal
+        # Verify: the movement was created with the literal reference
         row = await db_pool.fetchrow(
             "SELECT reference FROM movements WHERE id = $1", movement_id
         )
         assert row["reference"] == injection
 
-        # Verificar: la tabla movements sigue existiendo (no se ejecutó el DROP)
+        # Verify: the movements table still exists (DROP was not executed)
         exists = await db_pool.fetchval(
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'movements')"
         )
@@ -315,30 +315,30 @@ class TestSQLInjectionRepositoryLevel:
 
 ### Strategy
 
-Los DTOs Pydantic con `strict=True` y `Field` constraints son la primera línea de defensa. Los tests verifican que:
+Pydantic DTOs with `strict=True` and `Field` constraints are the first line of defense. Tests verify that:
 
-1. **Tipos incorrectos** → `strict=True` rechaza int como string, bool como int, etc.
-2. **Campos fuera de rango** → `gt=0`, `le=1000`, `max_length=255` rechazan valores inválidos
-3. **Campos requeridos ausentes** → 422 con detalle del campo faltante
-4. **Campos extra desconocidos** → `strict=True` los rechaza
-5. **Payloads malformados** → JSON inválido, body vacío, content-type incorrecto
-6. **Metadata injection** → `dict[str, Any]` acepta cualquier valor JSON (no restricción a strings).
-   Validación de contenido malicioso se delega al repository layer (parameterized queries).
-7. **Unicode/encoding edge cases** → caracteres NULL, surrogates, overlong encoding
+1. **Incorrect types** → `strict=True` rejects int as string, bool as int, etc.
+2. **Out-of-range fields** → `gt=0`, `le=1000`, `max_length=255` reject invalid values
+3. **Missing required fields** → 422 with missing field detail
+4. **Unknown extra fields** → `strict=True` rejects them
+5. **Malformed payloads** → Invalid JSON, empty body, incorrect content-type
+6. **Metadata injection** → `dict[str, Any]` accepts any JSON value (not restricted to strings).
+   Malicious content validation is delegated to the repository layer (parameterized queries).
+7. **Unicode/encoding edge cases** → NULL characters, surrogates, overlong encoding
 
 ### `tests/security/test_input_validation.py`
 
 ```python
-"""Tests de seguridad: Input Validation.
+"""Security tests: Input Validation.
 
-Valida que los DTOs Pydantic con strict=True rechazan inputs
-maliciosos, fuera de rango, o malformados. Los tests cubren:
-1. Tipos incorrectos (strict mode)
-2. Valores fuera de rango (Field constraints)
-3. Campos requeridos ausentes
-4. Campos extra desconocidos
-5. Payloads malformados (JSON inválido, body vacío)
-6. Metadata con contenido malicioso
+Validates that Pydantic DTOs with strict=True reject malicious,
+out-of-range, or malformed inputs. Tests cover:
+1. Incorrect types (strict mode)
+2. Out-of-range values (Field constraints)
+3. Missing required fields
+4. Unknown extra fields
+5. Malformed payloads (invalid JSON, empty body)
+6. Metadata with malicious content
 7. Unicode/encoding edge cases
 """
 from __future__ import annotations
@@ -352,12 +352,12 @@ if TYPE_CHECKING:
 
 
 class TestCreateMovementInputValidation:
-    """POST /v1/movements — validación de CreateMovementInput."""
+    """POST /v1/movements — CreateMovementInput validation."""
 
     async def test_missing_required_fields(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Body vacío → 422 con detalle de campos faltantes."""
+        """Empty body → 422 with missing field details."""
         resp = await api_client.post("/v1/movements", json={})
         assert resp.status_code == 422
         body = resp.json()
@@ -369,14 +369,14 @@ class TestCreateMovementInputValidation:
     async def test_extra_fields_rejected(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Campos extra desconocidos → 422 (strict mode)."""
+        """Unknown extra fields → 422 (strict mode)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
             "quantity": 10,
             "extra_malicious_field": "hack",
         })
-        # strict=True en Pydantic rechaza campos extra
+        # strict=True in Pydantic rejects extra fields
         assert resp.status_code == 422
 
     async def test_negative_quantity(
@@ -437,7 +437,7 @@ class TestCreateMovementInputValidation:
     async def test_quantity_as_string(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """quantity="ten" → 422 (strict mode rechaza string como int)."""
+        """quantity="ten" → 422 (strict mode rejects string as int)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
@@ -448,7 +448,7 @@ class TestCreateMovementInputValidation:
     async def test_product_id_as_string(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """product_id="abc" → 422 (strict mode rechaza string como int)."""
+        """product_id="abc" → 422 (strict mode rejects string as int)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": "abc",
             "movement_type": "IN",
@@ -459,19 +459,19 @@ class TestCreateMovementInputValidation:
     async def test_quantity_overflow(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """quantity=999999999999999999 → acepta o 422 (verificar comportamiento con INT_MAX)."""
+        """quantity=999999999999999999 → accepts or 422 (verify behavior with INT_MAX)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
             "quantity": 999_999_999_999_999_999,
         })
-        # Puede pasar Pydantic pero fallar en DB (integer overflow)
+        # May pass Pydantic but fail in DB (integer overflow)
         assert resp.status_code in (201, 422, 500)
 
     async def test_reference_too_long(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """reference con 300 caracteres → 422 (max_length=255)."""
+        """reference with 300 characters → 422 (max_length=255)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
@@ -483,7 +483,7 @@ class TestCreateMovementInputValidation:
     async def test_transfer_without_required_metadata(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """TRANSFER sin origin/destination en metadata → 422."""
+        """TRANSFER without origin/destination in metadata → 422."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "TRANSFER",
@@ -494,7 +494,7 @@ class TestCreateMovementInputValidation:
     async def test_adjustment_without_reason(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """ADJUSTMENT sin reason en metadata → 422."""
+        """ADJUSTMENT without reason in metadata → 422."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "ADJUSTMENT",
@@ -505,21 +505,21 @@ class TestCreateMovementInputValidation:
     async def test_metadata_with_nested_objects(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """metadata con objetos anidados → acepta (dict[str, Any] permite cualquier valor JSON)."""
+        """metadata with nested objects → accepts (dict[str, Any] allows any JSON value)."""
         resp = await api_client.post("/v1/movements", json={
             "product_id": 1,
             "movement_type": "IN",
             "quantity": 10,
             "metadata": {"nested": {"key": "value"}},
         })
-        # dict[str, Any] acepta objetos anidados, ints, bools, etc.
+        # dict[str, Any] accepts nested objects, ints, bools, etc.
         assert resp.status_code == 201
         body = resp.json()
         assert body["metadata"]["nested"] == {"key": "value"}
 
 
 class TestCreateProductInputValidation:
-    """POST /v1/products — validación de CreateProductInput."""
+    """POST /v1/products — CreateProductInput validation."""
 
     async def test_empty_sku(
         self, api_client: httpx.AsyncClient
@@ -554,7 +554,7 @@ class TestCreateProductInputValidation:
     async def test_nonexistent_category_id(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """category_id=99999 → error de FK (producto no se crea)."""
+        """category_id=99999 → FK error (product not created)."""
         resp = await api_client.post("/v1/products", json={
             "sku": "SEC-NO-CAT",
             "name": "No Category",
@@ -581,7 +581,7 @@ class TestCreateProductInputValidation:
 
 
 class TestCreateCategoryInputValidation:
-    """POST /v1/categories — validación de CreateCategoryInput."""
+    """POST /v1/categories — CreateCategoryInput validation."""
 
     async def test_empty_name(
         self, api_client: httpx.AsyncClient
@@ -593,26 +593,26 @@ class TestCreateCategoryInputValidation:
     async def test_name_with_only_spaces(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """name="   " → verificar comportamiento (puede aceptar o rechazar)."""
+        """name="   " → verify behavior (may accept or reject)."""
         resp = await api_client.post("/v1/categories", json={"name": "   "})
-        # Depende de si hay strip validation en el DTO
+        # Depends on whether there is strip validation in the DTO
         assert resp.status_code in (201, 422)
 
     async def test_missing_name_field(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Body sin campo name → 422."""
+        """Body without name field → 422."""
         resp = await api_client.post("/v1/categories", json={"description": "test"})
         assert resp.status_code == 422
 
 
 class TestMalformedPayloads:
-    """Payloads malformados que no son JSON válido."""
+    """Malformed payloads that are not valid JSON."""
 
     async def test_invalid_json_body(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Body que no es JSON válido → 422."""
+        """Body that is not valid JSON → 422."""
         resp = await api_client.post(
             "/v1/movements",
             content=b"{invalid json",
@@ -623,7 +623,7 @@ class TestMalformedPayloads:
     async def test_empty_body(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Body completamente vacío → 422."""
+        """Completely empty body → 422."""
         resp = await api_client.post(
             "/v1/movements",
             content=b"",
@@ -634,13 +634,13 @@ class TestMalformedPayloads:
     async def test_wrong_content_type(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Content-Type: text/plain → 422 o acepta con warning."""
+        """Content-Type: text/plain → 422 or accepts with warning."""
         resp = await api_client.post(
             "/v1/movements",
             content=b'{"product_id": 1, "movement_type": "IN", "quantity": 10}',
             headers={"Content-Type": "text/plain"},
         )
-        # FastAPI puede rechazar o intentar parsear
+        # FastAPI may reject or attempt to parse
         assert resp.status_code in (200, 201, 422)
 
     async def test_null_body(
@@ -657,7 +657,7 @@ class TestMalformedPayloads:
     async def test_array_body(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Body = [] (array en vez de object) → 422."""
+        """Body = [] (array instead of object) → 422."""
         resp = await api_client.post(
             "/v1/movements",
             content=b"[]",
@@ -667,12 +667,12 @@ class TestMalformedPayloads:
 
 
 class TestUnicodeEdgeCases:
-    """Unicode y encoding edge cases que podrían causar problemas."""
+    """Unicode and encoding edge cases that could cause issues."""
 
     async def test_null_byte_in_reference(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Reference con byte nulo → rechazado o almacenado literalmente."""
+        """Reference with null byte → rejected or stored literally."""
         cat = await api_client.post("/v1/categories", json={"name": "sec-unicode"})
         cat_id = cat.json()["id"]
         product = await api_client.post("/v1/products", json={
@@ -689,13 +689,13 @@ class TestUnicodeEdgeCases:
             "quantity": 10,
             "reference": "test\x00injection",
         })
-        # PostgreSQL rechaza null bytes en text columns
+        # PostgreSQL rejects null bytes in text columns
         assert resp.status_code in (201, 422, 500)
 
     async def test_emoji_in_name(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Nombre de categoría con emojis → acepta (Unicode válido)."""
+        """Category name with emojis → accepts (valid Unicode)."""
         resp = await api_client.post("/v1/categories", json={
             "name": "📦 Categoría Test 📦",
         })
@@ -705,7 +705,7 @@ class TestUnicodeEdgeCases:
     async def test_very_long_string_in_metadata(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Metadata value con string de 10000 caracteres → acepta o 422."""
+        """Metadata value with 10000 character string → accepts or 422."""
         cat = await api_client.post("/v1/categories", json={"name": "sec-long"})
         cat_id = cat.json()["id"]
         product = await api_client.post("/v1/products", json={
@@ -722,7 +722,7 @@ class TestUnicodeEdgeCases:
             "quantity": 10,
             "metadata": {"note": "A" * 10_000},
         })
-        # JSONB no tiene límite de longitud por valor
+        # JSONB has no length limit per value
         assert resp.status_code in (201, 422)
 ```
 
@@ -733,14 +733,14 @@ class TestUnicodeEdgeCases:
 ### `tests/security/test_error_leakage.py`
 
 ```python
-"""Tests de seguridad: Error Leakage.
+"""Security tests: Error Leakage.
 
-Valida que las respuestas de error NO exponen información sensible:
-1. Stack traces de Python
-2. SQL queries o fragments
-3. Nombres de tablas o columnas (más allá de lo esperado en ErrorResponse)
-4. Rutas de archivos del servidor
-5. Versiones de software interno
+Validates that error responses do NOT expose sensitive information:
+1. Python stack traces
+2. SQL queries or fragments
+3. Table or column names (beyond what is expected in ErrorResponse)
+4. Server file paths
+5. Internal software versions
 """
 from __future__ import annotations
 
@@ -779,7 +779,7 @@ SQL_LEAKAGE_PATTERNS = [
 
 
 class TestNoErrorLeakage:
-    """Las respuestas de error no deben exponer información interna."""
+    """Error responses must not expose internal information."""
 
     @pytest.mark.parametrize("payload", [
         {"product_id": -1, "movement_type": "IN", "quantity": 10},
@@ -789,7 +789,7 @@ class TestNoErrorLeakage:
     async def test_validation_errors_no_leakage(
         self, api_client: httpx.AsyncClient, payload: dict
     ) -> None:
-        """Errores de validación 422 no exponen stack traces ni SQL."""
+        """422 validation errors do not expose stack traces or SQL."""
         resp = await api_client.post("/v1/movements", json=payload)
         body_str = str(resp.json()).lower()
 
@@ -802,7 +802,7 @@ class TestNoErrorLeakage:
     async def test_404_errors_no_leakage(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Errores 404 no exponen información interna."""
+        """404 errors do not expose internal information."""
         resp = await api_client.get("/v1/products/99999")
         if resp.status_code == 404:
             body_str = str(resp.json()).lower()
@@ -812,24 +812,24 @@ class TestNoErrorLeakage:
     async def test_server_errors_no_stack_trace(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Errores 500 no exponen stack traces.
+        """500 errors do not expose stack traces.
 
-        Nota: Este test verifica el comportamiento en producción.
-        En desarrollo, FastAPI puede incluir tracebacks.
+        Note: This test verifies production behavior.
+        In development, FastAPI may include tracebacks.
         """
-        # Intentar crear un movimiento con product_id que causa FK error
+        # Attempt to create a movement with product_id that causes FK error
         resp = await api_client.post("/v1/movements", json={
             "product_id": 99999,
             "movement_type": "IN",
             "quantity": 10,
         })
         body_str = str(resp.json()).lower()
-        # Verificar que no hay stack trace detallado
+        # Verify no detailed stack trace
         assert "traceback" not in body_str
 
 
 class TestImmutabilityEnforcement:
-    """Los movimientos no deben poder modificarse ni eliminarse via API."""
+    """Movements must not be modifiable or deletable via API."""
 
     async def test_no_update_endpoint(
         self, api_client: httpx.AsyncClient
@@ -864,7 +864,7 @@ class TestImmutabilityEnforcement:
 | File | Description | Action |
 |------|-------------|--------|
 | `tests/security/__init__.py` | Package marker | NEW |
-| `tests/security/conftest.py` | Fixtures compartidos (reutiliza `db_pool`, `db_clean`, `api_client`) | NEW |
+| `tests/security/conftest.py` | Shared fixtures (reuses `db_pool`, `db_clean`, `api_client`) | NEW |
 | `tests/security/test_sql_injection.py` | SQL injection tests (OWASP payloads) | NEW |
 | `tests/security/test_input_validation.py` | Input validation boundary tests | NEW |
 | `tests/security/test_error_leakage.py` | Error leakage + immutability enforcement | NEW |
@@ -873,41 +873,41 @@ class TestImmutabilityEnforcement:
 
 ## Acceptance Criteria
 
-- [ ] `tests/security/` directory con 3 archivos de test + conftest + __init__
+- [ ] `tests/security/` directory with 3 test files + conftest + __init__
 - [ ] SQL injection tests: path params, query params, body fields, repository-level
-- [ ] SQL injection tests: payloads OWASP Testing Guide v4 (mínimo 7 path payloads, 13 string payloads)
-- [ ] SQL injection tests: ningún payload causa SQL syntax error o data modification
-- [ ] Input validation tests: tipos incorrectos, rangos, campos requeridos, campos extra, metadata anidada
-- [ ] Input validation tests: payloads malformados (JSON inválido, body vacío, content-type incorrecto, null, array)
-- [ ] Input validation tests: Unicode edge cases (null bytes, emojis, strings largos)
-- [ ] Error leakage tests: ningún error expone stack trace, SQL, rutas de archivos, versiones internas
-- [ ] Immutability enforcement: PUT/PATCH/DELETE en /v1/movements/ → 405
-- [ ] 0 regresiones en tests existentes
-- [ ] `make lint` pasa sin errores
+- [ ] SQL injection tests: OWASP Testing Guide v4 payloads (minimum 7 path payloads, 13 string payloads)
+- [ ] SQL injection tests: no payload causes SQL syntax error or data modification
+- [ ] Input validation tests: incorrect types, ranges, required fields, extra fields, nested metadata
+- [ ] Input validation tests: malformed payloads (invalid JSON, empty body, incorrect content-type, null, array)
+- [ ] Input validation tests: Unicode edge cases (null bytes, emojis, long strings)
+- [ ] Error leakage tests: no error exposes stack trace, SQL, file paths, internal versions
+- [ ] Immutability enforcement: PUT/PATCH/DELETE on /v1/movements/ → 405
+- [ ] 0 regressions in existing tests
+- [ ] `make lint` passes without errors
 
 ---
 
 ## Testing Strategy
 
-- **SQL injection tests:** Envían payloads OWASP a cada capa de entrada (path params, query params, body). Verifican que: (a) la API rechaza con 422, o (b) el payload se almacena literalmente sin ejecutarse
-- **Repository-level injection tests:** Pasan strings directamente a métodos de repositorio que esperan `int`. Verifican que asyncpg lanza TypeError, no ejecuta SQL
-- **Input validation tests:** Envían inputs fuera de rango, tipos incorrectos, campos extra, y payloads malformados. Verifican 422 con detalle del error
-- **Error leakage tests:** Verifican que las respuestas de error no contienen patrones de información interna (stack traces, SQL, file paths)
-- **Immutability tests:** Verifican que los endpoints HTTP de modificación/eliminación de movimientos no existen (405)
+- **SQL injection tests:** Send OWASP payloads to each input layer (path params, query params, body). Verify that: (a) the API rejects with 422, or (b) the payload is stored literally without execution
+- **Repository-level injection tests:** Pass strings directly to repository methods that expect `int`. Verify that asyncpg raises TypeError, does not execute SQL
+- **Input validation tests:** Send out-of-range inputs, incorrect types, extra fields, and malformed payloads. Verify 422 with error detail
+- **Error leakage tests:** Verify that error responses do not contain internal information patterns (stack traces, SQL, file paths)
+- **Immutability tests:** Verify that HTTP endpoints for movement modification/deletion do not exist (405)
 
-### Ejecución
+### Execution
 
 ```bash
-# Todos los tests de seguridad
+# All security tests
 pytest tests/security/ -v
 
-# Solo SQL injection
+# SQL injection only
 pytest tests/security/test_sql_injection.py -v
 
-# Solo input validation
+# Input validation only
 pytest tests/security/test_input_validation.py -v
 
-# Solo error leakage
+# Error leakage only
 pytest tests/security/test_error_leakage.py -v
 ```
 
@@ -915,26 +915,26 @@ pytest tests/security/test_error_leakage.py -v
 
 ## Out of Scope
 
-Las siguientes áreas de seguridad están **explícitamente excluidas** de F6:
+The following security areas are **explicitly excluded** from F6:
 
-| Área | Razón | Fase futura |
-|------|-------|-------------|
-| Authentication / Authorization | No existe sistema de usuarios en el sistema | F8+ |
-| Rate Limiting | Requiere middleware adicional y configuración de infraestructura | F7+ |
-| CORS Configuration | Configuración de deployment, no de aplicación | F7+ |
-| Timing Attacks | Requiere infraestructura de medición estadística (miles de muestras) | Fuera de scope |
-| SSRF / CSRF | Sistema es API-only (no hay formularios, no hay server-side requests) | N/A |
-| Dependency Vulnerability Scanning | Requiere `pip-audit` o `safety` — se añade en CI/CD (Spec-72) | F7 |
-| HTTPS/TLS | Configuración de infraestructura (reverse proxy) | F7+ |
+| Area | Reason | Future Phase |
+|------|--------|--------------|
+| Authentication / Authorization | No user system exists in the system | F8+ |
+| Rate Limiting | Requires additional middleware and infrastructure configuration | F7+ |
+| CORS Configuration | Deployment configuration, not application | F7+ |
+| Timing Attacks | Requires statistical measurement infrastructure (thousands of samples) | Out of scope |
+| SSRF / CSRF | System is API-only (no forms, no server-side requests) | N/A |
+| Dependency Vulnerability Scanning | Requires `pip-audit` or `safety` — added in CI/CD (Spec-72) | F7 |
+| HTTPS/TLS | Infrastructure configuration (reverse proxy) | F7+ |
 
 ---
 
 ## Resolved Questions
 
-| # | Pregunta | Decisión | Rationale |
+| # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| F6-63-Q1 | ¿Scope de seguridad? | **SQL injection + input validation solo** | No hay auth en el sistema. Rate limiting y CORS son de F7+. Timing attacks requieren infraestructura fuera de scope |
-| F6-63-Q2 | ¿Usar `sqlmap`? | **No** — tests manuales con pytest | `sqlmap` requiere servidor corriendo y es no-determinista. Los tests de pytest son deterministas, reproducibles, y se integran en CI |
-| F6-63-Q3 | ¿Tests de timing attacks? | **No** | Requieren miles de muestras, análisis estadístico, y control del entorno de ejecución. Fuera de scope de F6 |
-| F6-63-Q4 | ¿Verificar inmutabilidad de movimientos? | **Sí** — tests HTTP 405 | Los movimientos son Source of Truth inmutable. Verificar que no existen endpoints de modificación es una prueba de seguridad |
-| F6-63-Q5 | ¿Error leakage como test de seguridad? | **Sí** — verificación de patrones en respuestas de error | Exponer stack traces o SQL en errores es una vulnerabilidad de información que facilita ataques |
+| F6-63-Q1 | Security scope? | **SQL injection + input validation only** | No auth in the system. Rate limiting and CORS are for F7+. Timing attacks require infrastructure out of scope |
+| F6-63-Q2 | Use `sqlmap`? | **No** — manual tests with pytest | `sqlmap` requires a running server and is non-deterministic. pytest tests are deterministic, reproducible, and integrate into CI |
+| F6-63-Q3 | Timing attack tests? | **No** | Require thousands of samples, statistical analysis, and execution environment control. Out of F6 scope |
+| F6-63-Q4 | Verify movement immutability? | **Yes** — HTTP 405 tests | Movements are immutable Source of Truth. Verifying that modification endpoints do not exist is a security test |
+| F6-63-Q5 | Error leakage as security test? | **Yes** — pattern verification in error responses | Exposing stack traces or SQL in errors is an information vulnerability that facilitates attacks |

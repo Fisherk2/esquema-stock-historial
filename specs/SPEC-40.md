@@ -1,36 +1,36 @@
-# SPEC-40: Casos de Uso (Application)
+# SPEC-40: Use Cases (Application)
 
-**Fase:** F4 — Capa API (Casos de Uso + Endpoints)  
-**Dependencias:** Spec-21 (Reglas de Negocio) ✅ Completado, Spec-22 (Protocolos) ✅ Completado, Spec-32 (Unit of Work) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** Pendiente  
+**Phase:** F4 — API Layer (Use Cases + Endpoints)  
+**Dependencies:** Spec-21 (Business Rules) ✅ Completed, Spec-22 (Protocols) ✅ Completed, Spec-32 (Unit of Work) ✅ Completed  
+**Priority:** High  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Implementar los 6 casos de uso de la capa de aplicación que orquestan las reglas de negocio del dominio con los repositorios de infraestructura. Cada caso de uso es una clase con un único método `execute()` que sigue el **Single Responsibility Principle**: una sola operación de negocio por clase.
+Implement the 6 use cases of the application layer that orchestrate domain business rules with infrastructure repositories. Each use case is a class with a single `execute()` method that follows the **Single Responsibility Principle**: one business operation per class.
 
-**Principios de diseño:**
-- **Use cases como clases** — permite inyección de dependencias en `__init__`, testeable con mocks, estado inmutable
-- **Un solo método público `execute()`** — SRP estricto, punto de entrada único por caso de uso
-- **Inyección de Protocolos** — el constructor recibe interfaces (`IMovementRepository`, etc.), no implementaciones concretas. DIP puro.
-- **Zero imports de `infrastructure/`** — la capa de aplicación solo importa de `domain/` (ports, entities, exceptions, rules)
-- **Excepciones de dominio se propagan** — los use cases NO capturan `DomainError` ni sus subclases. El adapter (Spec-42) las mapea a HTTP.
-- **UoW para atomicidad** — `RecordMovementUseCase` usa `IUnitOfWork` para verificar stock y crear movimiento en una sola transacción
+**Design principles:**
+- **Use cases as classes** — allows dependency injection in `__init__`, testable with mocks, immutable state
+- **Single public `execute()` method** — strict SRP, single entry point per use case
+- **Protocol Injection** — the constructor receives interfaces (`IMovementRepository`, etc.), not concrete implementations. Pure DIP.
+- **Zero imports from `infrastructure/`** — the application layer only imports from `domain/` (ports, entities, exceptions, rules)
+- **Domain exceptions propagate** — use cases do NOT catch `DomainError` or its subclasses. The adapter (Spec-42) maps them to HTTP.
+- **UoW for atomicity** — `RecordMovementUseCase` uses `IUnitOfWork` to verify stock and create movement in a single transaction
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Clases con `execute()` (no funciones) | Permite DI en constructor, estado inmutable, mocks en testing, y composición de dependencias |
-| Protocolos en `__init__`, no en `execute()` | Las dependencias son fijas por caso de uso; inyectarlas en `execute()` violaría DIP y haría difícil el testing |
-| `RecordMovementUseCase` usa UoW | Verificar stock + crear movimiento deben ser atómicos; si el check pasa pero el create falla, no debe quedar inconsistencia |
-| Validación de stock DENTRO del use case | El use case es el orquestador; la regla `validate_stock_not_negative()` requiere contexto de dominio que el repositorio no tiene |
-| Excepciones de dominio sin capturar | Los use cases no saben de HTTP; capturar aquí acoplaría application con adapters. El middleware (Spec-42) mapea |
-| `ListProductsUseCase` existe como clase | Aunque es un passthrough al repositorio, envolverlo permite añadir lógica futura (filtrado, caching, autorización) sin cambiar la API |
+| Classes with `execute()` (not functions) | Enables DI in constructor, immutable state, mocking in testing, and dependency composition |
+| Protocols in `__init__`, not in `execute()` | Dependencies are fixed per use case; injecting them in `execute()` would violate DIP and make testing difficult |
+| `RecordMovementUseCase` uses UoW | Verifying stock + creating movement must be atomic; if the check passes but the create fails, there should be no inconsistency |
+| Stock validation INSIDE the use case | The use case is the orchestrator; the `validate_stock_not_negative()` rule requires domain context that the repository does not have |
+| Domain exceptions uncaptured | Use cases know nothing about HTTP; catching here would couple application with adapters. The middleware (Spec-42) maps |
+| `ListProductsUseCase` exists as a class | Although it is a passthrough to the repository, wrapping it allows adding future logic (filtering, caching, authorization) without changing the API |
 
 ---
 
@@ -38,7 +38,7 @@ Implementar los 6 casos de uso de la capa de aplicación que orquestan las regla
 
 ### 1. `RecordMovementUseCase`
 
-El caso de uso más complejo. Orquesta verificación de producto, validación de stock, consistencia de metadata, y persistencia atómica del movimiento.
+The most complex use case. Orchestrates product verification, stock validation, metadata consistency, and atomic persistence of the movement.
 
 ```python
 from __future__ import annotations
@@ -60,24 +60,24 @@ if TYPE_CHECKING:
 
 
 class RecordMovementUseCase:
-    """Registra un nuevo movimiento de stock de forma atomica.
+    """Registers a new stock movement atomically.
 
-    Flujo:
-        1. Verificar que el producto existe.
-        2. Si el tipo de movimiento es OUT o TRANSFER:
-           a. Consultar stock actual del producto.
-           b. Validar que el stock no quede negativo.
-        3. Construir la entidad Movement (validación de metadata en
-           ``__post_init__`` — TRANSFER requiere origin/destination,
-           ADJUSTMENT requiere reason).
-        4. Persistir dentro de una transaccion (UoW).
-        5. Retornar el movimiento persistido.
+    Flow:
+        1. Verify that the product exists.
+        2. If the movement type is OUT or TRANSFER:
+           a. Query current stock of the product.
+           b. Validate that stock does not become negative.
+        3. Build the Movement entity (metadata validation in
+           ``__post_init__`` — TRANSFER requires origin/destination,
+           ADJUSTMENT requires reason).
+        4. Persist within a transaction (UoW).
+        5. Return the persisted movement.
 
     Args:
-        movement_repo: Repositorio de movimientos.
-        product_repo: Repositorio de productos.
-        stock_query_repo: Repositorio de consultas de stock.
-        unit_of_work: Unit of Work para transacciones atomicas.
+        movement_repo: Movement repository.
+        product_repo: Product repository.
+        stock_query_repo: Stock query repository.
+        unit_of_work: Unit of Work for atomic transactions.
     """
 
     def __init__(
@@ -100,25 +100,25 @@ class RecordMovementUseCase:
         metadata: dict[str, Any],
         reference: str | None = None,
     ) -> Movement:
-        """Ejecuta el caso de uso de registro de movimiento.
+        """Executes the movement recording use case.
 
         Args:
-            product_id: ID del producto al que afecta el movimiento.
-            movement_type: Tipo de movimiento (IN, OUT, ADJUSTMENT, TRANSFER).
-            quantity: Cantidad positiva de unidades.
-            metadata: Diccionario contextual (obligatorio para TRANSFER y ADJUSTMENT).
-            reference: Referencia externa opcional (orden, nota, etc.).
+            product_id: ID of the product affected by the movement.
+            movement_type: Movement type (IN, OUT, ADJUSTMENT, TRANSFER).
+            quantity: Positive quantity of units.
+            metadata: Contextual dictionary (required for TRANSFER and ADJUSTMENT).
+            reference: Optional external reference (order, note, etc.).
 
         Returns:
-            Movement: La entidad movimiento persistida con id asignado.
+            Movement: The persisted movement entity with assigned id.
 
         Raises:
-            ValueError: Si el producto no existe.
-            ValueError: Si la metadata es inconsistente con el tipo de movimiento.
-            InsufficientStockError: Si el movimiento resultaria en stock negativo.
-            InvalidQuantityError: Si quantity <= 0 (validado por el VO Quantity).
+            ValueError: If the product does not exist.
+            ValueError: If the metadata is inconsistent with the movement type.
+            InsufficientStockError: If the movement would result in negative stock.
+            InvalidQuantityError: If quantity <= 0 (validated by the Quantity VO).
 
-        Ejemplo::
+        Example::
 
             use_case = RecordMovementUseCase(movement_repo, product_repo, stock_repo, uow)
             movement = await use_case.execute(
@@ -129,19 +129,19 @@ class RecordMovementUseCase:
                 reference="PO-12345",
             )
         """
-        # 1. Verificar que el producto existe
+        # 1. Verify that the product exists
         product = await self._product_repo.get_by_id(product_id)
          if product is None:
              raise ProductNotFoundError(product_id)
 
-        # 2. Para movimientos que reducen stock, validar que no quede negativo
+        # 2. For movements that reduce stock, validate that it does not become negative
         if movement_type in (MovementType.OUT, MovementType.TRANSFER):
-            # Consultar stock actual dentro de la misma transaccion
+            # Query current stock within the same transaction
             current_stock = await self._stock_query_repo.get_current_stock(product_id)
             validate_stock_not_negative(movement_type, quantity, current_stock, product_id)
 
-        # 3. Construir y persistir dentro de UoW
-        # (La validación de metadata se ejecuta en Movement.__post_init__)
+        # 3. Build and persist within UoW
+        # (Metadata validation executes in Movement.__post_init__)
         from datetime import UTC, datetime
 
         from src.domain.entities.movement import Movement
@@ -157,10 +157,10 @@ class RecordMovementUseCase:
         )
 
         async with self._unit_of_work as uow:
-            # Re-validar stock dentro de la transaccion para evitar race conditions
-            # Se usa get_current_stock_with_lock (SELECT FOR UPDATE) para
-            # serializar transacciones concurrentes del mismo producto.
-            # La MV puede estar stale; calcular directamente dentro del lock.
+            # Re-validate stock within the transaction to avoid race conditions
+            # Uses get_current_stock_with_lock (SELECT FOR UPDATE) to
+            # serialize concurrent transactions of the same product.
+            # The MV may be stale; calculate directly within the lock.
             if movement_type in (MovementType.OUT, MovementType.TRANSFER):
                 current_stock = await self._stock_query_repo.get_current_stock_with_lock(product_id)
                 validate_stock_not_negative(movement_type, quantity, current_stock)
@@ -171,17 +171,17 @@ class RecordMovementUseCase:
 ```
 
 **Design Notes:**
-- La validación de stock se ejecuta **dos veces**: antes del UoW (fail-fast sin adquirir conexión) y dentro del UoW (protección contra race conditions)
-- **Dentro del UoW se usa `get_current_stock_with_lock()`** que ejecuta `SELECT ... FOR UPDATE` + cálculo directo desde la tabla `movements` (no la MV). Esto serializa transacciones concurrentes del mismo producto, previniendo que dos movimientos OUT/TRANSFER simultáneos lean el mismo stock stale de la MV y ambos pasen la validación.
-- La validación de metadata se ejecuta en `Movement.__post_init__` al construir la entidad — **single source of truth** (SPEC-21). El use case NO llama `validate_movement_type_consistency` directamente. Si la metadata es inconsistente, `ValueError` se eleva desde el constructor y se traduce a HTTP 400.
-- El UoW garantiza que si `create()` falla (FK violation, constraint), todo se revierte
-- `RecordMovementUseCase` es el único use case que usa UoW; los demás son operaciones individuales
+- Stock validation runs **twice**: before the UoW (fail-fast without acquiring a connection) and inside the UoW (protection against race conditions)
+- **Inside the UoW, `get_current_stock_with_lock()` is used** which executes `SELECT ... FOR UPDATE` + direct calculation from the `movements` table (not the MV). This serializes concurrent transactions of the same product, preventing two simultaneous OUT/TRANSFER movements from reading the same stale stock from the MV and both passing validation.
+- Metadata validation executes in `Movement.__post_init__` when building the entity — **single source of truth** (SPEC-21). The use case does NOT call `validate_movement_type_consistency` directly. If metadata is inconsistent, `ValueError` is raised from the constructor and translated to HTTP 400.
+- The UoW guarantees that if `create()` fails (FK violation, constraint), everything is rolled back
+- `RecordMovementUseCase` is the only use case that uses UoW; the others are individual operations
 
 ---
 
 ### 2. `QueryCurrentStockUseCase`
 
-Consulta el stock actual de un producto. Simple, sin transacción.
+Queries the current stock of a product. Simple, no transaction.
 
 ```python
 from __future__ import annotations
@@ -195,10 +195,10 @@ if TYPE_CHECKING:
 
 
 class QueryCurrentStockUseCase:
-    """Consulta el stock actual de un producto.
+    """Queries the current stock of a product.
 
     Args:
-        stock_query_repo: Repositorio de consultas de stock.
+        stock_query_repo: Stock query repository.
     """
 
     def __init__(
@@ -208,15 +208,15 @@ class QueryCurrentStockUseCase:
         self._stock_query_repo = stock_query_repo
 
     async def execute(self, product_id: int) -> float:
-        """Ejecuta la consulta de stock actual.
+        """Executes the current stock query.
 
         Args:
-            product_id: ID del producto.
+            product_id: Product ID.
 
         Returns:
-            float: Stock actual del producto (0 si no tiene movimientos).
+            float: Current stock of the product (0 if it has no movements).
 
-        Ejemplo::
+        Example::
 
             use_case = QueryCurrentStockUseCase(stock_repo)
             stock = await use_case.execute(product_id=1)  # 42.0
@@ -225,14 +225,14 @@ class QueryCurrentStockUseCase:
 ```
 
 **Design Notes:**
-- Operación de lectura pura — no requiere UoW
-- El repositorio ya implementa la estrategia MV + fallback (Spec-31)
+- Pure read operation — does not require UoW
+- The repository already implements the MV + fallback strategy (Spec-31)
 
 ---
 
 ### 3. `QueryStockAtDateUseCase`
 
-Consulta el stock de un producto en una fecha histórica específica.
+Queries the stock of a product at a specific historical date.
 
 ```python
 from __future__ import annotations
@@ -247,10 +247,10 @@ if TYPE_CHECKING:
 
 
 class QueryStockAtDateUseCase:
-    """Consulta el stock de un producto en una fecha historica.
+    """Queries the stock of a product at a historical date.
 
     Args:
-        stock_query_repo: Repositorio de consultas de stock.
+        stock_query_repo: Stock query repository.
     """
 
     def __init__(
@@ -260,16 +260,16 @@ class QueryStockAtDateUseCase:
         self._stock_query_repo = stock_query_repo
 
     async def execute(self, product_id: int, date: datetime) -> float:
-        """Ejecuta la consulta de stock historico.
+        """Executes the historical stock query.
 
         Args:
-            product_id: ID del producto.
-            date: Fecha/hora de referencia (timezone-aware).
+            product_id: Product ID.
+            date: Reference date/time (timezone-aware).
 
         Returns:
-            float: Stock del producto en la fecha (0 si no hay movimientos anteriores).
+            float: Stock of the product at the date (0 if there are no prior movements).
 
-        Ejemplo::
+        Example::
 
             from datetime import datetime, timezone
             use_case = QueryStockAtDateUseCase(stock_repo)
@@ -282,14 +282,14 @@ class QueryStockAtDateUseCase:
 ```
 
 **Design Notes:**
-- Siempre usa cálculo directo sobre `movements` (la vista materializada solo tiene stock actual)
-- La fecha debe ser timezone-aware — el caller (router/DTO) debe garantizarlo
+- Always uses direct calculation on `movements` (the materialized view only has current stock)
+- The date must be timezone-aware — the caller (router/DTO) must guarantee this
 
 ---
 
 ### 4. `CreateProductUseCase`
 
-Crea un nuevo producto, verificando que la categoría existe.
+Creates a new product, verifying that the category exists.
 
 ```python
 from __future__ import annotations
@@ -307,16 +307,16 @@ if TYPE_CHECKING:
 
 
 class CreateProductUseCase:
-    """Crea un nuevo producto en el inventario.
+    """Creates a new product in the inventory.
 
-    Flujo:
-        1. Verificar que la categoria existe.
-        2. Construir la entidad Product (con SKU VO).
-        3. Persistir y retornar.
+    Flow:
+        1. Verify that the category exists.
+        2. Build the Product entity (with SKU VO).
+        3. Persist and return.
 
     Args:
-        product_repo: Repositorio de productos.
-        category_repo: Repositorio de categorias.
+        product_repo: Product repository.
+        category_repo: Category repository.
     """
 
     def __init__(
@@ -336,25 +336,25 @@ class CreateProductUseCase:
         description: str | None = None,
         min_stock_threshold: int = 0,
     ) -> Product:
-        """Ejecuta la creacion de un producto.
+        """Executes the creation of a product.
 
         Args:
-            sku: Codigo SKU del producto.
-            name: Nombre del producto (no vacio).
-            unit_of_measure: Unidad de medida (e.g., "unit", "kg").
-            category_id: ID de la categoria a la que pertenece.
-            description: Descripcion opcional.
-            min_stock_threshold: Umbral minimo de stock (default 0).
+            sku: Product SKU code.
+            name: Product name (non-empty).
+            unit_of_measure: Unit of measure (e.g., "unit", "kg").
+            category_id: ID of the category it belongs to.
+            description: Optional description.
+            min_stock_threshold: Minimum stock threshold (default 0).
 
         Returns:
-            Product: El producto persistido con id asignado.
+            Product: The persisted product with assigned id.
 
         Raises:
-            ValueError: Si la categoria no existe.
-            InvalidSKUError: Si el SKU no cumple el patron requerido.
-            ValueError: Si name o unit_of_measure son vacios.
+            ValueError: If the category does not exist.
+            InvalidSKUError: If the SKU does not match the required pattern.
+            ValueError: If name or unit_of_measure are empty.
 
-        Ejemplo::
+        Example::
 
             use_case = CreateProductUseCase(product_repo, category_repo)
             product = await use_case.execute(
@@ -362,16 +362,16 @@ class CreateProductUseCase:
                 name="Widget A",
                 unit_of_measure="unit",
                 category_id=1,
-                description="Widget de prueba",
+                description="Test widget",
                 min_stock_threshold=10,
             )
         """
-        # 1. Verificar que la categoria existe
+        # 1. Verify that the category exists
         category = await self._category_repo.get_by_id(category_id)
         if category is None:
             raise ValueError(f"Category {category_id} not found")
 
-        # 2. Construir y persistir
+        # 2. Build and persist
         product = Product(
             id=None,
             sku=SKU(sku),
@@ -387,15 +387,15 @@ class CreateProductUseCase:
 ```
 
 **Design Notes:**
-- La verificación de categoría usa el repositorio directamente (no necesita UoW porque es solo lectura)
-- El constructor de `Product` ya valida `name`, `unit_of_measure`, y `min_stock_threshold` en `__post_init__`
-- `SKU(sku)` lanza `InvalidSKUError` si el formato es inválido
+- Category verification uses the repository directly (does not need UoW because it is read-only)
+- The `Product` constructor already validates `name`, `unit_of_measure`, and `min_stock_threshold` in `__post_init__`
+- `SKU(sku)` raises `InvalidSKUError` if the format is invalid
 
 ---
 
 ### 5. `ListProductsUseCase`
 
-Lista productos con paginación. Passthrough al repositorio, pero envuelto para consistencia arquitectónica.
+Lists products with pagination. Passthrough to the repository, but wrapped for architectural consistency.
 
 ```python
 from __future__ import annotations
@@ -409,10 +409,10 @@ if TYPE_CHECKING:
 
 
 class ListProductsUseCase:
-    """Lista productos del inventario con paginacion.
+    """Lists inventory products with pagination.
 
     Args:
-        product_repo: Repositorio de productos.
+        product_repo: Product repository.
     """
 
     def __init__(
@@ -427,16 +427,16 @@ class ListProductsUseCase:
         limit: int = 100,
         offset: int = 0,
     ) -> list[Product]:
-        """Ejecuta la lista de productos.
+        """Executes the product listing.
 
         Args:
-            limit: Maximo de resultados (default 100).
-            offset: Desplazamiento para paginacion (default 0).
+            limit: Maximum number of results (default 100).
+            offset: Offset for pagination (default 0).
 
         Returns:
-            list[Product]: Lista de productos ordenados por ID.
+            list[Product]: List of products ordered by ID.
 
-        Ejemplo::
+        Example::
 
             use_case = ListProductsUseCase(product_repo)
             products = await use_case.execute(limit=50, offset=0)
@@ -445,14 +445,14 @@ class ListProductsUseCase:
 ```
 
 **Design Notes:**
-- Actualmente es un passthrough al repositorio, pero envolverlo permite añadir lógica futura (filtrado por categoría, búsqueda por nombre, caching) sin cambiar la API del adapter
-- Mantiene consistencia: todos los endpoints de lectura pasan por un use case
+- Currently a passthrough to the repository, but wrapping it allows adding future logic (filtering by category, searching by name, caching) without changing the adapter API
+- Maintains consistency: all read endpoints go through a use case
 
 ---
 
 ### 6. `CreateCategoryUseCase`
 
-Crea una nueva categoría de productos.
+Creates a new product category.
 
 ```python
 from __future__ import annotations
@@ -468,10 +468,10 @@ if TYPE_CHECKING:
 
 
 class CreateCategoryUseCase:
-    """Crea una nueva categoria de productos.
+    """Creates a new product category.
 
     Args:
-        category_repo: Repositorio de categorias.
+        category_repo: Category repository.
     """
 
     def __init__(
@@ -485,24 +485,24 @@ class CreateCategoryUseCase:
         name: str,
         description: str | None = None,
     ) -> Category:
-        """Ejecuta la creacion de una categoria.
+        """Executes the creation of a category.
 
         Args:
-            name: Nombre de la categoria (no vacio).
-            description: Descripcion opcional.
+            name: Category name (non-empty).
+            description: Optional description.
 
         Returns:
-            Category: La categoria persistida con id asignado.
+            Category: The persisted category with assigned id.
 
         Raises:
-            ValueError: Si name es vacio.
+            ValueError: If name is empty.
 
-        Ejemplo::
+        Example::
 
             use_case = CreateCategoryUseCase(category_repo)
             category = await use_case.execute(
                 name="Electronics",
-                description="Productos electronicos",
+                description="Electronic products",
             )
         """
         category = Category(
@@ -516,8 +516,8 @@ class CreateCategoryUseCase:
 ```
 
 **Design Notes:**
-- La entidad `Category` ya valida `name` no vacío en `__post_init__`
-- Operación simple, no requiere UoW (single insert)
+- The `Category` entity already validates non-empty `name` in `__post_init__`
+- Simple operation, does not require UoW (single insert)
 
 ---
 
@@ -525,56 +525,56 @@ class CreateCategoryUseCase:
 
 | File | Description |
 |------|-------------|
-| `src/application/use_cases/record_movement.py` | `RecordMovementUseCase` — crea movimiento con validacion de stock |
-| `src/application/use_cases/query_current_stock.py` | `QueryCurrentStockUseCase` — stock actual |
-| `src/application/use_cases/query_stock_at_date.py` | `QueryStockAtDateUseCase` — stock historico |
-| `src/application/use_cases/create_product.py` | `CreateProductUseCase` — crea producto con verificacion de categoria |
-| `src/application/use_cases/list_products.py` | `ListProductsUseCase` — lista con paginacion |
-| `src/application/use_cases/create_category.py` | `CreateCategoryUseCase` — crea categoria |
-| `src/application/use_cases/__init__.py` | Re-exports: los 6 use cases |
+| `src/application/use_cases/record_movement.py` | `RecordMovementUseCase` — creates movement with stock validation |
+| `src/application/use_cases/query_current_stock.py` | `QueryCurrentStockUseCase` — current stock |
+| `src/application/use_cases/query_stock_at_date.py` | `QueryStockAtDateUseCase` — historical stock |
+| `src/application/use_cases/create_product.py` | `CreateProductUseCase` — creates product with category verification |
+| `src/application/use_cases/list_products.py` | `ListProductsUseCase` — lists with pagination |
+| `src/application/use_cases/create_category.py` | `CreateCategoryUseCase` — creates category |
+| `src/application/use_cases/__init__.py` | Re-exports: all 6 use cases |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Los 6 use cases implementan un unico metodo publico `async execute()`
-- [ ] Todos los use cases inyectan Protocolos en `__init__` (no implementaciones concretas)
-- [ ] `RecordMovementUseCase` verifica que el producto existe antes de crear el movimiento
-- [ ] `RecordMovementUseCase` valida stock no negativo para OUT y TRANSFER (dos veces: fail-fast + dentro de UoW)
-- [ ] `RecordMovementUseCase` valida consistencia de metadata para TRANSFER y ADJUSTMENT
-- [ ] `RecordMovementUseCase` usa `IUnitOfWork` para atomicidad
-- [ ] `CreateProductUseCase` verifica que la categoria existe antes de crear el producto
-- [ ] Los use cases NO importan de `infrastructure/` (solo de `domain/` ports, entities, exceptions, rules)
-- [ ] Las excepciones de dominio (`InsufficientStockError`, `InvalidSKUError`, etc.) se propagan sin capturar
-- [ ] `src/application/use_cases/__init__.py` exporta los 6 use cases
-- [ ] `make lint` pasa sin errores en todos los archivos de use cases
+- [ ] All 6 use cases implement a single public method `async execute()`
+- [ ] All use cases inject Protocols in `__init__` (not concrete implementations)
+- [ ] `RecordMovementUseCase` verifies that the product exists before creating the movement
+- [ ] `RecordMovementUseCase` validates non-negative stock for OUT and TRANSFER (twice: fail-fast + inside UoW)
+- [ ] `RecordMovementUseCase` validates metadata consistency for TRANSFER and ADJUSTMENT
+- [ ] `RecordMovementUseCase` uses `IUnitOfWork` for atomicity
+- [ ] `CreateProductUseCase` verifies that the category exists before creating the product
+- [ ] Use cases do NOT import from `infrastructure/` (only from `domain/` ports, entities, exceptions, rules)
+- [ ] Domain exceptions (`InsufficientStockError`, `InvalidSKUError`, etc.) propagate without being caught
+- [ ] `src/application/use_cases/__init__.py` exports all 6 use cases
+- [ ] `make lint` passes without errors on all use case files
 
 ---
 
 ## Testing Strategy
 
-- **Tests unitarios con mocks** — Cada use case se testea aisladamente con mocks de sus Protocolos. No se usa DB real.
-- **`RecordMovementUseCase`** — Tests parametrizados por `MovementType`:
-  - IN: crea sin validar stock
-  - OUT: valida stock, lanza `InsufficientStockError` si no hay suficiente
-  - TRANSFER: valida stock + metadata (origin/destination)
-  - ADJUSTMENT: valida metadata (reason)
-  - Producto no encontrado: lanza `ValueError`
-- **`QueryCurrentStockUseCase`** — Delega al mock del repo, retorna valor
-- **`QueryStockAtDateUseCase`** — Delega al mock del repo con fecha, retorna valor
-- **`CreateProductUseCase`** — Categoria no encontrada (`ValueError`), SKU invalido (`InvalidSKUError`), creacion exitosa
-- **`ListProductsUseCase`** — Lista vacia, lista con items, paginacion (limit/offset)
-- **`CreateCategoryUseCase`** — Nombre vacio (`ValueError`), creacion exitosa
-- Mock de `IUnitOfWork`: crear un context manager async fake que simule commit/rollback
+- **Unit tests with mocks** — Each use case is tested in isolation with mocks of its Protocols. No real DB is used.
+- **`RecordMovementUseCase`** — Tests parameterized by `MovementType`:
+  - IN: creates without validating stock
+  - OUT: validates stock, raises `InsufficientStockError` if insufficient
+  - TRANSFER: validates stock + metadata (origin/destination)
+  - ADJUSTMENT: validates metadata (reason)
+  - Product not found: raises `ValueError`
+- **`QueryCurrentStockUseCase`** — Delegates to repo mock, returns value
+- **`QueryStockAtDateUseCase`** — Delegates to repo mock with date, returns value
+- **`CreateProductUseCase`** — Category not found (`ValueError`), invalid SKU (`InvalidSKUError`), successful creation
+- **`ListProductsUseCase`** — Empty list, list with items, pagination (limit/offset)
+- **`CreateCategoryUseCase`** — Empty name (`ValueError`), successful creation
+- Mock of `IUnitOfWork`: create a fake async context manager that simulates commit/rollback
 
 ---
 
 ## Resolved Questions
 
-1. **¿Cuántos casos de uso debe definir Spec-40?** → **6 Use Cases.** `RecordMovementUseCase`, `QueryCurrentStockUseCase`, `QueryStockAtDateUseCase`, `CreateProductUseCase`, `ListProductsUseCase`, `CreateCategoryUseCase`. Cubre las operaciones principales del dominio sin excesiva granularity. `ListCategoriesUseCase` y `ListBelowThresholdUseCase` se pueden añadir en fases futuras si se identifican endpoints que los requieran.
+1. **How many use cases should Spec-40 define?** → **6 Use Cases.** `RecordMovementUseCase`, `QueryCurrentStockUseCase`, `QueryStockAtDateUseCase`, `CreateProductUseCase`, `ListProductsUseCase`, `CreateCategoryUseCase`. Covers the main domain operations without excessive granularity. `ListCategoriesUseCase` and `ListBelowThresholdUseCase` can be added in future phases if endpoints requiring them are identified.
 
-2. **¿Cómo debe manejar `RecordMovementUseCase` la validación de stock?** → **Dentro del Use Case.** El use case consulta `IStockQueryRepository.get_current_stock()`, aplica `validate_stock_not_negative()`, y si pasa, crea el movimiento dentro de una `IUnitOfWork` para atomicidad. La validación se ejecuta dos veces: antes del UoW (fail-fast sin adquirir conexión) y dentro del UoW (protección contra race conditions entre el check y el insert).
+2. **How should `RecordMovementUseCase` handle stock validation?** → **Inside the Use Case.** The use case queries `IStockQueryRepository.get_current_stock()`, applies `validate_stock_not_negative()`, and if it passes, creates the movement within an `IUnitOfWork` for atomicity. Validation runs twice: before the UoW (fail-fast without acquiring a connection) and inside the UoW (protection against race conditions between the check and the insert).
 
-3. **¿Debe `RecordMovementUseCase` usar UoW también para IN/ADJUSTMENT?** → **No.** Solo para OUT y TRANSFER. IN y ADJUSTMENT siempre incrementan stock y no pueden violar el invariante de stock negativo. Usar UoW para todas las operaciones añadiría overhead innecesario. Si en el futuro se necesita atomicidad multi-repositorio para IN/ADJUSTMENT (ej: crear movimiento + actualizar tabla de auditoría), se añade sin romper el patrón existente.
+3. **Should `RecordMovementUseCase` use UoW for IN/ADJUSTMENT as well?** → **No.** Only for OUT and TRANSFER. IN and ADJUSTMENT always increment stock and cannot violate the negative stock invariant. Using UoW for all operations would add unnecessary overhead. If multi-repository atomicity is needed for IN/ADJUSTMENT in the future (e.g., create movement + update audit table), it can be added without breaking the existing pattern.
 
-4. **¿`ListProductsUseCase` es necesario o es un passthrough innecesario?** → **Sí, es necesario.** Aunque actualmente es un passthrough al repositorio, envolverlo mantiene consistencia arquitectónica: todos los endpoints de lectura pasan por un use case. Esto permite añadir lógica futura (filtrado por categoría, búsqueda por nombre, caching, autorización) sin cambiar la API del adapter. El costo de la envoltura es mínimo (una clase de ~15 líneas).
+4. **Is `ListProductsUseCase` necessary or is it an unnecessary passthrough?** → **Yes, it is necessary.** Although currently a passthrough to the repository, wrapping it maintains architectural consistency: all read endpoints go through a use case. This allows adding future logic (filtering by category, searching by name, caching, authorization) without changing the adapter API. The cost of the wrapper is minimal (~15 lines class).

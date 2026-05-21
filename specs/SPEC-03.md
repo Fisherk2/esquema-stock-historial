@@ -1,31 +1,31 @@
-# SPEC-03: Calidad y automatización
+# SPEC-03: Quality and Automation
 
-## Descripción
+## Description
 
-Configurar herramientas de calidad de código (linter, formatter) y automatización CI/CD con pre-commit hooks y GitHub Actions.
+Set up code quality tools (linter, formatter) and CI/CD automation with pre-commit hooks and GitHub Actions.
 
-## Fase
+## Phase
 
-F0 — Preparación
+F0 — Preparation
 
-## Archivos Involucrados
+## Involved Files
 
 - `.pre-commit-config.yaml` — Hooks: ruff, ruff-format, black, trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files
-- `pyproject.toml` — Configuración de ruff (select E/W/F/I/N/UP/B/SIM/TCH/RUF, ban-relative-imports), black, pytest, mypy
+- `pyproject.toml` — Ruff configuration (select E/W/F/I/N/UP/B/SIM/TCH/RUF, ban-relative-imports), black, pytest, mypy
 - `.github/workflows/ci.yml` — Pipeline: lint (ruff) + test (pytest) + coverage
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] Pre-commit hooks configurados y funcionales
-- [x] `make lint` ejecuta ruff sin errores
-- [x] `make format` ejecuta black sin errores
-- [x] CI ejecuta lint y test en push/PR a main
-- [x] CI ejecuta coverage con umbral mínimo de 80%
+- [x] Pre-commit hooks configured and functional
+- [x] `make lint` runs ruff without errors
+- [x] `make format` runs black without errors
+- [x] CI runs lint and test on push/PR to main
+- [x] CI runs coverage with minimum threshold of 80%
 
-## Dependencias
+## Dependencies
 
-Spec-01 (Estructura y convenciones), Spec-02 (Entorno de desarrollo)
+Spec-01 (Structure and Conventions), Spec-02 (Development Environment)
 
-## Estado
+## Status
 
-**Completado** — 2026-05-14
+**Completed** — 2026-05-14

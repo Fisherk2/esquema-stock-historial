@@ -1,58 +1,58 @@
-# SPEC-11: Esquema y Migraciones
+# SPEC-11: Schema and Migrations
 
-## Descripción
+## Description
 
-Definir el esquema de base de datos normalizado (3NF) con tablas `categories`, `products` y `movements`, incluyendo constraints, foreign keys, ENUM nativo y trigger de inmutabilidad.
+Define the normalized database schema (3NF) with tables `categories`, `products`, and `movements`, including constraints, foreign keys, native ENUM, and immutability trigger.
 
-## Fase
+## Phase
 
-F1 — Infraestructura DB
+F1 — DB Infrastructure
 
-## Archivos Involucrados
+## Involved Files
 
 - `migrations/001_create_movement_type_enum.sql` — ENUM `movement_type` (IN, OUT, ADJUSTMENT, TRANSFER)
-- `migrations/002_create_categories.sql` — Tabla `categories` con PK identity, UNIQUE name
-- `migrations/003_create_products.sql` — Tabla `products` con FK a categories, SKU UNIQUE
-- `migrations/004_create_movements.sql` — Tabla `movements` append-only con ENUM, CHECK, JSONB
-- `migrations/005_create_immutability_trigger.sql` — Trigger BEFORE UPDATE/DELETE RAISE EXCEPTION
-- `src/infrastructure/db/migrate.py` — Migration runner con tracking en `schema_migrations`
+- `migrations/002_create_categories.sql` — Table `categories` with PK identity, UNIQUE name
+- `migrations/003_create_products.sql` — Table `products` with FK to categories, UNIQUE SKU
+- `migrations/004_create_movements.sql` — Append-only `movements` table with ENUM, CHECK, JSONB
+- `migrations/005_create_immutability_trigger.sql` — BEFORE UPDATE/DELETE trigger RAISE EXCEPTION
+- `src/infrastructure/db/migrate.py` — Migration runner with `schema_migrations` tracking
 - `src/infrastructure/db/seed.py` — Seed data executor (manual)
-- `tests/integration/test_db_schema.py` — Tests de esquema con testcontainers
+- `tests/integration/test_db_schema.py` — Schema tests with testcontainers
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] ENUM `movement_type` con valores: IN, OUT, ADJUSTMENT, TRANSFER
-- [x] Tabla `categories`: PK BIGINT IDENTITY, name TEXT UNIQUE, description TEXT, created_at TIMESTAMPTZ
-- [x] Tabla `products`: PK BIGINT IDENTITY, sku TEXT UNIQUE, name TEXT, category_id FK RESTRICT, min_stock_threshold CHECK >= 0
-- [x] Tabla `movements`: PK BIGINT IDENTITY, product_id FK RESTRICT, movement_type ENUM, quantity CHECK > 0, metadata JSONB DEFAULT '{}', reference TEXT
-- [x] Trigger `enforce_movements_immutability` bloquea UPDATE y DELETE en movements
-- [x] Migration runner ejecuta archivos `.sql` en orden numérico con tracking
-- [x] Migraciones idempotentes: re-ejecutar no duplica datos ni errores
-- [x] `schema_migrations` table rastrea versiones aplicadas con timestamp
-- [x] Soporte para migraciones **non-transactional**: archivos con `-- non-transactional` en primera línea se ejecutan sin transacción (ej: `CREATE INDEX CONCURRENTLY`, `VACUUM`)
-- [x] FK en products(category_id) con ON DELETE RESTRICT
-- [x] FK en movements(product_id) con ON DELETE RESTRICT
-- [x] Tests de integración validan: existencia tablas, ENUM, FK, CHECK, UNIQUE, trigger
-- [x] 16 tests de integración pasan con testcontainers PostgreSQL 16
+- [x] ENUM `movement_type` with values: IN, OUT, ADJUSTMENT, TRANSFER
+- [x] Table `categories`: PK BIGINT IDENTITY, name TEXT UNIQUE, description TEXT, created_at TIMESTAMPTZ
+- [x] Table `products`: PK BIGINT IDENTITY, sku TEXT UNIQUE, name TEXT, category_id FK RESTRICT, min_stock_threshold CHECK >= 0
+- [x] Table `movements`: PK BIGINT IDENTITY, product_id FK RESTRICT, movement_type ENUM, quantity CHECK > 0, metadata JSONB DEFAULT '{}', reference TEXT
+- [x] Trigger `enforce_movements_immutability` blocks UPDATE and DELETE on movements
+- [x] Migration runner executes `.sql` files in numerical order with tracking
+- [x] Idempotent migrations: re-running does not duplicate data or cause errors
+- [x] `schema_migrations` table tracks applied versions with timestamp
+- [x] **Non-transactional migration support**: files with `-- non-transactional` on first line execute without transaction (e.g., `CREATE INDEX CONCURRENTLY`, `VACUUM`)
+- [x] FK on products(category_id) with ON DELETE RESTRICT
+- [x] FK on movements(product_id) with ON DELETE RESTRICT
+- [x] Integration tests validate: table existence, ENUM, FK, CHECK, UNIQUE, trigger
+- [x] 16 integration tests pass with testcontainers PostgreSQL 16
 
-## Decisiones de Diseño
+## Design Decisions
 
-| Decisión | Racional |
-|----------|----------|
-| BIGINT IDENTITY (no UUID) | Sistema no distribuido, no necesita IDs opacos |
-| TEXT (no VARCHAR) | PostgreSQL maneja longitud internamente, sin overhead |
-| TIMESTAMPTZ (no TIMESTAMP) | Zona horaria explícita para auditoría histórica |
-| quantity siempre positivo | Signo inferido de movement_type, evita ambigüedad |
-| JSONB para metadata | TRANSFER necesita origen/destino; locations table diferida |
-| ON DELETE RESTRICT | No se pueden eliminar productos/categorías con movimientos |
-| Trigger + código para inmutabilidad | Defensa en profundidad: DB bloquea, repo solo expone INSERT |
-| Migraciones SQL manuales | No Alembic — más simple, explícito, fácil de revisar |
-| Soporte `-- non-transactional` | Permite `CREATE INDEX CONCURRENTLY` y otras operaciones que no pueden ejecutarse dentro de una transacción |
+| Decision | Rationale |
+|----------|-----------|
+| BIGINT IDENTITY (not UUID) | Non-distributed system, no need for opaque IDs |
+| TEXT (not VARCHAR) | PostgreSQL handles length internally, no overhead |
+| TIMESTAMPTZ (not TIMESTAMP) | Explicit timezone for historical auditing |
+| quantity always positive | Sign inferred from movement_type, avoids ambiguity |
+| JSONB for metadata | TRANSFER needs origin/destination; locations table deferred |
+| ON DELETE RESTRICT | Cannot delete products/categories with movements |
+| Trigger + code for immutability | Defense in depth: DB blocks, repo only exposes INSERT |
+| Manual SQL migrations | No Alembic — simpler, explicit, easy to review |
+| `-- non-transactional` support | Allows `CREATE INDEX CONCURRENTLY` and other operations that cannot run inside a transaction |
 
-## Dependencias
+## Dependencies
 
-Spec-10 (Configuración DB)
+Spec-10 (DB Configuration)
 
-## Estado
+## Status
 
-**Completado** — 2026-05-15
+**Completed** — 2026-05-15

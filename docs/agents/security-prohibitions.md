@@ -1,60 +1,60 @@
-# Seguridad y Prohibiciones
+# Security and Prohibitions
 
-## Validación y Sanitización
+## Validation and Sanitization
 
-- **Inputs:** Pydantic valida tipos, rangos, formatos UUID/ISO8601. Rechazo automático de payloads malformados (`HTTP 422`).
-- **SQL Injection:** Zero tolerancia. Uso estricto de parámetros posicionales/nombrados (`$1`, `$2`). Nunca concatenación de strings para queries, incluyendo `SET` statements (ej: `SET statement_timeout = $1`, no f-string).
-- **JSONB:** asyncpg maneja `dict → JSONB` nativamente. Nunca usar `json.dumps()` para parámetros JSONB — esto duplica la serialización y puede causar doble-encoding.
-- **Secretos:** `.env` nunca versionado. Variables sensibles cargadas vía `pydantic-settings`. Rotación automática en CI.
+- **Inputs:** Pydantic validates types, ranges, UUID/ISO8601 formats. Automatic rejection of malformed payloads (`HTTP 422`).
+- **SQL Injection:** Zero tolerance. Strict use of positional/named parameters (`$1`, `$2`). Never string concatenation for queries, including `SET` statements (e.g., `SET statement_timeout = $1`, not f-string).
+- **JSONB:** asyncpg handles `dict → JSONB` natively. Never use `json.dumps()` for JSONB parameters — this duplicates serialization and can cause double-encoding.
+- **Secrets:** `.env` never versioned. Sensitive variables loaded via `pydantic-settings`. Automatic rotation in CI.
 
-## Control de Excepciones y Límites
+## Exception Control and Limits
 
-- **Rate Limiting:** Middleware básico en FastAPI (`slowapi` o manual) para endpoints de lectura masiva.
-- **Deadlines:** Timeouts explícitos en `asyncpg.connect()`. Circuit breaker implícito vía retry limits.
-- **Logging:** Estructurado (JSON). Nunca loggear datos sensibles o stacks completos en prod.
+- **Rate Limiting:** Basic middleware in FastAPI (`slowapi` or manual) for bulk read endpoints.
+- **Deadlines:** Explicit timeouts in `asyncpg.connect()`. Implicit circuit breaker via retry limits.
+- **Logging:** Structured (JSON). Never log sensitive data or full stacks in prod.
 
-## Prácticas Prohibidas
+## Prohibited Practices
 
-1. Hardcoded credentials, URLs o queries SQL en código.
-2. Side-effects ocultos: funciones que leen/escriben a la DB sin ser declaradas como tal.
-3. Acoplamiento temporal: lógica que depende del orden de ejecución implícito de imports o módulos globales.
-4. God Objects / Fat Controllers: clases >300 líneas o funciones con múltiples responsabilidades.
-5. ORM para queries analíticas complejas: SQLAlchemy ORM para CTEs/Window Functions está prohibido.
-6. `print()` en producción. Usar `logging` o `structlog`.
-7. Ignorar `async/await`: mezclar código síncrono en rutas async bloquea el event loop.
-8. Modificar datos históricos: `UPDATE` o `DELETE` en tabla `movements`. Solo `INSERT`. Si hay error, insertar movimiento compensatorio.
+1. Hardcoded credentials, URLs, or SQL queries in code.
+2. Hidden side-effects: functions that read/write to the DB without being declared as such.
+3. Temporal coupling: logic that depends on implicit execution order of imports or global modules.
+4. God Objects / Fat Controllers: classes >300 lines or functions with multiple responsibilities.
+5. ORM for complex analytical queries: SQLAlchemy ORM for CTEs/Window Functions is prohibited.
+6. `print()` in production. Use `logging` or `structlog`.
+7. Ignoring `async/await`: mixing synchronous code in async routes blocks the event loop.
+8. Modifying historical data: `UPDATE` or `DELETE` on `movements` table. Only `INSERT`. If there is an error, insert a compensatory movement.
 
-## Estado de Seguridad MVP (Pre-Produccion)
+## MVP Security Status (Pre-Production)
 
-> **Nota:** Este proyecto en su estado actual es un **MVP sin despliegue real a produccion**. Las siguientes limitaciones son conocidas y deben resolverse antes de un despliegue productivo.
+> **Note:** This project in its current state is an **MVP without real production deployment**. The following limitations are known and must be resolved before a production deployment.
 
-### Limitaciones conocidas del MVP
+### Known MVP Limitations
 
-| Componente | Estado MVP | Requisito Pre-Produccion |
+| Component | MVP Status | Pre-Production Requirement |
 |---|---|---|
-| **Authentication** | ❌ No implementado | API keys o JWT/OAuth2 con RBAC |
-| **Authorization** | ❌ No implementado | Roles: admin, warehouse, readonly |
-| **Rate Limiting** | ❌ No implementado | `slowapi` o middleware manual |
-| **CORS** | ❌ No implementado | `CORSMiddleware` con allowlist de origenes |
-| **OpenAPI Docs** | ⚠️ Activos en prod | Deshabilitar `/docs`, `/redoc`, `/openapi.json` |
-| **Security Headers** | ✅ Implementado | `nosniff`, `deny`, `no-store`, `referrer-policy` |
-| **SQL Injection** | ✅ Prevenido | asyncpg parametrizado en todos los queries |
-| **Input Validation** | ✅ Implementado | Pydantic `strict=True`, `extra="forbid"` |
-| **Error Handling** | ✅ Implementado | Sin leakage de stack traces. ValueError handler verifica origen del traceback. |
-| **Race Conditions** | ✅ Prevenido | `SELECT FOR UPDATE` + calculo directo dentro del UoW |
-| **Statement Timeout** | ✅ Enforcement | `server_settings` en pool — aplica a todas las conexiones |
+| **Authentication** | ❌ Not implemented | API keys or JWT/OAuth2 with RBAC |
+| **Authorization** | ❌ Not implemented | Roles: admin, warehouse, readonly |
+| **Rate Limiting** | ❌ Not implemented | `slowapi` or manual middleware |
+| **CORS** | ❌ Not implemented | `CORSMiddleware` with origin allowlist |
+| **OpenAPI Docs** | ⚠️ Active in prod | Disable `/docs`, `/redoc`, `/openapi.json` |
+| **Security Headers** | ✅ Implemented | `nosniff`, `deny`, `no-store`, `referrer-policy` |
+| **SQL Injection** | ✅ Prevented | asyncpg parameterized in all queries |
+| **Input Validation** | ✅ Implemented | Pydantic `strict=True`, `extra="forbid"` |
+| **Error Handling** | ✅ Implemented | No stack trace leakage. ValueError handler verifies traceback origin. |
+| **Race Conditions** | ✅ Prevented | `SELECT FOR UPDATE` + direct calculation inside UoW |
+| **Statement Timeout** | ✅ Enforcement | `server_settings` in pool — applies to all connections |
 
-### Checklist pre-despliegue a produccion
+### Pre-production deployment checklist
 
-Antes de desplegar a produccion, completar:
+Before deploying to production, complete:
 
-- [ ] Implementar autenticacion (API key o JWT)
-- [ ] Configurar autorizacion por roles
-- [ ] Agregar rate limiting (slowapi)
-- [ ] Configurar CORS con origenes especificos
-- [ ] Deshabilitar OpenAPI docs en produccion
-- [ ] Agregar HSTS via reverse proxy (nginx/traefik)
-- [ ] Configurar monitorizacion y alertas
-- [ ] Documentar plan de rollback
-- [ ] Ejecutar auditoria de dependencias (`pip-audit`)
-- [ ] Verificar que todas las variables de entorno estan configuradas
+- [ ] Implement authentication (API key or JWT)
+- [ ] Configure role-based authorization
+- [ ] Add rate limiting (slowapi)
+- [ ] Configure CORS with specific origins
+- [ ] Disable OpenAPI docs in production
+- [ ] Add HSTS via reverse proxy (nginx/traefik)
+- [ ] Configure monitoring and alerts
+- [ ] Document rollback plan
+- [ ] Run dependency audit (`pip-audit`)
+- [ ] Verify that all environment variables are configured

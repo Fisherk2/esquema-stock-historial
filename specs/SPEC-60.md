@@ -1,37 +1,37 @@
-# SPEC-60: Tests Unitarios — Hypothesis + mypy strict
+# SPEC-60: Unit Tests — Hypothesis + mypy strict
 
-**Fase:** F6 — Testing Integral
-**Dependencias:** Spec-21 (Reglas de Negocio) ✅ Completado, Spec-22 (Protocolos) ✅ Completado, Spec-40 (Casos de Uso) ✅ Completado
-**Prioridad:** Alta
-**Estado:** Aprobado
+**Phase:** F6 — Integral Testing
+**Dependencies:** Spec-21 (Business Rules) ✅ Completed, Spec-22 (Protocols) ✅ Completed, Spec-40 (Use Cases) ✅ Completed
+**Priority:** High
+**Status:** Approved
 
 ---
 
 ## Objective
 
-Consolidar y expandir la suite de tests unitarios existente (194 tests) con tres objetivos: (1) añadir **property-based testing** con Hypothesis para domain rules y value objects, capturando edge cases que los tests example-based no detectan; (2) activar **mypy `--strict`** como quality gate de CI, elevando la seguridad de tipos en `src/`; (3) cerrar brechas de cobertura para alcanzar ≥90% en `domain/` y ≥85% en `application/`.
+Consolidate and expand the existing unit test suite (194 tests) with three objectives: (1) add **property-based testing** with Hypothesis for domain rules and value objects, capturing edge cases that example-based tests do not detect; (2) enable **mypy `--strict`** as a CI quality gate, raising type safety in `src/`; (3) close coverage gaps to reach ≥90% in `domain/` and ≥85% in `application/`.
 
-**Principios de diseño:**
-- **Hypothesis como complemento, no reemplazo** — los tests example-based existentes se mantienen; Hypothesis añade cobertura de bordes
-- **Strategies reutilizables** — módulo centralizado `tests/unit/strategies.py` con strategies para Quantity, SKU, MovementType
-- **Determinismo en CI** — `--hypothesis-seed=0` para reproducibilidad; profile `dev` con 1000 ejemplos para exploración local
-- **mypy strict solo en `src/`** — tests quedan con `strict=false` (mocks, fixtures dinámicas no benefician de strict)
-- **Cero regresiones** — todos los 291 tests existentes deben seguir pasando
+**Design principles:**
+- **Hypothesis as a complement, not a replacement** — existing example-based tests are kept; Hypothesis adds edge coverage
+- **Reusable strategies** — centralized module `tests/unit/strategies.py` with strategies for Quantity, SKU, MovementType
+- **Determinism in CI** — `--hypothesis-seed=0` for reproducibility; `dev` profile with 1000 examples for local exploration
+- **mypy strict only on `src/`** — tests remain with `strict=false` (mocks, dynamic fixtures do not benefit from strict)
+- **Zero regressions** — all 291 existing tests must continue passing
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Hypothesis 6.x+ como dev dependency | Library madura y estable para PBT en Python. Estrategias composables. Sin impacto en producción |
-| `max_examples=100` en CI | Balance entre exhaustividad y velocidad. 100 ejemplos por propiedad detecta la mayoría de edge cases sin penalizar CI |
-| `--hypothesis-seed=0` en CI | Reproducibilidad total. Si un test falla en CI, falla con el mismo seed localmente |
-| Profile `dev` con `max_examples=1000` | Para exploración local más profunda antes de commit |
-| mypy `strict=true` solo en `src/` | Los tests usan mocks, `AsyncMock`, fixtures dinámicas que complican anotaciones estrictas sin beneficio claro |
-| `type: ignore` solo con justificación | Si mypy strict falla en un caso legítimo, se añade `# type: ignore[xxx]` con comentario explicativo |
-| Strategies en módulo separado | Evita duplicación de lógica de generación entre archivos de test. Un solo lugar para mantener las strategies |
-| Coverage domain/ ≥90% (subido de >85%) | Con Hypothesis se generan más caminos; el umbral sube para reflejar la mayor confianza |
+| Hypothesis 6.x+ as dev dependency | Mature and stable library for PBT in Python. Composable strategies. No production impact |
+| `max_examples=100` in CI | Balance between exhaustiveness and speed. 100 examples per property detects most edge cases without penalizing CI |
+| `--hypothesis-seed=0` in CI | Total reproducibility. If a test fails in CI, it fails with the same seed locally |
+| `dev` profile with `max_examples=1000` | For deeper local exploration before commit |
+| mypy `strict=true` only on `src/` | Tests use mocks, `AsyncMock`, dynamic fixtures that complicate strict annotations without clear benefit |
+| `type: ignore` only with justification | If mypy strict fails on a legitimate case, add `# type: ignore[xxx]` with an explanatory comment |
+| Strategies in a separate module | Avoids duplication of generation logic between test files. A single place to maintain strategies |
+| Coverage domain/ ≥90% (raised from >85%) | With Hypothesis more paths are generated; the threshold rises to reflect greater confidence |
 
 ---
 
@@ -51,16 +51,16 @@ max_examples = 100
 ### Hypothesis profiles
 
 ```python
-# En tests/unit/strategies.py o conftest.py
+# In tests/unit/strategies.py or conftest.py
 from hypothesis import settings, Phase
 
-# Profile CI: 100 ejemplos, seed fijo (reproducible)
+# CI profile: 100 examples, fixed seed (reproducible)
 settings.register_profile("ci", max_examples=100, phases=[Phase.generate, Phase.target, Phase.shrink])
 
-# Profile dev: 1000 ejemplos, más exhaustivo
+# dev profile: 1000 examples, more exhaustive
 settings.register_profile("dev", max_examples=1000, phases=[Phase.generate, Phase.target, Phase.shrink])
 
-# Default: usa CI profile
+# Default: uses CI profile
 settings.load_profile("ci")
 ```
 
@@ -70,14 +70,14 @@ settings.load_profile("ci")
 
 ### `tests/unit/strategies.py`
 
-Módulo centralizado de strategies reutilizables para domain value objects y rules:
+Centralized module of reusable strategies for domain value objects and rules:
 
 ```python
-"""Hypothesis strategies reutilizables para domain value objects y rules.
+"""Reusable Hypothesis strategies for domain value objects and rules.
 
-Centraliza la generación de datos de prueba para property-based testing.
-Todas las strategies producen valores válidos por defecto; usar
-st.integers(max_value=0) para casos inválidos.
+Centralizes test data generation for property-based testing.
+All strategies produce valid values by default; use
+st.integers(max_value=0) for invalid cases.
 """
 from __future__ import annotations
 
@@ -89,26 +89,26 @@ from src.domain.value_objects.movement_type import MovementType
 # ── Value Object Strategies ──────────────────────────────────────────────
 
 valid_quantity_strategy = st.integers(min_value=1, max_value=999_999)
-"""Strategy: enteros positivos para Quantity.value."""
+"""Strategy: positive integers for Quantity.value."""
 
 invalid_quantity_strategy = st.one_of(
-    st.integers(max_value=0),       # Cero o negativo
-    st.just(0),                      # Caso específico: cero
+    st.integers(max_value=0),       # Zero or negative
+    st.just(0),                      # Specific case: zero
 )
-"""Strategy: enteros no-positivos que deben rechazarse como Quantity."""
+"""Strategy: non-positive integers that should be rejected as Quantity."""
 
 valid_sku_strategy = st.from_regex(r'[A-Za-z0-9\-_]{1,50}', fullmatch=True)
-"""Strategy: strings que cumplen el regex de SKU."""
+"""Strategy: strings that match the SKU regex."""
 
 invalid_sku_strategy = st.one_of(
-    st.text(min_size=51),            # Excede longitud máxima
-    st.from_regex(r'[!@#$%^&*()]+'), # Caracteres no permitidos
-    st.just(""),                      # Vacío
+    st.text(min_size=51),            # Exceeds maximum length
+    st.from_regex(r'[!@#$%^&*()]+'), # Disallowed characters
+    st.just(""),                      # Empty
 )
-"""Strategy: strings que NO cumplen el regex de SKU."""
+"""Strategy: strings that do NOT match the SKU regex."""
 
 movement_type_strategy = st.sampled_from(list(MovementType))
-"""Strategy: uno de los 4 MovementType values."""
+"""Strategy: one of the 4 MovementType values."""
 
 
 # ── Domain Rule Strategies ──────────────────────────────────────────────
@@ -117,13 +117,13 @@ stock_delta_strategy = st.tuples(
     movement_type_strategy,
     valid_quantity_strategy,
 )
-"""Strategy: tupla (MovementType, Quantity) para calculate_stock_delta."""
+"""Strategy: tuple (MovementType, Quantity) for calculate_stock_delta."""
 
 product_id_strategy = st.integers(min_value=1, max_value=999_999)
-"""Strategy: IDs de producto positivos."""
+"""Strategy: positive product IDs."""
 
 current_stock_strategy = st.integers(min_value=0, max_value=999_999)
-"""Strategy: stock actual no-negativo."""
+"""Strategy: non-negative current stock."""
 ```
 
 ---
@@ -133,19 +133,19 @@ current_stock_strategy = st.integers(min_value=0, max_value=999_999)
 ### Value Objects: Quantity
 
 ```python
-# tests/unit/domain/test_quantity.py (adiciones Hypothesis)
+# tests/unit/domain/test_quantity.py (Hypothesis additions)
 from hypothesis import given
 from tests.unit.strategies import valid_quantity_strategy, invalid_quantity_strategy
 
 @given(qty=valid_quantity_strategy)
 def test_quantity_valid_values(qty: int) -> None:
-    """Property: todo entero positivo crea un Quantity válido."""
+    """Property: every positive integer creates a valid Quantity."""
     q = Quantity(value=qty)
     assert q.value == qty
 
 @given(qty=invalid_quantity_strategy)
 def test_quantity_rejects_non_positive(qty: int) -> None:
-    """Property: ningún entero ≤ 0 debe crear un Quantity válido."""
+    """Property: no integer ≤ 0 should create a valid Quantity."""
     with pytest.raises(InvalidQuantityError):
         Quantity(value=qty)
 ```
@@ -153,18 +153,18 @@ def test_quantity_rejects_non_positive(qty: int) -> None:
 ### Value Objects: SKU
 
 ```python
-# tests/unit/domain/test_sku.py (adiciones Hypothesis)
+# tests/unit/domain/test_sku.py (Hypothesis additions)
 from tests.unit.strategies import valid_sku_strategy, invalid_sku_strategy
 
 @given(raw=valid_sku_strategy)
 def test_sku_valid_format(raw: str) -> None:
-    """Property: todo string que cumpla el regex crea un SKU válido."""
+    """Property: every string matching the regex creates a valid SKU."""
     sku = SKU(value=raw)
     assert sku.value == raw
 
 @given(raw=invalid_sku_strategy)
 def test_sku_rejects_invalid_format(raw: str) -> None:
-    """Property: strings fuera del regex son rechazados."""
+    """Property: strings outside the regex are rejected."""
     with pytest.raises(InvalidSKUError):
         SKU(value=raw)
 ```
@@ -172,7 +172,7 @@ def test_sku_rejects_invalid_format(raw: str) -> None:
 ### Domain Rules: Stock Delta
 
 ```python
-# tests/unit/domain/test_rules.py (adiciones Hypothesis)
+# tests/unit/domain/test_rules.py (Hypothesis additions)
 from tests.unit.strategies import movement_type_strategy, valid_quantity_strategy
 
 @given(
@@ -180,7 +180,7 @@ from tests.unit.strategies import movement_type_strategy, valid_quantity_strateg
     qty=valid_quantity_strategy,
 )
 def test_calculate_stock_delta_sign(mtype: MovementType, qty: int) -> None:
-    """Property: IN/ADJUSTMENT → delta positivo, OUT/TRANSFER → delta negativo."""
+    """Property: IN/ADJUSTMENT → positive delta, OUT/TRANSFER → negative delta."""
     delta = calculate_stock_delta(mtype, qty)
     if mtype in (MovementType.IN, MovementType.ADJUSTMENT):
         assert delta > 0
@@ -191,7 +191,7 @@ def test_calculate_stock_delta_sign(mtype: MovementType, qty: int) -> None:
 
 @given(qty=valid_quantity_strategy)
 def test_calculate_stock_delta_never_zero_for_valid_qty(qty: int) -> None:
-    """Property: con cantidad válida (>0), el delta nunca es cero."""
+    """Property: with valid quantity (>0), delta is never zero."""
     for mtype in MovementType:
         delta = calculate_stock_delta(mtype, qty)
         assert delta != 0
@@ -207,18 +207,18 @@ def test_calculate_stock_delta_never_zero_for_valid_qty(qty: int) -> None:
 [tool.mypy]
 python_version = "3.12"
 strict = true                    # CHANGED: false → true
-warn_return_any = true           # Ya estaba
-warn_unused_configs = true       # Ya estaba
+warn_return_any = true           # Already present
+warn_unused_configs = true       # Already present
 disallow_untyped_defs = true     # CHANGED: false → true
 disallow_incomplete_defs = true  # CHANGED: false → true
-check_untyped_defs = true        # Ya estaba
-no_implicit_optional = true      # Ya estaba
-warn_redundant_casts = true      # Ya estaba
-warn_unused_ignores = true       # Ya estaba
+check_untyped_defs = true        # Already present
+no_implicit_optional = true      # Already present
+warn_redundant_casts = true      # Already present
+warn_unused_ignores = true       # Already present
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-# Tests: strict=false — mocks y fixtures dinámicas no se benefician
+# Tests: strict=false — mocks and dynamic fixtures do not benefit
 module = "tests.*"
 strict = false
 disallow_untyped_defs = false
@@ -227,13 +227,13 @@ disallow_incomplete_defs = false
 
 ### Expected mypy strict issues
 
-Al activar `strict=true`, se espera encontrar los siguientes tipos de problemas en `src/`:
+When enabling `strict=true`, the following types of issues are expected in `src/`:
 
-1. **Funciones sin tipo de retorno explícito** → Añadir `-> None`, `-> str`, etc.
-2. **`Any` implícito en `*args`/`**kwargs`** → Añadir `*args: Any, **kwargs: Any`
-3. **Atributos de dataclass sin tipo** → Añadir anotaciones de tipo
-4. **Imports condicionales (`TYPE_CHECKING`)** → Asegurar que los tipos runtime también se resuelven
-5. **`type: ignore` existentes** → Revisar si son necesarios bajo strict; eliminar los obsoletos
+1. **Functions without explicit return type** → Add `-> None`, `-> str`, etc.
+2. **Implicit `Any` in `*args`/`**kwargs`** → Add `*args: Any, **kwargs: Any`
+3. **Dataclass attributes without type** → Add type annotations
+4. **Conditional imports (`TYPE_CHECKING`)** → Ensure runtime types also resolve
+5. **Existing `type: ignore`** → Review if still needed under strict; remove obsolete ones
 
 ### Makefile addition
 
@@ -248,20 +248,20 @@ typecheck:
 
 ### `tests/unit/application/use_cases/` — Additions
 
-Añadir tests de edge cases que no están cubiertos en los 194 tests existentes:
+Add edge case tests not covered in the existing 194 tests:
 
 | Use Case | Edge Case | Expected Behavior |
 |----------|-----------|-------------------|
-| `RecordMovementUseCase` | Producto no encontrado | `ProductNotFoundError` propagada |
-| `RecordMovementUseCase` | Movimiento OUT con stock=0 | `InsufficientStockError` con details |
-| `RecordMovementUseCase` | TRANSFER sin origin/destination en metadata | `ValueError` por metadata inválida |
-| `CreateProductUseCase` | SKU duplicado | `DuplicateSKUError` propagada |
-| `CreateProductUseCase` | Categoría no encontrada | Error de FK / validación |
-| `ListProductsUseCase` | Offset > total de productos | Lista vacía, total correcto |
-| `ListProductsUseCase` | Limit=0 | Lista vacía, total correcto |
-| `QueryCurrentStockUseCase` | Producto sin movimientos | Stock = 0.0 |
-| `QueryStockAtDateUseCase` | Fecha futura | Stock = 0.0 (no hay movimientos futuros) |
-| `CreateCategoryUseCase` | Nombre duplicado | `UniqueViolation` → error mapping |
+| `RecordMovementUseCase` | Product not found | `ProductNotFoundError` propagated |
+| `RecordMovementUseCase` | OUT movement with stock=0 | `InsufficientStockError` with details |
+| `RecordMovementUseCase` | TRANSFER without origin/destination in metadata | `ValueError` for invalid metadata |
+| `CreateProductUseCase` | Duplicate SKU | `DuplicateSKUError` propagated |
+| `CreateProductUseCase` | Category not found | FK error / validation |
+| `ListProductsUseCase` | Offset > total products | Empty list, correct total |
+| `ListProductsUseCase` | Limit=0 | Empty list, correct total |
+| `QueryCurrentStockUseCase` | Product without movements | Stock = 0.0 |
+| `QueryStockAtDateUseCase` | Future date | Stock = 0.0 (no future movements) |
+| `CreateCategoryUseCase` | Duplicate name | `UniqueViolation` → error mapping |
 
 ---
 
@@ -271,16 +271,16 @@ Añadir tests de edge cases que no están cubiertos en los 194 tests existentes:
 
 ```toml
 [tool.coverage.report]
-fail_under = 80  # Global: sin cambio
+fail_under = 80  # Global: no change
 show_missing = true
 skip_empty = true
 
-# Nuevos thresholds por paquete (usando coverage.py fail_under por paquete)
-# Se valida manualmente con: pytest --cov=src.domain --cov-fail-under=90
-# Se valida manualmente con: pytest --cov=src.application --cov-fail-under=85
+# New per-package thresholds (using coverage.py fail_under per package)
+# Validated manually with: pytest --cov=src.domain --cov-fail-under=90
+# Validated manually with: pytest --cov=src.application --cov-fail-under=85
 ```
 
-> **Nota:** coverage.py no soporta `fail_under` por paquete nativamente. Los thresholds por paquete se validan como asserts en el CI script o con un custom pytest plugin. El gate global de 80% se mantiene en `pyproject.toml`.
+> **Note:** coverage.py does not natively support `fail_under` per package. Per-package thresholds are validated as asserts in the CI script or with a custom pytest plugin. The global 80% gate remains in `pyproject.toml`.
 
 ---
 
@@ -288,10 +288,10 @@ skip_empty = true
 
 | File | Description | Action |
 |------|-------------|--------|
-| `tests/unit/strategies.py` | Hypothesis strategies centralizadas | NEW |
+| `tests/unit/strategies.py` | Centralized Hypothesis strategies | NEW |
 | `tests/unit/domain/test_quantity.py` | + property-based tests | MODIFY |
 | `tests/unit/domain/test_sku.py` | + property-based tests | MODIFY |
-| `tests/unit/domain/test_rules.py` | + property-based tests para stock_delta | MODIFY |
+| `tests/unit/domain/test_rules.py` | + property-based tests for stock_delta | MODIFY |
 | `tests/unit/domain/test_product.py` | + edge cases | MODIFY |
 | `tests/unit/domain/test_movement.py` | + edge cases | MODIFY |
 | `tests/unit/application/use_cases/test_record_movement.py` | + edge cases | MODIFY |
@@ -303,40 +303,40 @@ skip_empty = true
 | `pyproject.toml` | mypy strict=true, Hypothesis config, addopts seed | MODIFY |
 | `requirements.txt` | +hypothesis | MODIFY |
 | `Makefile` | +typecheck command | MODIFY |
-| `src/**/*.py` | Type hints para mypy strict | MODIFY (type annotations only) |
+| `src/**/*.py` | Type hints for mypy strict | MODIFY (type annotations only) |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Hypothesis añadido a `requirements.txt` y `pyproject.toml`
-- [ ] `tests/unit/strategies.py` con strategies reutilizables para Quantity, SKU, MovementType
-- [ ] Property-based tests para: `Quantity` (boundary), `SKU` (regex), `calculate_stock_delta` (signo), `validate_stock_not_negative` (dominio)
-- [ ] Edge cases añadidos en use cases: producto inexistente, categoría duplicada, movimiento con metadata inválida, stock=0, fecha futura, offset>total
-- [ ] `mypy src/ --strict` pasa sin errores
-- [ ] `pyproject.toml` actualizado: `strict = true`, overrides para `tests.*`
+- [ ] Hypothesis added to `requirements.txt` and `pyproject.toml`
+- [ ] `tests/unit/strategies.py` with reusable strategies for Quantity, SKU, MovementType
+- [ ] Property-based tests for: `Quantity` (boundary), `SKU` (regex), `calculate_stock_delta` (sign), `validate_stock_not_negative` (domain)
+- [ ] Edge cases added in use cases: non-existent product, duplicate category, movement with invalid metadata, stock=0, future date, offset>total
+- [ ] `mypy src/ --strict` passes without errors
+- [ ] `pyproject.toml` updated: `strict = true`, overrides for `tests.*`
 - [ ] Coverage `domain/` ≥90%, `application/` ≥85%
-- [ ] 0 regresiones en tests existentes (291 → 291+)
-- [ ] `make lint` pasa sin errores
-- [ ] `--hypothesis-seed=0` configurado en `addopts` para reproducibilidad
+- [ ] 0 regressions in existing tests (291 → 291+)
+- [ ] `make lint` passes without errors
+- [ ] `--hypothesis-seed=0` configured in `addopts` for reproducibility
 
 ---
 
 ## Testing Strategy
 
-- **Property-based tests (Hypothesis):** Generan cientos de inputs automáticamente. Detectan edge cases como overflow, boundary values, y combinaciones inesperadas
-- **Edge case tests (example-based):** Casos específicos no cubiertos en F2-F4. Cada use case tiene al menos 2 edge cases nuevos
-- **Type checking (mypy):** `--strict` en CI como gate. Falla el build si hay tipos inconsistentes
-- **Regression:** Todos los 291 tests existentes deben pasar sin modificación
+- **Property-based tests (Hypothesis):** Automatically generate hundreds of inputs. Detect edge cases like overflow, boundary values, and unexpected combinations
+- **Edge case tests (example-based):** Specific cases not covered in F2-F4. Each use case has at least 2 new edge cases
+- **Type checking (mypy):** `--strict` in CI as a gate. Build fails if there are inconsistent types
+- **Regression:** All 291 existing tests must pass without modification
 
-### Ejemplo: Test de edge case en use case
+### Example: Edge case test in use case
 
 ```python
-# tests/unit/application/use_cases/test_record_movement.py (adición)
+# tests/unit/application/use_cases/test_record_movement.py (addition)
 async def test_record_movement_product_not_found() -> None:
-    """Edge case: producto no encontrado al registrar movimiento."""
+    """Edge case: product not found when recording movement."""
     mock_product_repo = AsyncMock(spec=IProductRepository)
-    mock_product_repo.get_by_id.return_value = None  # Producto no existe
+    mock_product_repo.get_by_id.return_value = None  # Product does not exist
 
     use_case = RecordMovementUseCase(
         movement_repo=mock_movement_repo,
@@ -360,11 +360,11 @@ async def test_record_movement_product_not_found() -> None:
 
 ## Resolved Questions
 
-| # | Pregunta | Decisión | Rationale |
+| # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| F6-60-Q1 | ¿Hypothesis max_examples en CI? | **100** | Balance cobertura vs velocidad. 100 ejemplos detecta la mayoría de bugs. Profile dev con 1000 para local |
-| F6-60-Q2 | ¿Hypothesis seed fijo? | **Sí, `--hypothesis-seed=0`** | Reproducibilidad total en CI. Si falla, se reproduce localmente con el mismo seed |
-| F6-60-Q3 | ¿mypy strict scope? | **Solo `src/`** | Tests usan mocks, AsyncMock, fixtures dinámicas. Strict en tests añade fricción sin beneficio claro |
-| F6-60-Q4 | ¿Coverage domain/ threshold? | **≥90%** (subido de >85%) | Con Hypothesis se generan más caminos de código; el umbral sube para reflejar mayor confianza |
-| F6-60-Q5 | ¿`type: ignore` permitido? | **Solo con justificación** | `# type: ignore[xxx]  # Reason: ...` — nunca sin comentario explicativo |
-| F6-60-Q6 | ¿Strategies en módulo separado? | **Sí, `tests/unit/strategies.py`** | Evita duplicación, facilita mantenimiento, un solo lugar para actualizar si cambian los value objects |
+| F6-60-Q1 | Hypothesis max_examples in CI? | **100** | Coverage vs speed balance. 100 examples detect most bugs. Dev profile with 1000 for local |
+| F6-60-Q2 | Fixed Hypothesis seed? | **Yes, `--hypothesis-seed=0`** | Total reproducibility in CI. If it fails, reproduce locally with the same seed |
+| F6-60-Q3 | mypy strict scope? | **Only `src/`** | Tests use mocks, AsyncMock, dynamic fixtures. Strict on tests adds friction without clear benefit |
+| F6-60-Q4 | Coverage domain/ threshold? | **≥90%** (raised from >85%) | With Hypothesis more code paths are generated; threshold rises to reflect greater confidence |
+| F6-60-Q5 | Is `type: ignore` allowed? | **Only with justification** | `# type: ignore[xxx]  # Reason: ...` — never without an explanatory comment |
+| F6-60-Q6 | Strategies in a separate module? | **Yes, `tests/unit/strategies.py`** | Avoids duplication, eases maintenance, single place to update if value objects change |

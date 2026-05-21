@@ -1,46 +1,46 @@
-# SPEC-12: Índices y Optimización Base
+# SPEC-12: Indexes and Base Optimization
 
-## Descripción
+## Description
 
-Crear índices compuestos y parciales para optimizar consultas de stock histórico (<100ms), índice FK en products(category_id), y seed data para desarrollo.
+Create composite and partial indexes to optimize historical stock queries (<100ms), FK index on products(category_id), and seed data for development.
 
-## Fase
+## Phase
 
-F1 — Infraestructura DB
+F1 — DB Infrastructure
 
-## Archivos Involucrados
+## Involved Files
 
-- `migrations/006_create_indexes.sql` — Índices compuestos, parciales y FK
-- `migrations/007_seed_data.sql` — Datos de prueba idempotentes
-- `tests/integration/test_db_schema.py` — Tests de existencia de índices y seed data
+- `migrations/006_create_indexes.sql` — Composite, partial, and FK indexes
+- `migrations/007_seed_data.sql` — Idempotent test data
+- `tests/integration/test_db_schema.py` — Tests for index existence and seed data
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] Índice compuesto `ix_movements_product_created` en `(product_id, created_at DESC)`
-- [x] Índice parcial `ix_movements_type_in` WHERE movement_type = 'IN'
-- [x] Índice parcial `ix_movements_type_out` WHERE movement_type = 'OUT'
-- [x] Índice parcial `ix_movements_type_adjustment` WHERE movement_type = 'ADJUSTMENT'
-- [x] Índice parcial `ix_movements_type_transfer` WHERE movement_type = 'TRANSFER'
-- [x] Índice FK `ix_products_category_id` en `products(category_id)`
-- [x] Seed data: 3 categorías, 10 productos, 30 movimientos
-- [x] Seed data idempotente: ON CONFLICT DO NOTHING / solo inserta si tabla vacía
-- [x] Tests validan existencia de todos los índices
-- [x] Tests validan que seed data inserta >= 10 productos y >= 30 movimientos
+- [x] Composite index `ix_movements_product_created` on `(product_id, created_at DESC)`
+- [x] Partial index `ix_movements_type_in` WHERE movement_type = 'IN'
+- [x] Partial index `ix_movements_type_out` WHERE movement_type = 'OUT'
+- [x] Partial index `ix_movements_type_adjustment` WHERE movement_type = 'ADJUSTMENT'
+- [x] Partial index `ix_movements_type_transfer` WHERE movement_type = 'TRANSFER'
+- [x] FK index `ix_products_category_id` on `products(category_id)`
+- [x] Seed data: 3 categories, 10 products, 30 movements
+- [x] Idempotent seed data: ON CONFLICT DO NOTHING / only inserts if table is empty
+- [x] Tests validate existence of all indexes
+- [x] Tests validate that seed data inserts >= 10 products and >= 30 movements
 
-## Decisiones de Diseño
+## Design Decisions
 
-| Decisión | Racional |
-|----------|----------|
-| Índice compuesto (product_id, created_at DESC) | Consulta más frecuente: historial de un producto ordenado |
-| Índices parciales por movement_type | Consultas filtradas por tipo solo escanean filas relevantes |
-| Índice FK manual en products(category_id) | PostgreSQL NO indexa FK automáticamente; necesario para JOINs y evitar locks |
-| Sin CONCURRENTLY en F1 | No puede ejecutarse en transacción; para producción zero-downtime en fases posteriores |
-| Seed data manual (make seed) | Nunca automático en Docker; previene datos accidentales en producción |
+| Decision | Rationale |
+|----------|-----------|
+| Composite index (product_id, created_at DESC) | Most frequent query: product history ordered |
+| Partial indexes by movement_type | Filtered queries by type only scan relevant rows |
+| Manual FK index on products(category_id) | PostgreSQL does NOT index FKs automatically; needed for JOINs and lock avoidance |
+| No CONCURRENTLY in F1 | Cannot run in transaction; for zero-downtime production in later phases |
+| Manual seed data (make seed) | Never automatic in Docker; prevents accidental production data |
 
-## Dependencias
+## Dependencies
 
-Spec-11 (Esquema y Migraciones)
+Spec-11 (Schema and Migrations)
 
-## Estado
+## Status
 
-**Completado** — 2026-05-15
+**Completed** — 2026-05-15

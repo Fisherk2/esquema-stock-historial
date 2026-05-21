@@ -1,16 +1,16 @@
-# Spec: stock-historial — Orquestador de Fases
+# Spec: stock-historial — Phase Orchestrator
 
-> **Fuente de verdad arquitectónica:** [AGENTS.md](AGENTS.md)
-> **Trazabilidad de specs:** [docs/workflow/spec-tracking.md](docs/workflow/spec-tracking.md)
-> **Workflow de ejecución:** [WORKFLOW.md](WORKFLOW.md)
+> **Architectural source of truth:** [AGENTS.md](AGENTS.md)
+> **Spec traceability:** [docs/workflow/spec-tracking.md](docs/workflow/spec-tracking.md)
+> **Execution workflow:** [WORKFLOW.md](WORKFLOW.md)
 
 ---
 
 ## Overview
 
-Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
+Inventory management system based on an **Immutable Source of Truth** — each movement is atomic and unalterable, with historical stock queries in `<100ms` via materialized views.
 
-**Fase actual:** F7 — Despliegue & Documentación ✅ Completada · Hardening post-launch ✅
+**Current phase:** F7 — Deployment & Documentation ✅ Completed · Post-launch hardening ✅
 
 ---
 
@@ -31,7 +31,7 @@ Sistema de gestión de inventario basado en **Source of Truth Inmutable** — ca
 | Integration | testcontainers | 4.x |
 | Benchmark | pytest-benchmark | — |
 | Settings | pydantic-settings | 2.x |
-| Type Check | mypy | —strict en `src/` |
+| Type Check | mypy | —strict on `src/` |
 | Containerization | Docker + Docker Compose | 27+ / 2.x |
 
 ---
@@ -61,28 +61,28 @@ Clean:        make clean
 
 ### Code Style
 
-- **Naming:** snake_case funciones/variables, PascalCase clases
-- **Type hints:** obligatorios en toda firma de función
+- **Naming:** snake_case for functions/variables, PascalCase for classes
+- **Type hints:** mandatory on all function signatures
 - **Imports:** stdlib → third-party → local (isort order)
-- **Async:** toda I/O es async; cero sync DB calls
-- **Errors:** excepciones de dominio, nunca raw `ValueError` en use cases
-- **Max line:** 88 (black default). Complejidad <10 por función. Clases <300 líneas
-- **No `print()`** — usar `logging`
-- **SQL:** solo parametrizado (`$1`, `$2`), nunca concatenación
-- **Docstrings:** Google style en clases/funciones públicas
+- **Async:** all I/O is async; zero sync DB calls
+- **Errors:** domain exceptions, never raw `ValueError` in use cases
+- **Max line:** 88 (black default). Complexity <10 per function. Classes <300 lines
+- **No `print()`** — use `logging`
+- **SQL:** parameterized only (`$1`, `$2`), never concatenation
+- **Docstrings:** Google style on public classes/functions
 
 ### Testing Strategy
 
 | Level | Scope | Framework |
 |-------|-------|-----------|
 | Unit | Domain rules, use cases (mocked repos) | pytest + Hypothesis |
-| Integration | SQL real, repos, MV, UoW | pytest + testcontainers |
-| E2E | Flujos HTTP completos, latencia | pytest + httpx + pytest-benchmark |
+| Integration | Real SQL, repos, MV, UoW | pytest + testcontainers |
+| E2E | Full HTTP flows, latency | pytest + httpx + pytest-benchmark |
 | Security | SQLi, input validation, error leakage | pytest + httpx |
 
 **Coverage targets:** domain/ ≥90%, application/ ≥85%, infrastructure/ ≥70%, global ≥80%
 
-**Hypothesis:** `max_examples=100` CI, `1000` dev. `--hypothesis-seed=0` para reproducibilidad.
+**Hypothesis:** `max_examples=100` CI, `1000` dev. `--hypothesis-seed=0` for reproducibility.
 
 ### Boundaries
 
@@ -100,14 +100,14 @@ Clean:        make clean
 
 | Phase | Objective | Specs | Status |
 |-------|-----------|-------|--------|
-| **F0** | Preparación — skeleton, tooling, CI | [SPEC-01](specs/SPEC-01.md) · [SPEC-02](specs/SPEC-02.md) · [SPEC-03](specs/SPEC-03.md) · [SPEC-04](specs/SPEC-04.md) | ✅ Completada |
-| **F1** | Infraestructura DB — schema 3NF, migraciones, pool, health | [SPEC-10](specs/SPEC-10.md) · [SPEC-11](specs/SPEC-11.md) · [SPEC-12](specs/SPEC-12.md) | ✅ Completada |
-| **F2** | Núcleo de Dominio — entities, VOs, rules, ports | [SPEC-20](specs/SPEC-20.md) · [SPEC-21](specs/SPEC-21.md) · [SPEC-22](specs/SPEC-22.md) | ✅ Completada |
-| **F3** | Adaptadores de Datos — repos, MV, UoW | [SPEC-30](specs/SPEC-30.md) · [SPEC-31](specs/SPEC-31.md) · [SPEC-32](specs/SPEC-32.md) | ✅ Completada |
-| **F4** | Capa API — use cases, DTOs, routers, error mapping | [SPEC-40](specs/SPEC-40.md) · [SPEC-41](specs/SPEC-41.md) · [SPEC-42](specs/SPEC-42.md) | ✅ Completada |
-| **F5** | Scheduler & Concurrencia — APScheduler, retry, logging | [SPEC-50](specs/SPEC-50.md) · [SPEC-51](specs/SPEC-51.md) · [SPEC-52](specs/SPEC-52.md) | ✅ Completada |
-| **F6** | Testing Integral — Hypothesis, mypy strict, E2E, security | [SPEC-60](specs/SPEC-60.md) · [SPEC-61](specs/SPEC-61.md) · [SPEC-62](specs/SPEC-62.md) · [SPEC-63](specs/SPEC-63.md) | ✅ Completada |
-| **F7** | Despliegue & Documentación — Docker prod, docs, CI/CD | [SPEC-70](specs/SPEC-70.md) · [SPEC-71](specs/SPEC-71.md) · [SPEC-72](specs/SPEC-72.md) | ✅ Completada |
+| **F0** | Preparation — skeleton, tooling, CI | [SPEC-01](specs/SPEC-01.md) · [SPEC-02](specs/SPEC-02.md) · [SPEC-03](specs/SPEC-03.md) · [SPEC-04](specs/SPEC-04.md) | ✅ Completed |
+| **F1** | DB Infrastructure — 3NF schema, migrations, pool, health | [SPEC-10](specs/SPEC-10.md) · [SPEC-11](specs/SPEC-11.md) · [SPEC-12](specs/SPEC-12.md) | ✅ Completed |
+| **F2** | Domain Core — entities, VOs, rules, ports | [SPEC-20](specs/SPEC-20.md) · [SPEC-21](specs/SPEC-21.md) · [SPEC-22](specs/SPEC-22.md) | ✅ Completed |
+| **F3** | Data Adapters — repos, MV, UoW | [SPEC-30](specs/SPEC-30.md) · [SPEC-31](specs/SPEC-31.md) · [SPEC-32](specs/SPEC-32.md) | ✅ Completed |
+| **F4** | API Layer — use cases, DTOs, routers, error mapping | [SPEC-40](specs/SPEC-40.md) · [SPEC-41](specs/SPEC-41.md) · [SPEC-42](specs/SPEC-42.md) | ✅ Completed |
+| **F5** | Scheduler & Concurrency — APScheduler, retry, logging | [SPEC-50](specs/SPEC-50.md) · [SPEC-51](specs/SPEC-51.md) · [SPEC-52](specs/SPEC-52.md) | ✅ Completed |
+| **F6** | Comprehensive Testing — Hypothesis, mypy strict, E2E, security | [SPEC-60](specs/SPEC-60.md) · [SPEC-61](specs/SPEC-61.md) · [SPEC-62](specs/SPEC-62.md) · [SPEC-63](specs/SPEC-63.md) | ✅ Completed |
+| **F7** | Deployment & Documentation — Docker prod, docs, CI/CD | [SPEC-70](specs/SPEC-70.md) · [SPEC-71](specs/SPEC-71.md) · [SPEC-72](specs/SPEC-72.md) | ✅ Completed |
 
 ---
 
@@ -115,13 +115,13 @@ Clean:        make clean
 
 ```mermaid
 graph LR
-    F0["F0 · Preparación<br/>S01–S04"] --> F1["F1 · Infraestructura DB<br/>S10→S11→S12"]
-    F1 --> F2["F2 · Núcleo de Dominio<br/>S20→S21→S22"]
-    F2 --> F3["F3 · Adaptadores de Datos<br/>S30→S31→S32"]
-    F3 --> F4["F4 · Capa API<br/>S40→S41→S42"]
-    F4 --> F5["F5 · Scheduler & Concurrencia<br/>S52→S51→S50"]
-    F5 --> F6["F6 · Testing Integral<br/>S60→S61→S62→S63"]
-    F6 --> F7["F7 · Despliegue & Docs<br/>S70→S71→S72"]
+    F0["F0 · Preparation<br/>S01–S04"] --> F1["F1 · DB Infrastructure<br/>S10→S11→S12"]
+    F1 --> F2["F2 · Domain Core<br/>S20→S21→S22"]
+    F2 --> F3["F3 · Data Adapters<br/>S30→S31→S32"]
+    F3 --> F4["F4 · API Layer<br/>S40→S41→S42"]
+    F4 --> F5["F5 · Scheduler & Concurrency<br/>S52→S51→S50"]
+    F5 --> F6["F6 · Comprehensive Testing<br/>S60→S61→S62→S63"]
+    F6 --> F7["F7 · Deployment & Docs<br/>S70→S71→S72"]
 
     style F0 fill:#4CAF50,color:#fff
     style F1 fill:#4CAF50,color:#fff
@@ -133,32 +133,32 @@ graph LR
     style F7 fill:#4CAF50,color:#fff
 ```
 
-> **Leyenda:** 🟢 Completada
-> Los DAGs detallados con dependencias cross-phase están en [docs/workflow/spec-tracking.md](docs/workflow/spec-tracking.md).
+> **Legend:** 🟢 Completed
+> Detailed DAGs with cross-phase dependencies are in [docs/workflow/spec-tracking.md](docs/workflow/spec-tracking.md).
 
 ---
 
 ## Cross-Phase Decisions
 
-Decisiones que afectan múltiples fases y no pertenecen a un solo spec:
+Decisions that affect multiple phases and do not belong to a single spec:
 
-| Decisión | Fases impactadas | Rationale |
-|----------|------------------|-----------|
-| `get_current_stock()` retorna `float` | F2, F3, F4 | Resolución F3-Q1: compatibilidad con asyncpg + vista materializada |
-| MovementType como `Enum` de 4 valores | F1, F2, F3, F4 | Set cerrado, mapeo 1:1 a PostgreSQL ENUM |
-| `mypy --strict` solo en `src/` | F0, F6, F7 | Tests usan mocks/AsyncMock; strict no beneficia |
-| SQL explícito (sin ORM) | F1, F3, F4 | Control total sobre EXPLAIN, sin abstracciones ocultas |
-| `AsyncIOScheduler` (no BackgroundScheduler) | F5, F7 | Usa event loop existente de FastAPI |
-| `logging` estándar (no structlog) | F5 | Suficiente para MVP. Migración posible en F8+ |
-| Coverage domain ≥90%, app ≥85%, infra ≥70% | F6, F7 | Refleja confianza por PBT (Hypothesis) |
-| Cero nuevas dependencias de producción en F7 | F7 | F7 es infraestructura + docs, no lógica |
-| Docker local + demo (no cloud) | F7 | Target de despliegue es Docker Compose local |
-| API abierta (sin auth) | F4, F7 | Sin autenticación en MVP. Infraestructura preparada |
-| SecurityHeadersMiddleware | F7 | `nosniff`, `DENY`, `no-store`, `referrer-policy` en todas las respuestas |
-| `statement_timeout` via `server_settings` | F5, F7 | Timeout aplica a todas las conexiones del pool |
-| `SELECT FOR UPDATE` para race conditions | F4, F5 | Dentro del UoW, `get_current_stock_with_lock()` serializa transacciones concurrentes |
-| Pagination en DB para categorias | F4 | `LIMIT $1 OFFSET $2` en SQL, no slicing en memoria |
-| Non-root container (`USER app`) | F7 | Best practice de seguridad en Docker |
+| Decision | Phases impacted | Rationale |
+|----------|-----------------|-----------|
+| `get_current_stock()` returns `float` | F2, F3, F4 | F3-Q1 resolution: asyncpg + materialized view compatibility |
+| MovementType as `Enum` of 4 values | F1, F2, F3, F4 | Closed set, 1:1 mapping to PostgreSQL ENUM |
+| `mypy --strict` only on `src/` | F0, F6, F7 | Tests use mocks/AsyncMock; strict provides no benefit |
+| Explicit SQL (no ORM) | F1, F3, F4 | Full control over EXPLAIN, no hidden abstractions |
+| `AsyncIOScheduler` (not BackgroundScheduler) | F5, F7 | Uses existing FastAPI event loop |
+| Standard `logging` (not structlog) | F5 | Sufficient for MVP. Migration possible in F8+ |
+| Coverage domain ≥90%, app ≥85%, infra ≥70% | F6, F7 | Reflects confidence from PBT (Hypothesis) |
+| Zero new production dependencies in F7 | F7 | F7 is infrastructure + docs, not logic |
+| Local Docker + demo (no cloud) | F7 | Deployment target is local Docker Compose |
+| Open API (no auth) | F4, F7 | No authentication in MVP. Infrastructure ready |
+| SecurityHeadersMiddleware | F7 | `nosniff`, `DENY`, `no-store`, `referrer-policy` on all responses |
+| `statement_timeout` via `server_settings` | F5, F7 | Timeout applies to all pool connections |
+| `SELECT FOR UPDATE` for race conditions | F4, F5 | Within UoW, `get_current_stock_with_lock()` serializes concurrent transactions |
+| Pagination in DB for categories | F4 | `LIMIT $1 OFFSET $2` in SQL, not in-memory slicing |
+| Non-root container (`USER app`) | F7 | Docker security best practice |
 
 ---
 
@@ -200,12 +200,12 @@ stock-historial/
 
 ## Version History
 
-| Versión | Fase | Fecha |
-|---------|------|-------|
-| 0.1.0   | F0 — Preparación | 2026-05-14 |
-| 0.2.0   | F1 — Infraestructura DB | 2026-05-14 |
-| 0.3.0   | F2 — Núcleo de Dominio | 2026-05-15 |
-| 0.4.0   | F4 — Capa API | 2026-05-16 |
-| 0.5.0   | F5 — Scheduler & Concurrencia | 2026-05-17 |
-| 0.6.0   | F6 — Testing Integral | 2026-05-18 |
-| 1.0.0   | F7 — Despliegue & Documentación | 2026-05-21 |
+| Version | Phase | Date |
+|---------|-------|------|
+| 0.1.0   | F0 — Preparation | 2026-05-14 |
+| 0.2.0   | F1 — DB Infrastructure | 2026-05-14 |
+| 0.3.0   | F2 — Domain Core | 2026-05-15 |
+| 0.4.0   | F4 — API Layer | 2026-05-16 |
+| 0.5.0   | F5 — Scheduler & Concurrency | 2026-05-17 |
+| 0.6.0   | F6 — Comprehensive Testing | 2026-05-18 |
+| 1.0.0   | F7 — Deployment & Documentation | 2026-05-21 |

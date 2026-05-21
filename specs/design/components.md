@@ -1,2 +1,2 @@
 # Components.md
-Guía de componentes reutilizables
+Reusable components guide.

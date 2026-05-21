@@ -1,31 +1,31 @@
-# SPEC-02: Entorno de desarrollo
+# SPEC-02: Development Environment
 
-## Descripción
+## Description
 
-Configurar el entorno de desarrollo local con Docker Compose, variables de entorno y comandos de automatización.
+Set up the local development environment with Docker Compose, environment variables, and automation commands.
 
-## Fase
+## Phase
 
-F0 — Preparación
+F0 — Preparation
 
-## Archivos Involucrados
+## Involved Files
 
-- `docker-compose.yml` — PostgreSQL 16 + app FastAPI con healthchecks
-- `.env.example` — Plantilla de variables de entorno (`DATABASE_URL`, `APP_HOST`, `APP_PORT`, `LOG_LEVEL`, `ENVIRONMENT`)
-- `Makefile` — Comandos: `install`, `dev`, `lint`, `format`, `test`, `test-cov`, `build`, `docker-up`, `docker-down`, `clean`
-- `requirements.txt` — Dependencias pinned para F0–F7
+- `docker-compose.yml` — PostgreSQL 16 + FastAPI app with healthchecks
+- `.env.example` — Environment variable template (`DATABASE_URL`, `APP_HOST`, `APP_PORT`, `LOG_LEVEL`, `ENVIRONMENT`)
+- `Makefile` — Commands: `install`, `dev`, `lint`, `format`, `test`, `test-cov`, `build`, `docker-up`, `docker-down`, `clean`
+- `requirements.txt` — Pinned dependencies for F0–F7
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] `docker compose up` inicia PostgreSQL y la app con healthchecks configurados
-- [x] `.env.example` lista todas las variables de entorno requeridas
-- [x] `Makefile` ejecuta todos los comandos de desarrollo sin errores
-- [x] `requirements.txt` tiene dependencias pinned con versiones exactas
+- [x] `docker compose up` starts PostgreSQL and the app with configured healthchecks
+- [x] `.env.example` lists all required environment variables
+- [x] `Makefile` runs all development commands without errors
+- [x] `requirements.txt` has pinned dependencies with exact versions
 
-## Dependencias
+## Dependencies
 
-Spec-01 (Estructura y convenciones)
+Spec-01 (Structure and Conventions)
 
-## Estado
+## Status
 
-**Completado** — 2026-05-14
+**Completed** — 2026-05-14

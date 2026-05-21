@@ -1,51 +1,51 @@
-# SPEC-42: Rutas FastAPI /v1/ & OpenAPI
+# SPEC-42: FastAPI /v1/ Routes & OpenAPI
 
-**Fase:** F4 — Capa API (Casos de Uso + Endpoints)  
-**Dependencias:** Spec-40 (Casos de Uso) ✅ Pendiente, Spec-41 (DTOs) ✅ Pendiente  
-**Prioridad:** Alta  
-**Estado:** Pendiente  
+**Phase:** F4 — API Layer (Use Cases + Endpoints)  
+**Dependencies:** Spec-40 (Use Cases) ✅ Pending, Spec-41 (DTOs) ✅ Pending  
+**Priority:** High  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Implementar los **4 routers** FastAPI (`/v1/movements`, `/v1/stock`, `/v1/products`, `/v1/categories`), el **middleware de mapeo de errores** que traduce excepciones de dominio a respuestas HTTP, y las **factory functions de dependency injection** que construyen repos y use cases inyectando el pool asyncpg. Los routers son adaptadores puros: su única responsabilidad es recibir HTTP, invocar use cases, y retornar HTTP. Cero lógica de negocio.
+Implement the **4 FastAPI routers** (`/v1/movements`, `/v1/stock`, `/v1/products`, `/v1/categories`), the **error mapping middleware** that translates domain exceptions to HTTP responses, and the **dependency injection factory functions** that build repos and use cases injecting the asyncpg pool. The routers are pure adapters: their only responsibility is to receive HTTP, invoke use cases, and return HTTP. Zero business logic.
 
-**Principios de diseño:**
-- **Routers como adaptadores puros** —solo HTTP ↔ Use Cases, sin reglas de negocio, sin acceso directo a DB
-- **Annotated + Depends** — Patrón moderno de FastAPI para inyección de dependencias tipadas
-- **Error mapping centralizado** — Un solo handler captura excepciones de dominio y las mapea a `ErrorResponse`
-- **Status codes semánticos** — 201 para POST (creado), 200 para GET, 404 para no encontrado, 409 para conflicto (stock), 422 para validación Pydantic
-- **snake_case en la API** — Query params, field names, todo consistente con Python
-- **Documentación OpenAPI automática** — Pydantic models con `json_schema_extra` generan docs interactivos
+**Design principles:**
+- **Routers as pure adapters** —only HTTP ↔ Use Cases, no business rules, no direct DB access
+- **Annotated + Depends** — Modern FastAPI pattern for typed dependency injection
+- **Centralized error mapping** — A single handler captures domain exceptions and maps them to `ErrorResponse`
+- **Semantic status codes** — 201 for POST (created), 200 for GET, 404 for not found, 409 for conflict (stock), 422 for Pydantic validation
+- **snake_case in the API** — Query params, field names, everything consistent with Python
+- **Automatic OpenAPI documentation** — Pydantic models with `json_schema_extra` generate interactive docs
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| 4 routers separados (no uno solo) | SRP: cada router maneja un recurso. Modular, testeable independientemente, fácil de mantener |
-| `Annotated[UseCase, Depends(get_use_case)]` | Patrón moderno de FastAPI (v0.100+). Tipado explícito, autocomplete en IDEs, sin boilerplate |
-| Error mapping como excepción handlers (no middleware HTTP) | FastAPI `@exception_handler` es más elegante que middleware HTTP para este caso: captura excepciones específicas y retorna `JSONResponse` |
-| Status 409 para `InsufficientStockError` | Semánticamente correcto: el recurso (producto) existe pero el estado actual impide la operación (conflicto) |
-| Status 422 para validación de dominio | Pydantic ya usa 422 para validación de input; extenderlo a validaciones de dominio mantiene consistencia |
-| Paginación con defaults en query params | `limit=100` por defecto, `offset=0`. Sin paginación, los endpoints con muchos registros son vulnerables a DoS |
-| `get_pool()` reutilizado desde `src/infrastructure/db/connection.py` | No reinventar la rueda. El pool ya existe y se gestiona via lifespan. Los adapters lo consumen directamente |
+| 4 separate routers (not a single one) | SRP: each router handles one resource. Modular, independently testable, easy to maintain |
+| `Annotated[UseCase, Depends(get_use_case)]` | Modern FastAPI pattern (v0.100+). Explicit typing, IDE autocomplete, no boilerplate |
+| Error mapping as exception handlers (not HTTP middleware) | FastAPI `@exception_handler` is more elegant than HTTP middleware for this case: captures specific exceptions and returns `JSONResponse` |
+| Status 409 for `InsufficientStockError` | Semantically correct: the resource (product) exists but the current state prevents the operation (conflict) |
+| Status 422 for domain validation | Pydantic already uses 422 for input validation; extending it to domain validations maintains consistency |
+| Pagination with defaults in query params | `limit=100` by default, `offset=0`. Without pagination, endpoints with many records are vulnerable to DoS |
+| `get_pool()` reused from `src/infrastructure/db/connection.py` | Don't reinvent the wheel. The pool already exists and is managed via lifespan. Adapters consume it directly |
 
 ---
 
 ## Dependency Injection Factory Functions
 
-Las factories construyen repos y use cases inyectando el pool asyncpg. Se definen en `src/adapters/api/dependencies.py`.
+The factories build repos and use cases injecting the asyncpg pool. They are defined in `src/adapters/api/dependencies.py`.
 
 ```python
-"""Factory functions para dependency injection de FastAPI.
+"""Factory functions for FastAPI dependency injection.
 
-Cada factory function construye un repositorio o caso de uso inyectando
-el pool de conexiones asyncpg. Se usan con ``Depends()`` en los endpoints.
+Each factory function builds a repository or use case injecting
+the asyncpg connection pool. They are used with ``Depends()`` in endpoints.
 
-Ejemplo::
+Example::
 
     @router.post("/movements", response_model=MovementOutput, status_code=201)
     async def create_movement(
@@ -93,10 +93,10 @@ import asyncpg
 # ─── Pool ───────────────────────────────────────────────────────────────
 
 async def get_db_pool() -> asyncpg.Pool:
-    """Obtiene el pool de conexiones asyncpg.
+    """Gets the asyncpg connection pool.
 
     Raises:
-        HTTPException: Si el pool no esta inicializado.
+        HTTPException: If the pool is not initialized.
     """
     pool = await get_pool()
     if pool is None:
@@ -114,28 +114,28 @@ async def get_db_pool() -> asyncpg.Pool:
 async def get_movement_repo(
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
 ) -> IMovementRepository:
-    """Fabrica de repositorio de movimientos."""
+    """Movement repository factory."""
     return PostgresMovementRepository(pool)
 
 
 async def get_product_repo(
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
 ) -> IProductRepository:
-    """Fabrica de repositorio de productos."""
+    """Product repository factory."""
     return PostgresProductRepository(pool)
 
 
 async def get_category_repo(
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
 ) -> ICategoryRepository:
-    """Fabrica de repositorio de categorias."""
+    """Category repository factory."""
     return PostgresCategoryRepository(pool)
 
 
 async def get_stock_query_repo(
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
 ) -> IStockQueryRepository:
-    """Fabrica de repositorio de consultas de stock."""
+    """Stock query repository factory."""
     return PostgresStockQueryRepository(pool)
 
 
@@ -144,7 +144,7 @@ async def get_stock_query_repo(
 async def get_unit_of_work(
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
 ) -> IUnitOfWork:
-    """Fabrica de Unit of Work."""
+    """Unit of Work factory."""
     return PostgresUnitOfWork(pool)
 
 
@@ -156,21 +156,21 @@ async def get_record_movement_use_case(
     stock_query_repo: Annotated[IStockQueryRepository, Depends(get_stock_query_repo)],
     uow: Annotated[IUnitOfWork, Depends(get_unit_of_work)],
 ) -> RecordMovementUseCase:
-    """Fabrica de RecordMovementUseCase."""
+    """RecordMovementUseCase factory."""
     return RecordMovementUseCase(movement_repo, product_repo, stock_query_repo, uow)
 
 
 async def get_query_current_stock_use_case(
     stock_query_repo: Annotated[IStockQueryRepository, Depends(get_stock_query_repo)],
 ) -> QueryCurrentStockUseCase:
-    """Fabrica de QueryCurrentStockUseCase."""
+    """QueryCurrentStockUseCase factory."""
     return QueryCurrentStockUseCase(stock_query_repo)
 
 
 async def get_query_stock_at_date_use_case(
     stock_query_repo: Annotated[IStockQueryRepository, Depends(get_stock_query_repo)],
 ) -> QueryStockAtDateUseCase:
-    """Fabrica de QueryStockAtDateUseCase."""
+    """QueryStockAtDateUseCase factory."""
     return QueryStockAtDateUseCase(stock_query_repo)
 
 
@@ -178,28 +178,28 @@ async def get_create_product_use_case(
     product_repo: Annotated[IProductRepository, Depends(get_product_repo)],
     category_repo: Annotated[ICategoryRepository, Depends(get_category_repo)],
 ) -> CreateProductUseCase:
-    """Fabrica de CreateProductUseCase."""
+    """CreateProductUseCase factory."""
     return CreateProductUseCase(product_repo, category_repo)
 
 
 async def get_list_products_use_case(
     product_repo: Annotated[IProductRepository, Depends(get_product_repo)],
 ) -> ListProductsUseCase:
-    """Fabrica de ListProductsUseCase."""
+    """ListProductsUseCase factory."""
     return ListProductsUseCase(product_repo)
 
 
 async def get_create_category_use_case(
     category_repo: Annotated[ICategoryRepository, Depends(get_category_repo)],
 ) -> CreateCategoryUseCase:
-    """Fabrica de CreateCategoryUseCase."""
+    """CreateCategoryUseCase factory."""
     return CreateCategoryUseCase(category_repo)
 ```
 
 **Design Notes:**
-- Las factories son async porque `get_pool()` es async
-- FastAPI resolve dependencias en cascada automáticamente: `get_record_movement_use_case` → `get_movement_repo` → `get_db_pool`
-- Cada factory retorna el tipo Protocol (no la implementación concreta), manteniendo DIP visible a nivel de firma
+- Factories are async because `get_pool()` is async
+- FastAPI resolves dependencies in cascade automatically: `get_record_movement_use_case` → `get_movement_repo` → `get_db_pool`
+- Each factory returns the Protocol type (not the concrete implementation), keeping DIP visible at the signature level
 
 ---
 
@@ -208,15 +208,15 @@ async def get_create_category_use_case(
 ### `/v1/movements` — `src/adapters/api/routers/movements.py`
 
 ```python
-"""Router de movimientos — registro y consulta de movimientos de stock.
+"""Movements router — recording and querying stock movements.
 
-Expone endpoints para crear movimientos (entradas, salidas, ajustes,
-transferencias) y consultar el historial de movimientos de un producto.
+Exposes endpoints to create movements (entries, exits, adjustments,
+transfers) and query the movement history of a product.
 
 Endpoints:
-    POST   /v1/movements           — Crear movimiento
-    GET    /v1/movements/{id}      — Obtener movimiento por ID
-    GET    /v1/movements           — Listar movimientos de un producto
+    POST   /v1/movements           — Create movement
+    GET    /v1/movements/{id}      — Get movement by ID
+    GET    /v1/movements           — List movements of a product
 """
 from __future__ import annotations
 
@@ -239,15 +239,15 @@ router = APIRouter(prefix="/movements", tags=["movements"])
     "",
     response_model=MovementOutput,
     status_code=201,
-    summary="Crear movimiento de stock",
-    description="Registra un nuevo movimiento (IN, OUT, ADJUSTMENT, TRANSFER). "
-    "Para OUT y TRANSFER, valida que el stock no quede negativo.",
+    summary="Create stock movement",
+    description="Records a new movement (IN, OUT, ADJUSTMENT, TRANSFER). "
+    "For OUT and TRANSFER, validates that stock does not go negative.",
 )
 async def create_movement(
     body: CreateMovementInput,
     use_case: Annotated[RecordMovementUseCase, Depends(get_record_movement_use_case)],
 ) -> MovementOutput:
-    """Crea un nuevo movimiento de stock."""
+    """Creates a new stock movement."""
     from src.domain.value_objects.movement_type import MovementType
 
     movement = await use_case.execute(
@@ -268,13 +268,13 @@ async def create_movement(
 @router.get(
     "/{movement_id}",
     response_model=MovementOutput,
-    summary="Obtener movimiento por ID",
+    summary="Get movement by ID",
 )
 async def get_movement(
     movement_id: int,
     repo: Annotated[IMovementRepository, Depends(get_movement_repo)],
 ) -> MovementOutput:
-    """Recupera un movimiento por su ID."""
+    """Retrieves a movement by its ID."""
     movement = await repo.get_by_id(movement_id)
     if movement is None:
         from fastapi import HTTPException
@@ -286,15 +286,15 @@ async def get_movement(
 @router.get(
     "",
     response_model=MovementListOutput,
-    summary="Listar movimientos de un producto",
+    summary="List movements of a product",
 )
 async def list_movements(
-    product_id: int = Query(description="ID del producto."),
-    limit: int = Query(default=100, ge=1, le=1000, description="Maximo de resultados."),
-    offset: int = Query(default=0, ge=0, description="Desplazamiento."),
+    product_id: int = Query(description="Product ID."),
+    limit: int = Query(default=100, ge=1, le=1000, description="Maximum results."),
+    offset: int = Query(default=0, ge=0, description="Offset."),
     repo: Annotated[IMovementRepository, Depends(get_movement_repo)],
 ) -> MovementListOutput:
-    """Lista movimientos de un producto con paginacion."""
+    """Lists movements of a product with pagination."""
     movements = await repo.list_by_product(product_id, limit=limit, offset=offset)
     total = await repo.count_by_product(product_id)
     return MovementListOutput(
@@ -306,21 +306,21 @@ async def list_movements(
 ```
 
 **Design Notes:**
-- `POST /v1/movements` usa `response_model=MovementOutput` — FastAPI valida la respuesta con Pydantic
-- `status_code=201` para POST (recurso creado)
-- El mapping de `Movement` (entidad) → `MovementOutput` (DTO) se hace en el router porque el use case retorna la entidad de dominio
-- `list_movements` recibe `product_id` como query param (no path param) porque es un filtro, no un identificador de recurso
+- `POST /v1/movements` uses `response_model=MovementOutput` — FastAPI validates the response with Pydantic
+- `status_code=201` for POST (resource created)
+- The mapping of `Movement` (entity) → `MovementOutput` (DTO) is done in the router because the use case returns the domain entity
+- `list_movements` receives `product_id` as a query param (not path param) because it is a filter, not a resource identifier
 
 ---
 
 ### `/v1/stock` — `src/adapters/api/routers/stock.py`
 
 ```python
-"""Router de stock — consultas de stock actual e historico.
+"""Stock router — current and historical stock queries.
 
 Endpoints:
-    GET    /v1/stock/{product_id}/current        — Stock actual
-    GET    /v1/stock/{product_id}/at-date        — Stock en una fecha
+    GET    /v1/stock/{product_id}/current        — Current stock
+    GET    /v1/stock/{product_id}/at-date        — Stock at a date
 """
 from __future__ import annotations
 
@@ -339,9 +339,9 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 @router.get(
     "/{product_id}/current",
     response_model=CurrentStockOutput,
-    summary="Consultar stock actual",
-    description="Obtiene el stock actual de un producto usando la vista "
-    "materializada (con fallback a calculo directo).",
+    summary="Query current stock",
+    description="Gets the current stock of a product using the materialized "
+    "view (with fallback to direct calculation).",
 )
 async def get_current_stock(
     product_id: int,
@@ -349,7 +349,7 @@ async def get_current_stock(
         QueryCurrentStockUseCase, Depends(get_query_current_stock_use_case)
     ],
 ) -> CurrentStockOutput:
-    """Obtiene el stock actual de un producto."""
+    """Gets the current stock of a product."""
     stock = await use_case.execute(product_id)
     return CurrentStockOutput(product_id=product_id, current_stock=stock)
 
@@ -357,42 +357,42 @@ async def get_current_stock(
 @router.get(
     "/{product_id}/at-date",
     response_model=StockAtDateOutput,
-    summary="Consultar stock historico",
-    description="Calcula el stock de un producto en una fecha especifica "
-    "usando calculo directo sobre la tabla de movimientos.",
+    summary="Query historical stock",
+    description="Calculates the stock of a product at a specific date "
+    "using direct calculation on the movements table.",
 )
 async def get_stock_at_date(
     product_id: int,
     date: datetime = Query(
-        description="Fecha de consulta (timezone-aware, ISO 8601). "
-        "Ej: 2025-01-01T00:00:00Z",
+        description="Query date (timezone-aware, ISO 8601). "
+        "E.g.: 2025-01-01T00:00:00Z",
     ),
     use_case: Annotated[
         QueryStockAtDateUseCase, Depends(get_query_stock_at_date_use_case)
     ],
 ) -> StockAtDateOutput:
-    """Obtiene el stock de un producto en una fecha."""
+    """Gets the stock of a product at a date."""
     stock = await use_case.execute(product_id, date)
     return StockAtDateOutput(product_id=product_id, stock=stock, date=date)
 ```
 
 **Design Notes:**
-- `date` como query param con tipo `datetime` — FastAPI lo parsea automáticamente desde ISO 8601
-- **Timezone handling:** Si el cliente envía un datetime naive (sin timezone), el router lo convierte a UTC-aware via `_ensure_timezone_aware()` antes de pasar al use case. Esto es necesario porque la DB usa `TIMESTAMPTZ` y un datetime naive podría producir resultados incorrectos dependiendo del timezone del servidor.
-- No se valida que el producto exista aquí — el use case/repositorio retorna 0 si no hay movimientos (comportamiento esperado)
-- El endpoint histórico usa cálculo directo (no vista materializada), por lo que puede ser más lento; esto se documenta en la descripción
+- `date` as query param with type `datetime` — FastAPI parses it automatically from ISO 8601
+- **Timezone handling:** If the client sends a naive datetime (without timezone), the router converts it to UTC-aware via `_ensure_timezone_aware()` before passing to the use case. This is necessary because the DB uses `TIMESTAMPTZ` and a naive datetime could produce incorrect results depending on the server timezone.
+- The product existence is not validated here — the use case/repository returns 0 if there are no movements (expected behavior)
+- The historical endpoint uses direct calculation (not materialized view), so it may be slower; this is documented in the description
 
 ---
 
 ### `/v1/products` — `src/adapters/api/routers/products.py`
 
 ```python
-"""Router de productos — creacion y consulta de productos.
+"""Products router — creation and querying of products.
 
 Endpoints:
-    POST   /v1/products              — Crear producto
-    GET    /v1/products              — Listar productos
-    GET    /v1/products/{product_id} — Obtener producto por ID
+    POST   /v1/products              — Create product
+    GET    /v1/products              — List products
+    GET    /v1/products/{product_id} — Get product by ID
 """
 from __future__ import annotations
 
@@ -416,15 +416,15 @@ router = APIRouter(prefix="/products", tags=["products"])
     "",
     response_model=ProductOutput,
     status_code=201,
-    summary="Crear producto",
-    description="Crea un nuevo producto en el inventario. "
-    "La categoria debe existir previamente.",
+    summary="Create product",
+    description="Creates a new product in the inventory. "
+    "The category must exist beforehand.",
 )
 async def create_product(
     body: CreateProductInput,
     use_case: Annotated[CreateProductUseCase, Depends(get_create_product_use_case)],
 ) -> ProductOutput:
-    """Crea un nuevo producto."""
+    """Creates a new product."""
     product = await use_case.execute(
         sku=body.sku,
         name=body.name,
@@ -453,14 +453,14 @@ async def create_product(
 @router.get(
     "",
     response_model=ProductListOutput,
-    summary="Listar productos",
+    summary="List products",
 )
 async def list_products(
-    limit: int = Query(default=100, ge=1, le=1000, description="Maximo de resultados."),
-    offset: int = Query(default=0, ge=0, description="Desplazamiento."),
+    limit: int = Query(default=100, ge=1, le=1000, description="Maximum results."),
+    offset: int = Query(default=0, ge=0, description="Offset."),
     use_case: Annotated[ListProductsUseCase, Depends(get_list_products_use_case)],
 ) -> ProductListOutput:
-    """Lista productos con paginacion."""
+    """Lists products with pagination."""
     products = await use_case.execute(limit=limit, offset=offset)
     return ProductListOutput(
         items=[
@@ -485,13 +485,13 @@ async def list_products(
 @router.get(
     "/{product_id}",
     response_model=ProductOutput,
-    summary="Obtener producto por ID",
+    summary="Get product by ID",
 )
 async def get_product(
     product_id: int,
     repo: Annotated[IProductRepository, Depends(get_product_repo)],
 ) -> ProductOutput:
-    """Obtiene un producto por su ID."""
+    """Gets a product by its ID."""
     product = await repo.get_by_id(product_id)
     if product is None:
         from fastapi import HTTPException
@@ -519,11 +519,11 @@ async def get_product(
 ### `/v1/categories` — `src/adapters/api/routers/categories.py`
 
 ```python
-"""Router de categorias — creacion y consulta de categorias.
+"""Categories router — creation and querying of categories.
 
 Endpoints:
-    POST   /v1/categories    — Crear categoria
-    GET    /v1/categories    — Listar categorias
+    POST   /v1/categories    — Create category
+    GET    /v1/categories    — List categories
 """
 from __future__ import annotations
 
@@ -545,13 +545,13 @@ router = APIRouter(prefix="/categories", tags=["categories"])
     "",
     response_model=CategoryOutput,
     status_code=201,
-    summary="Crear categoria",
+    summary="Create category",
 )
 async def create_category(
     body: CreateCategoryInput,
     use_case: Annotated[CreateCategoryUseCase, Depends(get_create_category_use_case)],
 ) -> CategoryOutput:
-    """Crea una nueva categoria."""
+    """Creates a new category."""
     category = await use_case.execute(
         name=body.name,
         description=body.description,
@@ -572,12 +572,12 @@ async def create_category(
 @router.get(
     "",
     response_model=list[CategoryOutput],
-    summary="Listar categorias",
+    summary="List categories",
 )
 async def list_categories(
     repo: Annotated[ICategoryRepository, Depends(get_category_repo)],
 ) -> list[CategoryOutput]:
-    """Lista todas las categorias (sin paginacion)."""
+    """Lists all categories (without pagination)."""
     categories = await repo.list_all()
     return [
         CategoryOutput(
@@ -591,21 +591,21 @@ async def list_categories(
 ```
 
 **Design Notes:**
-- Paginación en base de datos: `list_all(limit, offset)` usa `LIMIT $1 OFFSET $2` en SQL (no slicing en memoria). Ver SPEC-30 para detalles de la implementación del repositorio.
-- `response_model=list[CategoryOutput]` — FastAPI serializa la lista automáticamente
-- Query params `limit` (default=100, max=1000) y `offset` (default=0) validados por FastAPI
+- Database pagination: `list_all(limit, offset)` uses `LIMIT $1 OFFSET $2` in SQL (not in-memory slicing). See SPEC-30 for repository implementation details.
+- `response_model=list[CategoryOutput]` — FastAPI serializes the list automatically
+- Query params `limit` (default=100, max=1000) and `offset` (default=0) validated by FastAPI
 
 ---
 
 ## Error Mapping Middleware
 
-Handler centralizado en `src/adapters/api/middleware/error_handler.py` que captura excepciones de dominio y las mapea a `ErrorResponse`.
+Centralized handler in `src/adapters/api/middleware/error_handler.py` that captures domain exceptions and maps them to `ErrorResponse`.
 
 ```python
-"""Mapeo de excepciones de dominio a respuestas HTTP.
+"""Domain exception mapping to HTTP responses.
 
-Registra handlers de excepcion en la app FastAPI para capturar errores
-del dominio y convertirlos en respuestas JSON estructuradas.
+Registers exception handlers on the FastAPI app to capture domain errors
+and convert them into structured JSON responses.
 """
 from __future__ import annotations
 
@@ -621,17 +621,17 @@ from src.domain.exceptions.invalid_sku import InvalidSKUError
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    """Registra los handlers de excepcion en la app FastAPI.
+    """Registers exception handlers on the FastAPI app.
 
     Args:
-        app: Instancia de FastAPI donde registrar los handlers.
+        app: FastAPI instance where to register the handlers.
     """
 
     @app.exception_handler(InsufficientStockError)
     async def handle_insufficient_stock(
         request, exc: InsufficientStockError
     ) -> JSONResponse:
-        """Mapea InsufficientStockError a HTTP 409 Conflict."""
+        """Maps InsufficientStockError to HTTP 409 Conflict."""
         return JSONResponse(
             status_code=409,
             content=ErrorResponse(
@@ -649,7 +649,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(InvalidSKUError)
     async def handle_invalid_sku(request, exc: InvalidSKUError) -> JSONResponse:
-        """Mapea InvalidSKUError a HTTP 422 Unprocessable Entity."""
+        """Maps InvalidSKUError to HTTP 422 Unprocessable Entity."""
         return JSONResponse(
             status_code=422,
             content=ErrorResponse(
@@ -664,7 +664,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_invalid_quantity(
         request, exc: InvalidQuantityError
     ) -> JSONResponse:
-        """Mapea InvalidQuantityError a HTTP 422 Unprocessable Entity."""
+        """Maps InvalidQuantityError to HTTP 422 Unprocessable Entity."""
         return JSONResponse(
             status_code=422,
             content=ErrorResponse(
@@ -679,7 +679,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_immutability_violation(
         request, exc: ImmutabilityViolationError
     ) -> JSONResponse:
-        """Mapea ImmutabilityViolationError a HTTP 403 Forbidden."""
+        """Maps ImmutabilityViolationError to HTTP 403 Forbidden."""
         return JSONResponse(
             status_code=403,
             content=ErrorResponse(
@@ -692,10 +692,10 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(DomainError)
     async def handle_domain_error(request, exc: DomainError) -> JSONResponse:
-        """Mapea DomainError (base) a HTTP 500 Internal Server Error.
+        """Maps DomainError (base) to HTTP 500 Internal Server Error.
 
-        Este handler captura cualquier DomainError no manejado por los
-        handlers especificos de arriba (fall-through).
+        This handler captures any DomainError not handled by the
+        specific handlers above (fall-through).
         """
         return JSONResponse(
             status_code=500,
@@ -709,10 +709,10 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ValueError)
     async def handle_value_error(request, exc: ValueError) -> JSONResponse:
-        """Mapea ValueError a HTTP 400 Bad Request.
+        """Maps ValueError to HTTP 400 Bad Request.
 
-        Se usa para errores de validacion de input (metadata inconsistente,
-        producto/categoria no encontrado, etc.).
+        Used for input validation errors (inconsistent metadata,
+        product/category not found, etc.).
         """
         return JSONResponse(
             status_code=400,
@@ -725,33 +725,33 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 ```
 
-### Tabla de Mapeo de Errores
+### Error Mapping Table
 
-| Excepción Dominio | HTTP Status | Error Code | Contexto |
+| Domain Exception | HTTP Status | Error Code | Context |
 |-------------------|-------------|------------|----------|
-| `InsufficientStockError` | 409 Conflict | `INSUFFICIENT_STOCK` | OUT/TRANSFER con stock insuficiente |
-| `InvalidSKUError` | 422 Unprocessable | `INVALID_SKU` | SKU no cumple patron `[A-Za-z0-9\-_]{1,50}` |
-| `InvalidQuantityError` | 422 Unprocessable | `INVALID_QUANTITY` | Cantidad <= 0 |
-| `ImmutabilityViolationError` | 403 Forbidden | `IMMUTABILITY_VIOLATION` | Intento de modificar movimiento existente |
-| `DomainError` (base) | 500 Internal | `DOMAIN_ERROR` | Error de dominio no mapeado especificamente |
-| `ValueError` | 400 Bad Request | `VALIDATION_ERROR` | Producto/categoría no encontrado, metadata inconsistente |
-| (Pydantic ValidationError) | 422 Unprocessable | `VALIDATION_ERROR` | Input DTO invalido (manejado por FastAPI nativamente) |
-| (FastAPI HTTPException) | Según exception | Según exception | 404 para recurso no encontrado |
+| `InsufficientStockError` | 409 Conflict | `INSUFFICIENT_STOCK` | OUT/TRANSFER with insufficient stock |
+| `InvalidSKUError` | 422 Unprocessable | `INVALID_SKU` | SKU does not match pattern `[A-Za-z0-9\-_]{1,50}` |
+| `InvalidQuantityError` | 422 Unprocessable | `INVALID_QUANTITY` | Quantity <= 0 |
+| `ImmutabilityViolationError` | 403 Forbidden | `IMMUTABILITY_VIOLATION` | Attempt to modify existing movement |
+| `DomainError` (base) | 500 Internal | `DOMAIN_ERROR` | Domain error not specifically mapped |
+| `ValueError` | 400 Bad Request | `VALIDATION_ERROR` | Product/category not found, inconsistent metadata |
+| (Pydantic ValidationError) | 422 Unprocessable | `VALIDATION_ERROR` | Invalid input DTO (handled natively by FastAPI) |
+| (FastAPI HTTPException) | Per exception | Per exception | 404 for resource not found |
 
 **Design Notes:**
-- El orden de registro importa: los handlers específicos se registran antes que el handler genérico de `DomainError`
-- **`ValueError` handler con verificación de origen:** El handler `handle_value_error` no captura todos los `ValueError` indiscriminadamente. Verifica el traceback de la excepción para determinar si se originó en módulos de validación (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Si la excepción vino de infraestructura o código interno, se re-lanza (llega al handler `Exception` → HTTP 500). Esto previene enmascarar bugs internos como errores de cliente (400).
-- FastAPI ya maneja `ValidationError` de Pydantic automáticamente (422) — no necesitamos handler para eso
-- El handler de `DomainError` es un catch-all para subclases no mapeadas — retorna 500 porque es un error inesperado del dominio
+- Registration order matters: specific handlers are registered before the generic `DomainError` handler
+- **`ValueError` handler with origin verification:** The `handle_value_error` handler does not capture all `ValueError` indiscriminately. It checks the exception traceback to determine if it originated in validation modules (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). If the exception came from infrastructure or internal code, it is re-raised (reaches the `Exception` handler → HTTP 500). This prevents masking internal bugs as client errors (400).
+- FastAPI already handles Pydantic `ValidationError` automatically (422) — no handler needed for that
+- The `DomainError` handler is a catch-all for unmapped subclasses — returns 500 because it is an unexpected domain error
 
 ---
 
 ## Update `src/main.py`
 
-Actualizar `create_app()` para registrar los 4 nuevos routers y los error handlers.
+Update `create_app()` to register the 4 new routers and error handlers.
 
 ```python
-# Añadir al final de create_app(), despues del health router:
+# Add at the end of create_app(), after the health router:
 from src.adapters.api.middleware.error_handler import register_error_handlers
 from src.adapters.api.routers.categories import router as categories_router
 from src.adapters.api.routers.movements import router as movements_router
@@ -767,11 +767,11 @@ app.include_router(categories_router, prefix="/v1")
 # Register error handlers
 register_error_handlers(app)
 
-# Actualizar version
+# Update version
 app = FastAPI(
     title="Stock Historial",
-    description="Sistema de gestion de inventario con Source of Truth Inmutable",
-    version="0.4.0",  # de 0.1.0 a 0.4.0 (F4 completada)
+    description="Inventory management system with Immutable Source of Truth",
+    version="0.4.0",  # from 0.1.0 to 0.4.0 (F4 completed)
     lifespan=lifespan,
 )
 ```
@@ -780,18 +780,18 @@ app = FastAPI(
 
 ## Endpoint Summary
 
-| Método | Ruta | Use Case | Status | Response | Tags |
+| Method | Route | Use Case | Status | Response | Tags |
 |--------|------|----------|--------|----------|------|
 | POST | `/v1/movements` | `RecordMovementUseCase` | 201 | `MovementOutput` | movements |
-| GET | `/v1/movements/{movement_id}` | (directo a repo) | 200 / 404 | `MovementOutput` | movements |
-| GET | `/v1/movements?product_id=&limit=&offset=` | (directo a repo) | 200 | `MovementListOutput` | movements |
+| GET | `/v1/movements/{movement_id}` | (direct to repo) | 200 / 404 | `MovementOutput` | movements |
+| GET | `/v1/movements?product_id=&limit=&offset=` | (direct to repo) | 200 | `MovementListOutput` | movements |
 | GET | `/v1/stock/{product_id}/current` | `QueryCurrentStockUseCase` | 200 | `CurrentStockOutput` | stock |
 | GET | `/v1/stock/{product_id}/at-date?date=` | `QueryStockAtDateUseCase` | 200 | `StockAtDateOutput` | stock |
 | POST | `/v1/products` | `CreateProductUseCase` | 201 | `ProductOutput` | products |
 | GET | `/v1/products` | `ListProductsUseCase` | 200 | `ProductListOutput` | products |
-| GET | `/v1/products/{product_id}` | (directo a repo) | 200 / 404 | `ProductOutput` | products |
+| GET | `/v1/products/{product_id}` | (direct to repo) | 200 / 404 | `ProductOutput` | products |
 | POST | `/v1/categories` | `CreateCategoryUseCase` | 201 | `CategoryOutput` | categories |
-| GET | `/v1/categories` | (directo a repo) | 200 | `list[CategoryOutput]` | categories |
+| GET | `/v1/categories` | (direct to repo) | 200 | `list[CategoryOutput]` | categories |
 
 ---
 
@@ -799,64 +799,64 @@ app = FastAPI(
 
 | File | Description |
 |------|-------------|
-| `src/adapters/api/dependencies.py` | Factory functions para DI (pool → repos → use cases) |
-| `src/adapters/api/routers/movements.py` | Router POST/GET movimientos |
-| `src/adapters/api/routers/stock.py` | Router GET stock actual e historico |
-| `src/adapters/api/routers/products.py` | Router POST/GET productos |
-| `src/adapters/api/routers/categories.py` | Router POST/GET categorias |
-| `src/adapters/api/middleware/error_handler.py` | Exception handlers para errores de dominio |
-| `src/main.py` | Update: registrar 4 routers + error handlers |
+| `src/adapters/api/dependencies.py` | Factory functions for DI (pool → repos → use cases) |
+| `src/adapters/api/routers/movements.py` | POST/GET movements router |
+| `src/adapters/api/routers/stock.py` | GET current and historical stock router |
+| `src/adapters/api/routers/products.py` | POST/GET products router |
+| `src/adapters/api/routers/categories.py` | POST/GET categories router |
+| `src/adapters/api/middleware/error_handler.py` | Exception handlers for domain errors |
+| `src/main.py` | Update: register 4 routers + error handlers |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Los 4 routers se registran en `create_app()` con prefijo `/v1`
-- [ ] `POST /v1/movements` retorna 201 con `MovementOutput` al crear un movimiento valido
-- [ ] `POST /v1/movements` retorna 409 cuando el stock es insuficiente (OUT/TRANSFER)
-- [ ] `POST /v1/movements` retorna 400 cuando el producto no existe
-- [ ] `GET /v1/stock/{product_id}/current` retorna `CurrentStockOutput` con stock actual
-- [ ] `GET /v1/stock/{product_id}/at-date?date=` retorna `StockAtDateOutput` con stock historico
-- [ ] `POST /v1/products` retorna 201 con `ProductOutput` al crear un producto valido
-- [ ] `POST /v1/products` retorna 422 cuando el SKU es invalido
-- [ ] `POST /v1/products` retorna 400 cuando la categoria no existe
-- [ ] `POST /v1/categories` retorna 201 con `CategoryOutput` al crear una categoria valida
-- [ ] `POST /v1/categories` retorna 422 cuando el nombre es vacio
-- [ ] Los errores de dominio se mapean a `ErrorResponse` via exception handlers
-- [ ] La documentacion OpenAPI (`/docs`) muestra los 10 endpoints con descripciones y ejemplos
-- [ ] `make lint` pasa sin errores en todos los archivos de adapters
+- [ ] The 4 routers are registered in `create_app()` with `/v1` prefix
+- [ ] `POST /v1/movements` returns 201 with `MovementOutput` when creating a valid movement
+- [ ] `POST /v1/movements` returns 409 when stock is insufficient (OUT/TRANSFER)
+- [ ] `POST /v1/movements` returns 400 when the product does not exist
+- [ ] `GET /v1/stock/{product_id}/current` returns `CurrentStockOutput` with current stock
+- [ ] `GET /v1/stock/{product_id}/at-date?date=` returns `StockAtDateOutput` with historical stock
+- [ ] `POST /v1/products` returns 201 with `ProductOutput` when creating a valid product
+- [ ] `POST /v1/products` returns 422 when the SKU is invalid
+- [ ] `POST /v1/products` returns 400 when the category does not exist
+- [ ] `POST /v1/categories` returns 201 with `CategoryOutput` when creating a valid category
+- [ ] `POST /v1/categories` returns 422 when the name is empty
+- [ ] Domain errors are mapped to `ErrorResponse` via exception handlers
+- [ ] OpenAPI documentation (`/docs`) shows the 10 endpoints with descriptions and examples
+- [ ] `make lint` passes without errors on all adapter files
 
 ---
 
 ## Testing Strategy
 
-- **Tests de integración con `testcontainers.postgres`** — Validar cada endpoint con DB real:
-  - Seed data (categoría, producto) antes de cada test
-  - `POST /v1/categories` → validar 201 + response body
-  - `POST /v1/products` → validar 201 + response body
-  - `POST /v1/movements` (IN) → validar 201
-  - `POST /v1/movements` (OUT sin stock) → validar 409
-  - `GET /v1/stock/{id}/current` → validar stock correcto
-  - `GET /v1/products` → validar lista con paginación
+- **Integration tests with `testcontainers.postgres`** — Validate each endpoint with a real DB:
+  - Seed data (category, product) before each test
+  - `POST /v1/categories` → validate 201 + response body
+  - `POST /v1/products` → validate 201 + response body
+  - `POST /v1/movements` (IN) → validate 201
+  - `POST /v1/movements` (OUT without stock) → validate 409
+  - `GET /v1/stock/{id}/current` → validate correct stock
+  - `GET /v1/products` → validate list with pagination
 
-- **Tests de error mapping** — Simular excepciones de dominio y verificar que el handler retorna el formato correcto:
+- **Error mapping tests** — Simulate domain exceptions and verify the handler returns the correct format:
   - `InsufficientStockError` → 409 + `INSUFFICIENT_STOCK`
   - `InvalidSKUError` → 422 + `INVALID_SKU`
-  - `ValueError` (producto no encontrado) → 400 + `VALIDATION_ERROR`
+  - `ValueError` (product not found) → 400 + `VALIDATION_ERROR`
 
-- **Tests de validación Pydantic** — Enviar payloads inválidos a los endpoints y verificar que FastAPI retorna 422:
-  - `POST /v1/products` con SKU vacío → 422
-  - `POST /v1/movements` con quantity=0 → 422
-  - `POST /v1/movements` con TRANSFER sin origin/destination → 422
+- **Pydantic validation tests** — Send invalid payloads to endpoints and verify FastAPI returns 422:
+  - `POST /v1/products` with empty SKU → 422
+  - `POST /v1/movements` with quantity=0 → 422
+  - `POST /v1/movements` with TRANSFER without origin/destination → 422
 
-- **Tests de DI factories** — Verificar que las factories construyen los objetos correctos (opcional, más unit que integration)
+- **DI factory tests** — Verify that factories build the correct objects (optional, more unit than integration)
 
 ---
 
 ## Resolved Questions
 
-1. **¿Los routers deben importar de `infrastructure/` para crear repos?** → **No directamente.** Los routers importan de `dependencies.py`, y `dependencies.py` es el único archivo de `adapters/` que importa de `infrastructure/`. Esto mantiene la regla de importación: `adapters/` puede importar de `infrastructure/`, pero los routers (que son los endpoints públicos) no deberían tener esa dependencia directa. Las factories encapsulan la construcción.
+1. **Should routers import from `infrastructure/` to create repos?** → **Not directly.** Routers import from `dependencies.py`, and `dependencies.py` is the only file in `adapters/` that imports from `infrastructure/`. This maintains the import rule: `adapters/` can import from `infrastructure/`, but routers (which are the public endpoints) should not have that direct dependency. Factories encapsulate the construction.
 
-2. **¿Los endpoints de GET por ID deben usar use cases o ir directo al repo?** → **Directo al repositorio.** Consultar un recurso por ID es una operación de lectura simple sin lógica de negocio. Envolverlo en un use case añadiría una capa de indirección sin valor. Esto es consistente con el patrón de CQRS: queries simples → repositorio directo; commands y queries complejas → use case. El router health.py ya sigue este patrón (importa `get_pool()` directamente).
+2. **Should GET by ID endpoints use use cases or go directly to the repo?** → **Direct to repository.** Querying a resource by ID is a simple read operation with no business logic. Wrapping it in a use case would add a layer of indirection without value. This is consistent with the CQRS pattern: simple queries → direct repository; commands and complex queries → use case. The health.py router already follows this pattern (imports `get_pool()` directly).
 
-3. **¿El total de `MovementListOutput` debe ser exacto o puede ser `len(items)`?** → **Debe ser exacto (count separado).** Usar `len(items)` es incorrecto porque si hay 150 movimientos y el limit es 50, `len(items)` sería 50 pero el total real es 150. El repositorio debe exponer un método `count_by_product()` o el use case debe hacer la consulta de conteo. **Esta es una nota para Spec-40:** `ListProductsUseCase` y `list_movements` deben retornar `(items, total)` en lugar de solo `items`. Esto se puede añadir como follow-up sin romper el contrato del use case (cambiar el tipo de retorno).
+3. **Should the total of `MovementListOutput` be exact or can it be `len(items)`?** → **Must be exact (separate count).** Using `len(items)` is incorrect because if there are 150 movements and the limit is 50, `len(items)` would be 50 but the actual total is 150. The repository must expose a `count_by_product()` method or the use case must perform the count query. **This is a note for Spec-40:** `ListProductsUseCase` and `list_movements` should return `(items, total)` instead of just `items`. This can be added as a follow-up without breaking the use case contract (change the return type).

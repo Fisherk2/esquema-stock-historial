@@ -1,31 +1,31 @@
-# SPEC-01: Estructura y convenciones
+# SPEC-01: Structure and Conventions
 
-## Descripción
+## Description
 
-Establecer la estructura base del proyecto siguiendo Clean Architecture, convenciones de naming y configuración de herramientas de calidad.
+Establish the base project structure following Clean Architecture, naming conventions, and quality tool configuration.
 
-## Fase
+## Phase
 
-F0 — Preparación
+F0 — Preparation
 
-## Archivos Involucrados
+## Involved Files
 
-- `src/` — Paquete principal con capas: `domain/`, `application/`, `infrastructure/`, `adapters/`, `core/`
-- `tests/` — Suite de pruebas: `unit/`, `integration/`, `e2e/`
-- `.gitignore` — Exclusión de secretos, caché, artefactos de build
-- `pyproject.toml` — Configuración central de ruff, black, pytest, mypy, coverage
+- `src/` — Main package with layers: `domain/`, `application/`, `infrastructure/`, `adapters/`, `core/`
+- `tests/` — Test suite: `unit/`, `integration/`, `e2e/`
+- `.gitignore` — Exclusion of secrets, cache, build artifacts
+- `pyproject.toml` — Central configuration for ruff, black, pytest, mypy, coverage
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] Estructura `src/` con 5 capas Clean Architecture y subdirectorios vacíos con `__init__.py`
-- [x] Estructura `tests/` con `unit/`, `integration/`, `e2e/` y `__init__.py`
-- [x] `.gitignore` excluye `.env`, `__pycache__/`, `.venv/`, `*.pyc`, `dist/`, `build/`
-- [x] `pyproject.toml` configura ruff (E/W/F/I/N/UP/B/SIM/TCH/RUF), black, pytest, mypy, coverage
+- [x] `src/` structure with 5 Clean Architecture layers and empty subdirectories with `__init__.py`
+- [x] `tests/` structure with `unit/`, `integration/`, `e2e/` and `__init__.py`
+- [x] `.gitignore` excludes `.env`, `__pycache__/`, `.venv/`, `*.pyc`, `dist/`, `build/`
+- [x] `pyproject.toml` configures ruff (E/W/F/I/N/UP/B/SIM/TCH/RUF), black, pytest, mypy, coverage
 
-## Dependencias
+## Dependencies
 
-Ninguna
+None
 
-## Estado
+## Status
 
-**Completado** — 2026-05-14
+**Completed** — 2026-05-14

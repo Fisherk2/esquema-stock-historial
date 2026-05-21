@@ -1,18 +1,18 @@
-# Arquitectura y Diseño
+# Architecture and Design
 
-## Patrón Arquitectónico: Clean Architecture + Ports & Adapters
+## Architectural Pattern: Clean Architecture + Ports & Adapters
 
-El sistema sigue estrictamente el **Dependency Inversion Principle (DIP)**. Las dependencias de código fuente apuntan siempre hacia el centro (Dominio/Aplicación). PostgreSQL, FastAPI y APScheduler son detalles externos intercambiables.
+The system strictly follows the **Dependency Inversion Principle (DIP)**. Source code dependencies always point toward the center (Domain/Application). PostgreSQL, FastAPI, and APScheduler are interchangeable external details.
 
 ```mermaid
 graph TD
-    subgraph "Capa Externa (Infraestructura)"
+    subgraph "External Layer (Infrastructure)"
         API[FastAPI Router / Controllers]
         SCHED[APScheduler Background Tasks]
         DB[(PostgreSQL 16+)]
     end
 
-subgraph "Capa de Adaptadores (infrastructure/repositories/)"
+subgraph "Adapters Layer (infrastructure/repositories/)"
 IMovRepo[IMovementRepository Protocol]
 IProdRepo[IProductRepository Protocol]
 ICatRepo[ICategoryRepository Protocol]
@@ -25,18 +25,18 @@ StockRepoImpl[PostgresStockQueryRepository]
 Mappers[mappers.py — asyncpg.Record → Entity]
 end
 
-    subgraph "Capa de Aplicación"
+    subgraph "Application Layer"
         UseCase[RecordMovementUseCase]
         UseCase2[QueryStockAtDateUseCase]
         DTOs[Pydantic Input/Output DTOs]
         UoW[PostgresUnitOfWork]
     end
 
-subgraph "Capa de Dominio"
+subgraph "Domain Layer"
 Ent[Entity: Product, Movement, Category — frozen=True]
 Rules[Business Rules: StockValidation, Immutability]
 Errs[Domain Exceptions: DomainError, ProductNotFoundError, CategoryNotFoundError, InsufficientStockError, ...]
-VOs[Value Objects: SKU, Quantity, MovementType (StrEnum)]
+VOs[Value Objects: SKU, Quantity, MovementType <StrEnum>]
 end
 
     API --> IMovRepo
@@ -71,53 +71,53 @@ MovRepoImpl --> Mappers
     Ent --> Errs
 ```
 
-## Estrategia de Comunicación y Estado
+## Communication and State Strategy
 
-- **Comandos (Write):** Se envían a `RecordMovementUseCase`. Validan reglas de negocio (stock no negativo, tipo de movimiento válido) y delegan al repositorio.
-- **Consultas (Read):** `QueryStockAtDateUseCase` lee de la vista materializada `mv_stock_historical`. Si la vista no está lista, fallback a cálculo directo con límite de paginación.
-- **Manejo de Concurrencia:** Optimistic Concurrency con reintentos exponenciales. Versión transaccional o `READ COMMITTED` + retry en `asyncpg`.
+- **Commands (Write):** Sent to `RecordMovementUseCase`. They validate business rules (non-negative stock, valid movement type) and delegate to the repository.
+- **Queries (Read):** `QueryStockAtDateUseCase` reads from the materialized view `mv_stock_historical`. If the view is not ready, fallback to direct calculation with pagination limit.
+- **Concurrency Handling:** Optimistic Concurrency with exponential retries. Transactional version or `READ COMMITTED` + retry in `asyncpg`.
 
-## Justificación Técnica
+## Technical Justification
 
-- **SQL Explícito:** Control total sobre `EXPLAIN ANALYZE`, índices compuestos y CTEs. Sin ORM que oculte planes de ejecución.
-- **FastAPI + Pydantic:** OpenAPI 3.0 nativo. Validación estricta sin boilerplate.
-- **APScheduler Interno:** Refresh como tarea asíncrona aislada del ciclo request/response. Swappable a Celery/RQ sin tocar dominio.
+- **Explicit SQL:** Full control over `EXPLAIN ANALYZE`, composite indexes, and CTEs. No ORM hiding execution plans.
+- **FastAPI + Pydantic:** Native OpenAPI 3.0. Strict validation without boilerplate.
+- **Internal APScheduler:** Refresh as an async task isolated from the request/response cycle. Swappable to Celery/RQ without touching the domain.
 
-## Reglas de Importación (Clean Architecture Enforcement)
+## Import Rules (Clean Architecture Enforcement)
 
-Las siguientes reglas de importación son obligatorias y se verifican en CI:
+The following import rules are mandatory and verified in CI:
 
-| Capa | Puede importar de | No puede importar de |
+| Layer | Can import from | Cannot import from |
 |------|-------------------|---------------------|
-| `domain/` | Solo módulos internos de `domain/` | `application/`, `infrastructure/`, `adapters/` |
-| `application/` | `domain/`, módulos internos de `application/` | `infrastructure/`, `adapters/` |
-| `infrastructure/` | `domain/`, `application/`, libs externas | `adapters/` |
-| `adapters/` | `application/`, `infrastructure/`, `domain/ports/` (solo protocolos via DI), libs externas | `domain/entities/`, `domain/rules/` (directo) |
+| `domain/` | Only internal `domain/` modules | `application/`, `infrastructure/`, `adapters/` |
+| `application/` | `domain/`, internal `application/` modules | `infrastructure/`, `adapters/` |
+| `infrastructure/` | `domain/`, `application/`, external libs | `adapters/` |
+| `adapters/` | `application/`, `infrastructure/`, `domain/ports/` (protocols only via DI), external libs | `domain/entities/`, `domain/rules/` (direct) |
 
-**Verificación automatizada:**
-- `ruff` con `ban-relative-imports = "all"` previene imports relativos entre paquetes
-- CI ejecuta `make lint` en cada push/PR
-- Para enforcement estricto por directorio, considerar `import-linter` en fases futuras
+**Automated verification:**
+- `ruff` with `ban-relative-imports = "all"` prevents relative imports between packages
+- CI runs `make lint` on every push/PR
+- For strict per-directory enforcement, consider `import-linter` in future phases
 
-**Convención:** Si un módulo de `domain/` necesita acceso a infraestructura, definir un `Protocol` en `domain/ports/` y dejar la implementación concreta en `infrastructure/repositories/`.
+**Convention:** If a `domain/` module needs infrastructure access, define a `Protocol` in `domain/ports/` and leave the concrete implementation in `infrastructure/repositories/`.
 
-**Separación DTO/VO:** Los DTOs del application layer (`CreateMovementInput`, etc.) usan enums propios (`MovementTypeInput`) para mantener la independencia de Clean Architecture. El mapping `MovementTypeInput → MovementType` (domain VO) se hace en el router adapter, no en el DTO. Esto evita que la capa de aplicación dependa directamente de value objects del dominio, manteniendo el principio de que los DTOs son el contrato público de la API.
+**DTO/VO Separation:** Application layer DTOs (`CreateMovementInput`, etc.) use their own enums (`MovementTypeInput`) to maintain Clean Architecture independence. The `MovementTypeInput → MovementType` (domain VO) mapping is done in the router adapter, not in the DTO. This prevents the application layer from directly depending on domain value objects, maintaining the principle that DTOs are the public API contract.
 
 ### Mappers (asyncpg.Record → Entity)
 
-Los mappers son **funciones puras** ubicadas en `src/infrastructure/repositories/mappers.py`. Transforman `asyncpg.Record` (tipado explícito) en entidades de dominio (`@dataclass(frozen=True)`). No tienen estado, no acceden a DB, y son determinísticas:
+Mappers are **pure functions** located in `src/infrastructure/repositories/mappers.py`. They transform `asyncpg.Record` (explicitly typed) into domain entities (`@dataclass(frozen=True)`). They are stateless, do not access the DB, and are deterministic:
 
 - `map_category_row(record: asyncpg.Record) -> Category`
-- `map_product_row(record: asyncpg.Record) -> Product` — construye `SKU` VO desde string
-- `map_movement_row(record: asyncpg.Record) -> Movement` — parsea `movement_type` string → `StrEnum`, `quantity` int → `Quantity` VO, `metadata` JSONB → `dict[str, Any]` con manejo de `JSONDecodeError` (fallback a `{}`)
+- `map_product_row(record: asyncpg.Record) -> Product` — builds `SKU` VO from string
+- `map_movement_row(record: asyncpg.Record) -> Movement` — parses `movement_type` string → `StrEnum`, `quantity` int → `Quantity` VO, `metadata` JSONB → `dict[str, Any]` with `JSONDecodeError` handling (fallback to `{}`)
 
-Esta separación mantiene los repositorios enfocados en I/O y delega la transformación a funciones testeables de forma aislada.
+This separation keeps repositories focused on I/O and delegates transformation to functions that can be tested in isolation.
 
 ### BasePostgresRepository (DRY)
 
-Clase abstracta en `src/infrastructure/repositories/base_repository.py` que centraliza la gestión de conexión compartida:
+Abstract class in `src/infrastructure/repositories/base_repository.py` that centralizes shared connection management:
 
-- `__init__(pool, connection=None)` — acepta pool y conexión opcional (para UoW)
-- `_get_conn()` — retorna la conexión activa si existe (transacción), sino el pool
+- `__init__(pool, connection=None)` — accepts pool and optional connection (for UoW)
+- `_get_conn()` — returns the active connection if it exists (transaction), otherwise the pool
 
-Los 4 repositorios concretos heredan de esta clase, eliminando duplicación de `__init__` y `_get_conn()`.
+All 4 concrete repositories inherit from this class, eliminating duplication of `__init__` and `_get_conn()`.

@@ -1,31 +1,31 @@
-# SPEC-04: Documentación inicial
+# SPEC-04: Initial Documentation
 
-## Descripción
+## Description
 
-Crear la documentación base del proyecto: guías para agentes, workflow, especificaciones y README técnico.
+Create the base project documentation: agent guides, workflow, specifications, and technical README.
 
-## Fase
+## Phase
 
-F0 — Preparación
+F0 — Preparation
 
-## Archivos Involucrados
+## Involved Files
 
-- `AGENTS.md` — Guía principal para agentes de desarrollo con referencias a docs/agents/
-- `WORKFLOW.md` — Estado del proyecto, fases, enlaces a roadmap y spec-tracking
-- `README.md` — Descripción del proyecto, stack, comandos, estructura, enlaces a documentación
-- `specs/` — Directorio con specs individuales (SPEC-01.md a SPEC-04.md)
+- `AGENTS.md` — Main guide for development agents with references to docs/agents/
+- `WORKFLOW.md` — Project status, phases, links to roadmap and spec-tracking
+- `README.md` — Project description, stack, commands, structure, links to documentation
+- `specs/` — Directory with individual specs (SPEC-01.md through SPEC-04.md)
 
-## Criterios de Aceptación
+## Acceptance Criteria
 
-- [x] `AGENTS.md` referencia guías de arquitectura, desarrollo, testing, seguridad y performance
-- [x] `WORKFLOW.md` indica estado actual y enlaces a docs/workflow/
-- [x] `README.md` contiene descripción, stack, comandos, estructura y enlaces a documentación
-- [x] `specs/` contiene archivos SPEC-XX.md con contratos y criterios de aceptación
+- [x] `AGENTS.md` references architecture, development, testing, security, and performance guides
+- [x] `WORKFLOW.md` indicates current status and links to docs/workflow/
+- [x] `README.md` contains description, stack, commands, structure, and links to documentation
+- [x] `specs/` contains SPEC-XX.md files with contracts and acceptance criteria
 
-## Dependencias
+## Dependencies
 
-Spec-01 (Estructura y convenciones)
+Spec-01 (Structure and Conventions)
 
-## Estado
+## Status
 
-**Completado** — 2026-05-14
+**Completed** — 2026-05-14

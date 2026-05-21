@@ -1,2 +1,2 @@
 # Style Guide
-Paleta de colores, tipografía, etc.
+Color palette, typography, etc.

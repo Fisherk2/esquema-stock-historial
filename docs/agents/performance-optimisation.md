@@ -1,50 +1,50 @@
-# Optimización de Rendimiento
+# Performance Optimization
 
-## SQL Explícito
+## Explicit SQL
 
-Las consultas analíticas usan SQL directo con CTEs y Window Functions. Sin ORM. Cada query compleja debe incluir su `EXPLAIN ANALYZE` en el spec correspondiente para validar el plan de ejecución.
+Analytical queries use direct SQL with CTEs and Window Functions. No ORM. Each complex query must include its `EXPLAIN ANALYZE` in the corresponding spec to validate the execution plan.
 
-**SQL parametrizado obligatorio:** Todos los queries usan parámetros posicionales (`$1`, `$2`). Nunca f-strings, ni siquiera para valores numéricos. Ejemplo:
+**Mandatory parameterized SQL:** All queries use positional parameters (`$1`, `$2`). Never f-strings, not even for numeric values. Example:
 ```python
 # Correcto: SET statement_timeout = $1", timeout_ms
 # Incorrecto: f"SET statement_timeout = {timeout_ms}"
 ```
 
-## Pool de Conexiones
+## Connection Pool
 
-- **Tamaño configurable** via `db_pool_min_size` (default: 2) y `db_pool_max_size` (default: 10) en `Settings`.
-- El pool se inicializa al startup de FastAPI y se cierra en shutdown.
-- En producción, la app falla explícitamente si la DB no está disponible (no startup silencioso).
-- `BasePostgresRepository` comparte el pool entre todos los repositorios, evitando conexiones duplicadas.
+- **Configurable size** via `db_pool_min_size` (default: 2) and `db_pool_max_size` (default: 10) in `Settings`.
+- The pool is initialized at FastAPI startup and closed on shutdown.
+- In production, the app fails explicitly if the DB is not available (no silent startup).
+- `BasePostgresRepository` shares the pool across all repositories, avoiding duplicate connections.
 
-## Vistas Materializadas
+## Materialized Views
 
-- Vista principal: `mv_stock_historical` con `REFRESH CONCURRENTLY`.
-- El scheduler interno (APScheduler) refresca la vista periódicamente.
-- **Fallback:** Si la vista no está disponible, se hace cálculo directo con límite de paginación.
-- SLA objetivo: `<100ms` en consultas de stock histórico.
+- Main view: `mv_stock_historical` with `REFRESH CONCURRENTLY`.
+- The internal scheduler (APScheduler) refreshes the view periodically.
+- **Fallback:** If the view is not available, direct calculation is performed with pagination limit.
+- Target SLA: `<100ms` for historical stock queries.
 
-## Índices
+## Indexes
 
-- Índices compuestos en `movements` (`product_id`, `created_at`).
-- Índices parciales para filtrar tipos de movimiento.
-- Todos los índices deben ser validados con `EXPLAIN` antes de mergear.
+- Composite indexes on `movements` (`product_id`, `created_at`).
+- Partial indexes to filter movement types.
+- All indexes must be validated with `EXPLAIN` before merging.
 
-## Concurrencia y Reintentos
+## Concurrency and Retries
 
-- Optimistic Concurrency con versión transaccional.
-- Decorador `@retry` con backoff exponencial.
-- Aislamiento `READ COMMITTED` + retry en `asyncpg`.
+- Optimistic Concurrency with transactional versioning.
+- `@retry` decorator with exponential backoff.
+- `READ COMMITTED` isolation + retry in `asyncpg`.
 
-## Manejo de Fallos
+## Failure Handling
 
-- **`statement_timeout` configurado via `server_settings` en pool.** `asyncpg.create_pool(server_settings={"statement_timeout": ...})` asegura que el timeout se aplique a **todas** las conexiones del pool. El enfoque anterior (`SET statement_timeout` post-creacion) era un bug: solo afectaba la primera conexion, dejando las demas sin timeout.
-- Timeouts explícitos en `asyncpg.connect()`.
-- Fallback a 503 si la vista no responde dentro del SLA.
-- **Scheduler timeout:** El refresh job ya no usa `SET LOCAL` (no funcionaba sin transaccion). Hereda el timeout del pool. `retry_with_backoff` tolera timeouts y conflictos.
+- **`statement_timeout` configured via `server_settings` in pool.** `asyncpg.create_pool(server_settings={"statement_timeout": ...})` ensures the timeout applies to **all** pool connections. The previous approach (`SET statement_timeout` post-creation) was a bug: it only affected the first connection, leaving the rest without timeout.
+- Explicit timeouts in `asyncpg.connect()`.
+- Fallback to 503 if the view does not respond within SLA.
+- **Scheduler timeout:** The refresh job no longer uses `SET LOCAL` (it didn't work without a transaction). It inherits the pool timeout. `retry_with_backoff` tolerates timeouts and conflicts.
 
-## Migraciones Non-Transactionales
+## Non-Transactional Migrations
 
-- Soporte para migraciones que no pueden ejecutarse dentro de una transacción (ej: `CREATE INDEX CONCURRENTLY`, `VACUUM`).
-- Se marcan con el comentario `-- non-transactional` en la primera línea del archivo SQL.
-- El ejecutor de migraciones (`migrate.py`) detecta esta marca y ejecuta sin `BEGIN/COMMIT`.
+- Support for migrations that cannot run inside a transaction (e.g., `CREATE INDEX CONCURRENTLY`, `VACUUM`).
+- They are marked with the `-- non-transactional` comment on the first line of the SQL file.
+- The migration executor (`migrate.py`) detects this marker and executes without `BEGIN/COMMIT`.

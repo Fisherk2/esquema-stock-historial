@@ -1,2 +1,2 @@
 # DESIGN.md
-Estándares generales de diseño.
+General design standards.

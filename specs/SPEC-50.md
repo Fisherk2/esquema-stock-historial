@@ -1,62 +1,62 @@
-# SPEC-50: Integración APScheduler
+# SPEC-50: APScheduler Integration
 
-**Fase:** F5 — Scheduler & Concurrencia  
-**Dependencias:** Spec-31 (Vistas Materializadas) ✅ Completado, Spec-42 (Rutas FastAPI) ✅ Completado  
-**Prioridad:** Media  
-**Estado:** Pendiente  
+**Phase:** F5 — Scheduler & Concurrency  
+**Dependencies:** Spec-31 (Materialized Views) ✅ Completed, Spec-42 (FastAPI Routes) ✅ Completed  
+**Priority:** Medium  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Integrar **APScheduler 3.11** como motor de tareas en background dentro del ciclo de vida de FastAPI. El scheduler gestionará el refresh periódico de la vista materializada `mv_stock_historical` con una política configurable, listeners de eventos para logging, y shutdown graceful. El scheduler es un detalle de infraestructura intercambiable — su interfaz con la aplicación se limita a la configuración del lifespan.
+Integrate **APScheduler 3.11** as the background task engine within the FastAPI lifecycle. The scheduler will manage the periodic refresh of the materialized view `mv_stock_historical` with a configurable policy, event listeners for logging, and graceful shutdown. The scheduler is a swappable infrastructure detail — its interface with the application is limited to the lifespan configuration.
 
-**Principios de diseño:**
-- **AsyncIOScheduler** — usa el event loop existente de FastAPI, no crea hilos separados
-- **Isolation de resources** — el scheduler obtiene su propia conexión del pool, no comparte con requests
-- **Shutdown graceful** — al parar la app, el scheduler detiene jobs pendientes antes de cerrar
-- **Configurable via Settings** — intervalo de refresh, habilitar/deshabilitar, todo via `.env`
-- **No bloquea request/response** — las tareas corren en background, cero impacto en latencia de API
-- **Swap-ready** — la arquitectura permite reemplazar APScheduler por Celery/RQ sin tocar dominio
+**Design principles:**
+- **AsyncIOScheduler** — uses FastAPI's existing event loop, does not create separate threads
+- **Resource isolation** — the scheduler gets its own connection from the pool, does not share with requests
+- **Graceful shutdown** — when stopping the app, the scheduler stops pending jobs before closing
+- **Configurable via Settings** — refresh interval, enable/disable, all via `.env`
+- **Does not block request/response** — tasks run in the background, zero impact on API latency
+- **Swap-ready** — the architecture allows replacing APScheduler with Celery/RQ without touching the domain
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| `AsyncIOScheduler` (no `BackgroundScheduler`) | Compatible con asyncio nativo. No crea thread pool separado. Mejor integración con FastAPI |
-| Scheduler vive en el `lifespan` de FastAPI | Ciclo de vida gestionado por el framework. Start en startup, shutdown en cleanup |
-| Refresh cada 5 minutos por defecto | Balance entre frescura de datos y carga en DB. Configurable via `SCHEDULER_REFRESH_INTERVAL_MINUTES` |
-| Job ID fijo (`refresh_stock_view`) | Idempotente. Si el job ya existe, se reemplaza (no se duplica). Fácil de monitorizar |
-| `replace_existing=True` | Al reiniciar la app, el job se re-registra sin error. Idempotencia en arranque |
-| Event listener para logging | Cada ejecución del job se loggea con timing. Permite detectar fallos sin polling |
-| `misfire_grace_time=60` | Si el scheduler se retrasa (startup lento, DB ocupada), tolera hasta 60s de retraso |
-| Deshabilitable en tests | Variable `SCHEDULER_ENABLED=false` en tests. Los tests no necesitan scheduler real |
+| `AsyncIOScheduler` (not `BackgroundScheduler`) | Compatible with native asyncio. Does not create a separate thread pool. Better integration with FastAPI |
+| Scheduler lives in FastAPI's `lifespan` | Lifecycle managed by the framework. Start on startup, shutdown on cleanup |
+| Refresh every 5 minutes by default | Balance between data freshness and DB load. Configurable via `SCHEDULER_REFRESH_INTERVAL_MINUTES` |
+| Fixed job ID (`refresh_stock_view`) | Idempotent. If the job already exists, it is replaced (not duplicated). Easy to monitor |
+| `replace_existing=True` | When restarting the app, the job is re-registered without error. Idempotency on startup |
+| Event listener for logging | Each job execution is logged with timing. Allows detecting failures without polling |
+| `misfire_grace_time=60` | If the scheduler is delayed (slow startup, busy DB), tolerates up to 60s of delay |
+| Disableable in tests | Variable `SCHEDULER_ENABLED=false` in tests. Tests do not need a real scheduler |
 
 ---
 
 ## Settings Extensions
 
-Añadir campos de configuración del scheduler en `src/core/config.py`:
+Add scheduler configuration fields in `src/core/config.py`:
 
 ```python
-# Campos de scheduler (añadir a la clase Settings existente)
+# Scheduler fields (add to the existing Settings class)
 scheduler_enabled: bool = True
 scheduler_refresh_interval_minutes: int = 5
 scheduler_misfire_grace_time_seconds: int = 60
-# Nota: statement_timeout se configura via pool server_settings en connection.py
-# (ver Spec-52 para detalles). Ya no se pasa como parametro al scheduler.
+# Note: statement_timeout is configured via pool server_settings in connection.py
+# (see Spec-52 for details). No longer passed as a parameter to the scheduler.
 ```
 
-Variables de entorno correspondientes:
+Corresponding environment variables:
 - `SCHEDULER_ENABLED=true|false`
 - `SCHEDULER_REFRESH_INTERVAL_MINUTES=5`
 - `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS=60`
 
-> **Nota:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` ya no se usa directamente.
-> El timeout se hereda del pool via `server_settings={"statement_timeout": ...}` configurado
-> en `init_pool()`. Si el refresh necesita más tiempo, ajustar `API_STATEMENT_TIMEOUT_SECONDS`.
+> **Note:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` is no longer used directly.
+> The timeout is inherited from the pool via `server_settings={"statement_timeout": ...}` configured
+> in `init_pool()`. If the refresh needs more time, adjust `API_STATEMENT_TIMEOUT_SECONDS`.
 
 ---
 
@@ -64,18 +64,18 @@ Variables de entorno correspondientes:
 
 ### `src/infrastructure/scheduler/scheduler.py`
 
-Módulo principal que crea y gestiona el `AsyncIOScheduler`:
+Main module that creates and manages the `AsyncIOScheduler`:
 
 ```python
-"""APScheduler integration — gestion del scheduler de tareas en background.
+"""APScheduler integration — background task scheduler management.
 
-Crea y configura un AsyncIOScheduler que ejecuta tareas periodicas
-dentro del event loop de FastAPI. Actualmente gestiona el refresh
-de la vista materializada mv_stock_historical.
+Creates and configures an AsyncIOScheduler that executes periodic tasks
+within FastAPI's event loop. Currently manages the refresh
+of the materialized view mv_stock_historical.
 
-El scheduler se integra en el lifespan de FastAPI:
-- start_scheduler(): se llama en startup
-- shutdown_scheduler(): se llama en cleanup
+The scheduler integrates into FastAPI's lifespan:
+- start_scheduler(): called on startup
+- shutdown_scheduler(): called on cleanup
 """
 from __future__ import annotations
 
@@ -94,12 +94,12 @@ _scheduler: AsyncIOScheduler | None = None
 
 
 async def _refresh_job(pool: Pool) -> None:
-    """Job que refresca la vista materializada.
+    """Job that refreshes the materialized view.
 
-    Delega la ejecucion a _do_refresh con reintentos automaticos.
-    El statement_timeout esta heredado del pool via ``server_settings``
-    configurado en ``create_pool()``. El retry_with_backoff en
-    _do_refresh tolera timeouts y conflictos.
+    Delegates execution to _do_refresh with automatic retries.
+    The statement_timeout is inherited from the pool via ``server_settings``
+    configured in ``create_pool()``. The retry_with_backoff in
+    _do_refresh tolerates timeouts and conflicts.
     """
     from src.infrastructure.db.refresh import refresh_stock_view
 
@@ -119,7 +119,7 @@ def create_scheduler(
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
 ) -> AsyncIOScheduler:
-    """Crea y configura el AsyncIOScheduler."""
+    """Creates and configures the AsyncIOScheduler."""
     scheduler = AsyncIOScheduler()
 
     scheduler.add_job(
@@ -142,7 +142,7 @@ async def start_scheduler(
     refresh_interval_minutes: int = 5,
     misfire_grace_time: int = 60,
 ) -> None:
-    """Inicializa y arranca el scheduler."""
+    """Initializes and starts the scheduler."""
     global _scheduler
 
     if not enabled:
@@ -160,7 +160,7 @@ async def start_scheduler(
 
 
 async def shutdown_scheduler() -> None:
-    """Detiene el scheduler gracefulmente."""
+    """Stops the scheduler gracefully."""
     global _scheduler
     if _scheduler is not None and _scheduler.running:
         _scheduler.shutdown(wait=True)
@@ -172,20 +172,20 @@ async def shutdown_scheduler() -> None:
 
 ## Lifespan Integration
 
-Actualizar `src/main.py` para incluir el scheduler en el lifecycle:
+Update `src/main.py` to include the scheduler in the lifecycle:
 
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle hook para inicializacion y limpieza de recursos.
+    """Lifecycle hook for resource initialization and cleanup.
 
-    Inicializa el pool de conexiones asyncpg y el scheduler al arrancar.
-    Cierra el scheduler y el pool al apagar la aplicacion.
+    Initializes the asyncpg connection pool and the scheduler on startup.
+    Closes the scheduler and the pool when shutting down the application.
     """
     settings = Settings()
     await init_pool(settings)
 
-    # F5: Iniciar scheduler
+    # F5: Start scheduler
     from src.infrastructure.db.connection import get_pool
     from src.infrastructure.scheduler.scheduler import (
         shutdown_scheduler,
@@ -203,7 +203,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        # F5: Detener scheduler antes de cerrar pool
+        # F5: Stop scheduler before closing pool
         await shutdown_scheduler()
         await close_pool()
 ```
@@ -212,22 +212,22 @@ async def lifespan(app: FastAPI):
 
 ## Refresh Policy
 
-### Política de Refresh por Intervalo
+### Interval-Based Refresh Policy
 
-El scheduler ejecuta `REFRESH MATERIALIZED VIEW CONCURRENTLY` cada N minutos (configurable). Esta estrategia es simple y suficiente para la fase actual.
+The scheduler executes `REFRESH MATERIALIZED VIEW CONCURRENTLY` every N minutes (configurable). This strategy is simple and sufficient for the current phase.
 
-| Parámetro | Default | Descripción |
+| Parameter | Default | Description |
 |-----------|---------|-------------|
-| `SCHEDULER_ENABLED` | `true` | Habilitar/deshabilitar scheduler |
-| `SCHEDULER_REFRESH_INTERVAL_MINUTES` | `5` | Minutos entre refreshes |
-| `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | `60` | Tolerancia de retraso |
-| `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | `30` | Timeout en segundos para el refresh job |
+| `SCHEDULER_ENABLED` | `true` | Enable/disable scheduler |
+| `SCHEDULER_REFRESH_INTERVAL_MINUTES` | `5` | Minutes between refreshes |
+| `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | `60` | Delay tolerance |
+| `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | `30` | Timeout in seconds for the refresh job |
 
-### Futuras Mejoras (F6+)
+### Future Improvements (F6+)
 
-- **Refresh on-demand**: Endpoint admin `POST /v1/admin/refresh-stock-view` para trigger manual
-- **Refresh inteligente**: Detectar si hay movimientos nuevos desde el último refresh y solo refrescar si hay cambios
-- **Refresh por evento**: Trigger de refresh al registrar un movimiento (debounce de 30s)
+- **On-demand refresh**: Admin endpoint `POST /v1/admin/refresh-stock-view` for manual trigger
+- **Smart refresh**: Detect if there are new movements since the last refresh and only refresh if there are changes
+- **Event-driven refresh**: Trigger refresh when registering a movement (30s debounce)
 
 ---
 
@@ -235,36 +235,36 @@ El scheduler ejecuta `REFRESH MATERIALIZED VIEW CONCURRENTLY` cada N minutos (co
 
 | File | Description |
 |------|-------------|
-| `src/core/config.py` | Añadir campos de configuración del scheduler |
-| `src/infrastructure/scheduler/scheduler.py` | Módulo principal del scheduler |
-| `src/infrastructure/scheduler/__init__.py` | Re-exports públicos |
-| `src/main.py` | Integrar scheduler en lifespan |
+| `src/core/config.py` | Add scheduler configuration fields |
+| `src/infrastructure/scheduler/scheduler.py` | Main scheduler module |
+| `src/infrastructure/scheduler/__init__.py` | Public re-exports |
+| `src/main.py` | Integrate scheduler into lifespan |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `AsyncIOScheduler` se inicia en el `lifespan` de FastAPI
-- [ ] Job `refresh_stock_view` se registra con intervalo configurable
-- [ ] `SCHEDULER_ENABLED=false` deshabilita el scheduler sin error
-- [ ] `shutdown_scheduler()` detiene el scheduler gracefulmente antes de cerrar el pool
-- [ ] El refresh de la vista se ejecuta periódicamente según el intervalo configurado
-- [ ] Los logs registran inicio, fin, duración y errores de cada refresh
-- [ ] Solo una instancia del job puede ejecutarse a la vez (`max_instances=1`)
-- [ ] Tests unitarios validan la creación del scheduler con mocks
-- [ ] `make lint` pasa sin errores
+- [ ] `AsyncIOScheduler` starts in FastAPI's `lifespan`
+- [ ] `refresh_stock_view` job is registered with configurable interval
+- [ ] `SCHEDULER_ENABLED=false` disables the scheduler without error
+- [ ] `shutdown_scheduler()` stops the scheduler gracefully before closing the pool
+- [ ] View refresh executes periodically according to the configured interval
+- [ ] Logs record start, end, duration, and errors of each refresh
+- [ ] Only one instance of the job can execute at a time (`max_instances=1`)
+- [ ] Unit tests validate scheduler creation with mocks
+- [ ] `make lint` passes without errors
 
 ---
 
 ## Testing Strategy
 
-- **Test unitario de `create_scheduler()`**: verificar que el job se registra con los parámetros correctos (mock del scheduler)
-- **Test unitario de `_refresh_job()`**: mock de `refresh_stock_view` y verificar que se llama con el pool correcto
-- **Test unitario de `start_scheduler()`**: con `enabled=False`, verificar que no se crea scheduler
-- **Test unitario de `shutdown_scheduler()`**: verificar que `scheduler.shutdown(wait=True)` se llama
-- **Test de integración**: arrancar la app con testcontainers, verificar que el scheduler está running y que el job se ejecuta (usar `freezegun` o intervalo muy corto de 1s)
+- **Unit test for `create_scheduler()`**: verify that the job is registered with the correct parameters (mock the scheduler)
+- **Unit test for `_refresh_job()`**: mock `refresh_stock_view` and verify it is called with the correct pool
+- **Unit test for `start_scheduler()`**: with `enabled=False`, verify that no scheduler is created
+- **Unit test for `shutdown_scheduler()`**: verify that `scheduler.shutdown(wait=True)` is called
+- **Integration test**: start the app with testcontainers, verify that the scheduler is running and that the job executes (use `freezegun` or a very short interval of 1s)
 
-### Ejemplo: Test unitario de create_scheduler
+### Example: Unit test for create_scheduler
 
 ```python
 from unittest.mock import patch, MagicMock
@@ -285,12 +285,12 @@ def test_create_scheduler_registers_job():
 
 ## Resolved Questions
 
-1. **¿Usar `AsyncIOScheduler` o `BackgroundScheduler`?** → **`AsyncIOScheduler`.** Usa el event loop existente de FastAPI. `BackgroundScheduler` crea un thread pool separado que añade complejidad innecesaria y potencial de race conditions con código async.
+1. **Use `AsyncIOScheduler` or `BackgroundScheduler`?** → **`AsyncIOScheduler`.** Uses FastAPI's existing event loop. `BackgroundScheduler` creates a separate thread pool that adds unnecessary complexity and potential for race conditions with async code.
 
-2. **¿El scheduler debe tener su propio pool de conexiones?** → **No.** Usa el pool compartido de la aplicación. `REFRESH CONCURRENTLY` no bloquea lecturas, así que no hay conflicto con los requests. Añadir un pool separado consumiría recursos adicionales sin beneficio.
+2. **Should the scheduler have its own connection pool?** → **No.** Uses the application's shared pool. `REFRESH CONCURRENTLY` does not block reads, so there is no conflict with requests. Adding a separate pool would consume additional resources without benefit.
 
-3. **¿Qué pasa si el refresh falla?** → **Se loggea el error y se reintenta en el próximo ciclo.** No se detiene el scheduler. El fallback (cálculo directo) sigue disponible para los endpoints de stock mientras la vista está stale. En F5 se añade logging estructurado; en F6+ se puede añadir retry con backoff (Spec-51).
+3. **What happens if the refresh fails?** → **The error is logged and retried on the next cycle.** The scheduler is not stopped. The fallback (direct calculation) remains available for stock endpoints while the view is stale. In F5, structured logging is added; in F6+, retry with backoff can be added (Spec-51).
 
-4. **¿Debe existir un endpoint admin para refresh manual?** → **No en F5.** El refresh manual se puede ejecutar vía la función `refresh_stock_view()` directamente o por el scheduler. Un endpoint añade complejidad (auth, access control) que no justifica el beneficio actual. Se puede añadir en F6+ si se necesita.
+4. **Should there be an admin endpoint for manual refresh?** → **Not in F5.** Manual refresh can be executed via the `refresh_stock_view()` function directly or by the scheduler. An endpoint adds complexity (auth, access control) that does not justify the current benefit. It can be added in F6+ if needed.
 
-5. **¿Usar `CronTrigger` o `IntervalTrigger`?** → **`IntervalTrigger`.** Más simple y suficiente para refresh periódico. `CronTrigger` sería útil si se necesita refresh a horas específicas (ej: cada hora en punto), pero en F5 un intervalo fijo es suficiente. Se puede cambiar a cron en el futuro sin romper el contrato.
+5. **Use `CronTrigger` or `IntervalTrigger`?** → **`IntervalTrigger`.** Simpler and sufficient for periodic refresh. `CronTrigger` would be useful if refresh is needed at specific times (e.g., every hour on the hour), but in F5 a fixed interval is sufficient. It can be changed to cron in the future without breaking the contract.

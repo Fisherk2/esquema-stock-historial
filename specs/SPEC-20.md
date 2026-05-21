@@ -1,21 +1,21 @@
-# SPEC-20: Entidades del Dominio
+# SPEC-20: Domain Entities
 
-**Fase:** F2 — Núcleo de Dominio  
-**Dependencias:** Spec-11 (Esquema y Migraciones) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** En Progreso
+**Phase:** F2 — Domain Core
+**Dependencies:** Spec-11 (Schema and Migrations) ✅ Completed
+**Priority:** High
+**Status:** In Progress
 
 ---
 
 ## Objective
 
-Definir las entidades centrales del dominio (`Category`, `Product`, `Movement`) y sus value objects asociados (`MovementType`, `SKU`, `Quantity`), así como la jerarquía de excepciones de dominio. Estas entidades son el núcleo inmutable del sistema y **no dependen de ninguna capa externa**.
+Define the core domain entities (`Category`, `Product`, `Movement`) and their associated value objects (`MovementType`, `SKU`, `Quantity`), as well as the domain exception hierarchy. These entities are the immutable core of the system and **do not depend on any external layer**.
 
-**Principios de diseño:**
-- **No Pydantic en el dominio** — entidades son `@dataclass` nativos, validación pura
-- **Inmutabilidad por diseño** — `Movement` usa `frozen=True`
-- **Identidad técnica separada de identidad de negocio** — `id: int | None` (técnica) vs `SKU` (negocio)
-- **FK como referencias, no navegación** — `Product` tiene `category_id: int`, no un objeto `Category`
+**Design principles:**
+- **No Pydantic in the domain** — entities are native `@dataclass`, pure validation
+- **Immutability by design** — `Movement` uses `frozen=True`
+- **Technical identity separate from business identity** — `id: int | None` (technical) vs `SKU` (business)
+- **FK as references, not navigation** — `Product` has `category_id: int`, not a `Category` object
 
 ---
 
@@ -32,32 +32,27 @@ from datetime import UTC, datetime
 
 @dataclass(frozen=True)
 class Category:
-    """Categoría de productos del inventario.
-
-    Entidad inmutable: una vez construida, no puede modificarse.
+    """Product category grouping entity.
 
     Attributes:
-        id: Identificador técnico (None hasta persistencia).
-        name: Nombre único de la categoría (no vacío).
-        description: Descripción opcional.
-        created_at: Marca de tiempo de creación (timezone-aware).
+        id: Technical identifier (None until persistence).
+        name: Category name (must be unique, non-empty).
+        description: Optional description.
+        created_at: Creation timestamp (UTC, timezone-aware).
     """
 
-    id: int | None
-    name: str
-    description: str | None
-    created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
-
-    def __post_init__(self) -> None:
-        if not self.name or not self.name.strip():
-            raise ValueError("Category name cannot be empty")
+    id: int | None = None
+    name: str = field(repr=False)
+    description: str = ""
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     __hash__ = None  # type: ignore[assignment]
 ```
 
 **Invariants:**
-- `name` no puede ser vacío ni solo espacios
-- `id` es `None` hasta que se persiste en la base de datos
+- `name` cannot be empty or only whitespace
+- `name` must be unique at the DB level (UNIQUE constraint)
+- `created_at` is set on creation, never changes
 
 ---
 
@@ -69,34 +64,28 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from src.domain.value_objects.sku import SKU
-
 
 @dataclass(frozen=True)
 class Product:
-    """Producto del inventario.
-
-    Entidad inmutable: una vez construida, no puede modificarse.
+    """Inventory product entity.
 
     Attributes:
-        id: Identificador técnico (None hasta persistencia).
-        sku: Identificador de negocio (Value Object validado).
-        name: Nombre del producto (no vacío).
-        description: Descripción opcional.
-        unit_of_measure: Unidad de medida.
-        category_id: Referencia FK a Category (no navegación).
-        min_stock_threshold: Umbral mínimo de stock (>= 0).
-        created_at: Marca de tiempo de creación (timezone-aware).
+        id: Technical identifier (None until persistence).
+        sku: Business identifier (SKU value object).
+        name: Product name (non-empty).
+        category_id: FK reference to category (not a Category object).
+        min_stock_threshold: Minimum stock level for alerts.
+        unit_of_measure: Measurement unit (e.g., 'units', 'kg', 'liters').
+        created_at: Creation timestamp (UTC, timezone-aware).
     """
 
-    id: int | None
-    sku: SKU
-    name: str
-    description: str | None
-    unit_of_measure: str
+    id: int | None = None
+    sku: str = field(compare=False)
+    name: str = field(repr=False)
     category_id: int
     min_stock_threshold: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
+    unit_of_measure: str = "units"
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
@@ -110,10 +99,10 @@ class Product:
 ```
 
 **Invariants:**
-- `name` no puede ser vacío ni solo espacios
+- `name` cannot be empty or whitespace only
 - `min_stock_threshold` >= 0
-- `unit_of_measure` no puede ser vacío
-- `sku` ya está validado por el Value Object `SKU`
+- `unit_of_measure` cannot be empty
+- `sku` is already validated by the `SKU` Value Object
 
 ---
 
@@ -132,19 +121,19 @@ from src.domain.value_objects.quantity import Quantity
 
 @dataclass(frozen=True)
 class Movement:
-    """Movimiento de inventario — Source of Truth inmutable.
+    """Inventory movement — Immutable Source of Truth.
 
-    Una vez creado, un Movement no se modifica. Las correcciones se
-    realizan mediante movimientos compensatorios (type: ADJUSTMENT).
+    Once created, a Movement is never modified. Corrections are
+    performed via compensatory movements (type: ADJUSTMENT).
 
     Attributes:
-        id: Identificador técnico (None hasta persistencia).
-        product_id: Referencia FK al producto afectado.
-        movement_type: Tipo de movimiento (IN, OUT, ADJUSTMENT, TRANSFER).
-        quantity: Cantidad movida (siempre > 0).
-        metadata: Datos contextuales opcionales (origen/destino, razón, etc.).
-        reference: Referencia externa (número de orden, factura, etc.).
-        created_at: Marca de tiempo de creación (timezone-aware).
+        id: Technical identifier (None until persistence).
+        product_id: FK reference to the affected product.
+        movement_type: Type of movement (IN, OUT, ADJUSTMENT, TRANSFER).
+        quantity: Moved quantity (always > 0).
+        metadata: Optional contextual data (origin/destination, reason, etc.).
+        reference: External reference (order number, invoice, etc.).
+        created_at: Creation timestamp (timezone-aware).
     """
 
     id: int | None
@@ -156,12 +145,12 @@ class Movement:
     reference: str | None = None
 
     def __post_init__(self) -> None:
-        # frozen=True previene mutaciones en runtime
-        # Validación adicional de metadata según tipo de movimiento
+        # frozen=True prevents mutations at runtime
+        # Additional metadata validation by movement type
         self._validate_metadata_consistency()
 
     def _validate_metadata_consistency(self) -> None:
-        """Valida que el metadata sea consistente con el tipo de movimiento."""
+        """Validates that metadata is consistent with movement type."""
         if self.movement_type == MovementType.TRANSFER:
             if "origin" not in self.metadata or "destination" not in self.metadata:
                 raise ValueError(
@@ -175,11 +164,11 @@ class Movement:
 ```
 
 **Invariants:**
-- `frozen=True` — inmutable por diseño del lenguaje
-- `quantity.value` siempre > 0 (validado por `Quantity` VO)
-- `TRANSFER` requiere `origin` y `destination` en metadata
-- `ADJUSTMENT` requiere `reason` en metadata
-- **No tiene métodos mutadores** — las correcciones son nuevos movimientos
+- `frozen=True` — immutable by language design
+- `quantity.value` always > 0 (validated by `Quantity` VO)
+- `TRANSFER` requires `origin` and `destination` in metadata
+- `ADJUSTMENT` requires `reason` in metadata
+- **No mutator methods** — corrections are new movements
 
 ---
 
@@ -194,17 +183,17 @@ from enum import StrEnum
 
 
 class MovementType(StrEnum):
-    """Tipo de movimiento de inventario.
+    """Inventory movement type.
 
-    Usa StrEnum (Python 3.11+) para serialización directa a string
-    sin mixin boilerplate. Mapea 1:1 con el ENUM nativo de PostgreSQL
-    `movement_type`.
+    Uses StrEnum (Python 3.11+) for direct string serialization
+    without mixin boilerplate. Maps 1:1 to the native PostgreSQL
+    `movement_type` ENUM.
 
     Values:
-        IN: Entrada de stock al inventario.
-        OUT: Salida de stock del inventario.
-        ADJUSTMENT: Ajuste de stock (siempre cantidad positiva).
-        TRANSFER: Transferencia entre ubicaciones (metadata con origin/destination).
+        IN: Stock entry into inventory.
+        OUT: Stock exit from inventory.
+        ADJUSTMENT: Stock adjustment (always positive quantity).
+        TRANSFER: Transfer between locations (metadata with origin/destination).
     """
 
     IN = "IN"
@@ -214,8 +203,8 @@ class MovementType(StrEnum):
 ```
 
 **Invariants:**
-- Conjunto cerrado de 4 valores (no extensible en runtime)
-- Mapeo exacto con el ENUM de PostgreSQL definido en migración 001
+- Closed set of 4 values (not extensible at runtime)
+- Exact mapping with PostgreSQL ENUM defined in migration 001
 
 ---
 
@@ -230,13 +219,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class SKU:
-    """Stock Keeping Unit — identificador de negocio del producto.
+    """Stock Keeping Unit — product business identifier.
 
     Attributes:
-        value: Valor del SKU (no vacío, max 50 chars, alfanumérico + guiones).
+        value: SKU value (non-empty, max 50 chars, alphanumeric + hyphens).
 
     Raises:
-        InvalidSKUError: Si el valor no cumple las reglas de formato.
+        InvalidSKUError: If the value does not meet format rules.
     """
 
     value: str
@@ -255,10 +244,10 @@ class SKU:
 ```
 
 **Invariants:**
-- No vacío
-- Longitud máxima: 50 caracteres
-- Caracteres permitidos: alfanuméricos, guiones (`-`), guiones bajos (`_`)
-- Inmutable (`frozen=True`)
+- Not empty
+- Maximum length: 50 characters
+- Allowed characters: alphanumeric, hyphens (`-`), underscores (`_`)
+- Immutable (`frozen=True`)
 
 ---
 
@@ -272,13 +261,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Quantity:
-    """Cantidad de un movimiento de inventario.
+    """Quantity of an inventory movement.
 
     Attributes:
-        value: Valor numérico de la cantidad (siempre > 0).
+        value: Numeric value of the quantity (always > 0).
 
     Raises:
-        InvalidQuantityError: Si el valor no es positivo.
+        InvalidQuantityError: If the value is not positive.
     """
 
     value: int
@@ -291,9 +280,9 @@ class Quantity:
 ```
 
 **Invariants:**
-- `value` siempre > 0
-- Entero (no flotante)
-- Inmutable (`frozen=True`)
+- `value` always > 0
+- Integer (not float)
+- Immutable (`frozen=True`)
 
 ---
 
@@ -303,10 +292,10 @@ class Quantity:
 
 ```python
 class DomainError(Exception):
-    """Excepción base del dominio.
+    """Base domain exception.
 
-    Todas las excepciones de dominio heredan de esta clase para
-    permitir captura genérica sin atrapar excepciones del sistema.
+    All domain exceptions inherit from this class to
+    allow generic catching without catching system exceptions.
     """
 ```
 
@@ -338,7 +327,7 @@ from src.domain.exceptions.domain_error import DomainError
 
 
 class ProductNotFoundError(DomainError):
-    """Producto no encontrado en el inventario."""
+    """Product not found in inventory."""
 
     def __init__(self, product_id: int) -> None:
         self.product_id = product_id
@@ -346,7 +335,7 @@ class ProductNotFoundError(DomainError):
 
 
 class CategoryNotFoundError(DomainError):
-    """Categoría no encontrada en el inventario."""
+    """Category not found in inventory."""
 
     def __init__(self, category_id: int) -> None:
         self.category_id = category_id
@@ -354,7 +343,7 @@ class CategoryNotFoundError(DomainError):
 
 
 class InsufficientStockError(DomainError):
-    """El stock resultante sería negativo tras aplicar un movimiento."""
+    """The resulting stock would be negative after applying a movement."""
 
     def __init__(self, product_id: int, requested: int, available: int) -> None:
         self.product_id = product_id
@@ -367,7 +356,7 @@ class InsufficientStockError(DomainError):
 
 
 class ImmutabilityViolationError(DomainError):
-    """Se intentó modificar una entidad inmutable."""
+    """Attempted to modify an immutable entity."""
 
     def __init__(self, entity_type: str, entity_id: int | None = None) -> None:
         self.entity_type = entity_type
@@ -378,7 +367,7 @@ class ImmutabilityViolationError(DomainError):
 
 
 class InvalidSKUError(DomainError):
-    """El SKU no cumple las reglas de formato."""
+    """SKU does not meet format rules."""
 
     def __init__(self, value: str) -> None:
         self.value = value
@@ -386,7 +375,7 @@ class InvalidSKUError(DomainError):
 
 
 class InvalidQuantityError(DomainError):
-    """La cantidad no es un entero positivo."""
+    """Quantity is not a positive integer."""
 
     def __init__(self, value: int) -> None:
         self.value = value
@@ -438,4 +427,4 @@ class InvalidQuantityError(DomainError):
 
 1. Should `SKU` allow dots (`.`) in addition to hyphens and underscores? (Some industries use `PROD.001`)
 2. Should `Product.__post_init__` validate `unit_of_measure` against a known set of values?
-3. ~~Should `Movement` have a `__hash__` method for use in sets/dicts?~~ → **Resolved:** Todas las entidades tienen `__hash__ = None` para prevenir uso en sets/dicts (semántica de identidad, no valor).
+3. ~~Should `Movement` have a `__hash__` method for use in sets/dicts?~~ → **Resolved:** All entities have `__hash__ = None` to prevent use in sets/dicts (identity semantics, not value).

@@ -1,36 +1,36 @@
-# SPEC-41: DTOs & Validación Pydantic
+# SPEC-41: DTOs & Pydantic Validation
 
-**Fase:** F4 — Capa API (Casos de Uso + Endpoints)  
-**Dependencias:** Spec-40 (Casos de Uso) ✅ Pendiente  
-**Prioridad:** Alta  
-**Estado:** Pendiente  
+**Phase:** F4 — API Layer (Use Cases + Endpoints)  
+**Dependencies:** Spec-40 (Use Cases) ✅ Pending  
+**Priority:** High  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Definir los modelos Pydantic (BaseModel) de **Input** y **Output** separados para cada recurso expuesto por la API. Los DTOs de input validan y transforman datos del request HTTP antes de pasarlos al use case. Los DTOs de output serializan las entidades/datos del use case al formato JSON de respuesta.
+Define separate Pydantic models (BaseModel) for **Input** and **Output** for each resource exposed by the API. Input DTOs validate and transform HTTP request data before passing it to the use case. Output DTOs serialize entities/use case data to the JSON response format.
 
-**Principios de diseño:**
-- **Input/Output separados** — `CreateMovementInput` (sin `id`, sin `created_at`) vs `MovementOutput` (con `id`, con `created_at`). Nunca el mismo modelo para ambos.
-- **Validación en el límite del sistema** — Los DTOs de input son la primera línea de defensa. Si un dato pasa el DTO, el use case puede confiar en él.
-- **snake_case en la API** — Consistente con Python. No usar `camelCase` ni aliases.
-- **Strict mode en input** — `ConfigDict(strict=True)` previene coerción silenciosa de tipos (ej: `"123"` → `123`).
-- **Value Objects no se exponen** — Los DTOs usan tipos primitivos (`str`, `int`, `float`). El use case construye los VOs (`SKU`, `Quantity`) a partir de los datos validados.
-- **Formato de error consistente** — `ErrorResponse` con `{error: {code, message, details?}}` para todos los endpoints.
+**Design principles:**
+- **Separate Input/Output** — `CreateMovementInput` (no `id`, no `created_at`) vs `MovementOutput` (with `id`, with `created_at`). Never the same model for both.
+- **Validation at the system boundary** — Input DTOs are the first line of defense. If data passes the DTO, the use case can trust it.
+- **snake_case in the API** — Consistent with Python. Do not use `camelCase` or aliases.
+- **Strict mode in input** — `ConfigDict(strict=True)` prevents silent type coercion (e.g., `"123"` → `123`).
+- **Value Objects are not exposed** — DTOs use primitive types (`str`, `int`, `float`). The use case builds VOs (`SKU`, `Quantity`) from validated data.
+- **Consistent error format** — `ErrorResponse` with `{error: {code, message, details?}}` for all endpoints.
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Input/Output separados (no unificados) | Claridad semántica: input = lo que el cliente envía, output = lo que el servidor retorna. Evita confusión con campos Optional |
-| `strict=True` solo en input DTOs | Los output DTOs reciben datos ya validados del use case; strict mode innecesario y podría romper serialización |
-| `snake_case` en API (no `camelCase`) | Consistente con Python, más simple (sin aliases), y el consumidor de la API es controlado por el equipo |
-| Validación condicional de metadata en `CreateMovementInput` | `@model_validator(mode="after")` verifica que TRANSFER tenga origin/destination y ADJUSTMENT tenga reason. Falla antes de llegar al use case |
-| SKU regex en DTO igual que en VO | Mismo patrón `^[A-Za-z0-9\-_]{1,50}$` en ambos lados para mensajes de error consistentes y fail-fast en el boundary HTTP |
-| `ErrorResponse` con `code` machine-readable | Permite al consumidor de la API tomar decisiones programáticas sin parsear `message` |
+| Separate Input/Output (not unified) | Semantic clarity: input = what the client sends, output = what the server returns. Avoids confusion with Optional fields |
+| `strict=True` only in input DTOs | Output DTOs receive already validated data from the use case; strict mode is unnecessary and could break serialization |
+| `snake_case` in API (not `camelCase`) | Consistent with Python, simpler (no aliases), and the API consumer is controlled by the team |
+| Conditional metadata validation in `CreateMovementInput` | `@model_validator(mode="after")` verifies that TRANSFER has origin/destination and ADJUSTMENT has reason. Fails before reaching the use case |
+| SKU regex in DTO same as in VO | Same pattern `^[A-Za-z0-9\-_]{1,50}$` on both sides for consistent error messages and fail-fast at the HTTP boundary |
+| `ErrorResponse` with machine-readable `code` | Allows the API consumer to make programmatic decisions without parsing `message` |
 
 ---
 
@@ -47,7 +47,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class MovementTypeInput(StrEnum):
-    """Tipo de movimiento de inventario (serializable a JSON)."""
+    """Inventory movement type (serializable to JSON)."""
 
     IN = "IN"
     OUT = "OUT"
@@ -56,9 +56,9 @@ class MovementTypeInput(StrEnum):
 
 
 class CreateMovementInput(BaseModel):
-    """Datos de entrada para registrar un movimiento de stock.
+    """Input data to register a stock movement.
 
-    Ejemplo::
+    Example::
 
         {
             "product_id": 1,
@@ -73,27 +73,27 @@ class CreateMovementInput(BaseModel):
 
     product_id: int = Field(
         gt=0,
-        description="ID del producto al que afecta el movimiento.",
+        description="ID of the product affected by the movement.",
         json_schema_extra={"examples": [1]},
     )
     movement_type: MovementTypeInput = Field(
-        description="Tipo de movimiento: IN, OUT, ADJUSTMENT, TRANSFER.",
+        description="Movement type: IN, OUT, ADJUSTMENT, TRANSFER.",
         json_schema_extra={"examples": ["IN"]},
     )
     quantity: int = Field(
         gt=0,
-        description="Cantidad positiva de unidades.",
+        description="Positive quantity of units.",
         json_schema_extra={"examples": [10]},
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="Datos contextuales. Obligatorio para TRANSFER y ADJUSTMENT.",
+        description="Contextual data. Required for TRANSFER and ADJUSTMENT.",
         json_schema_extra={"examples": [{"supplier": "ACME"}]},
     )
     reference: str | None = Field(
         default=None,
         max_length=255,
-        description="Referencia externa opcional (orden, nota, etc.).",
+        description="Optional external reference (order, note, etc.).",
         json_schema_extra={"examples": ["PO-12345"]},
     )
 
@@ -103,22 +103,22 @@ class CreateMovementInput(BaseModel):
         cls,
         v: str | MovementTypeInput,
     ) -> MovementTypeInput:
-        """Convierte strings a MovementTypeInput enum.
+        """Converts strings to MovementTypeInput enum.
 
-        Con strict=True, Pydantic requiere enum instances, no strings.
-        Este validator permite que la API acepte strings (ej: "IN") y los
-        convierta a enum antes de la validacion estricta.
+        With strict=True, Pydantic requires enum instances, not strings.
+        This validator allows the API to accept strings (e.g., "IN") and
+        convert them to enum before strict validation.
         """
         if isinstance(v, MovementTypeInput):
             return v
         return MovementTypeInput(v)
-        """Valida metadata condicional segun el tipo de movimiento.
+        """Validates metadata conditionally based on movement type.
 
-        TRANSFER requiere 'origin' y 'destination' en metadata.
-        ADJUSTMENT requiere 'reason' en metadata.
+        TRANSFER requires 'origin' and 'destination' in metadata.
+        ADJUSTMENT requires 'reason' in metadata.
 
         Raises:
-            ValueError: Si la metadata es insuficiente para el tipo.
+            ValueError: If metadata is insufficient for the type.
         """
         if self.movement_type == MovementTypeInput.TRANSFER:
             if "origin" not in self.metadata or "destination" not in self.metadata:
@@ -132,9 +132,9 @@ class CreateMovementInput(BaseModel):
 ```
 
 **Design Notes:**
-- `quantity: int` (no `int | float`) en el input — la API solo acepta enteros. El use case puede convertir si es necesario. Si en el futuro se necesitan decimales, se cambia a `int | float` sin romper el contrato.
-- `metadata: dict[str, str]` — valores como strings para simplicidad. El use case puede interpretar los valores según el contexto.
-- `@model_validator(mode="after")` se ejecuta después de la validación de campos individuales. Si `movement_type` es inválido, Pydantic ya lanzó antes de llegar aquí.
+- `quantity: int` (not `int | float`) in input — the API only accepts integers. The use case can convert if necessary. If decimals are needed in the future, change to `int | float` without breaking the contract.
+- `metadata: dict[str, str]` — values as strings for simplicity. The use case can interpret values according to context.
+- `@model_validator(mode="after")` runs after individual field validation. If `movement_type` is invalid, Pydantic already raises before reaching here.
 
 #### Output: `MovementOutput`
 
@@ -145,9 +145,9 @@ from pydantic import BaseModel, Field
 
 
 class MovementOutput(BaseModel):
-    """Datos de salida de un movimiento de stock.
+    """Output data for a stock movement.
 
-    Ejemplo::
+    Example::
 
         {
             "id": 42,
@@ -160,13 +160,13 @@ class MovementOutput(BaseModel):
         }
     """
 
-    id: int = Field(description="Identificador unico del movimiento.")
-    product_id: int = Field(description="ID del producto afectado.")
-    movement_type: str = Field(description="Tipo de movimiento.")
-    quantity: int = Field(description="Cantidad de unidades.")
-    metadata: dict[str, Any] = Field(description="Datos contextuales.")
-    reference: str | None = Field(description="Referencia externa.")
-    created_at: datetime = Field(description="Fecha y hora UTC del movimiento.")
+    id: int = Field(description="Unique identifier of the movement.")
+    product_id: int = Field(description="ID of the affected product.")
+    movement_type: str = Field(description="Movement type.")
+    quantity: int = Field(description="Quantity of units.")
+    metadata: dict[str, Any] = Field(description="Contextual data.")
+    reference: str | None = Field(description="External reference.")
+    created_at: datetime = Field(description="UTC date and time of the movement.")
 ```
 
 #### List Output: `MovementListOutput`
@@ -176,9 +176,9 @@ from pydantic import BaseModel, Field
 
 
 class MovementListOutput(BaseModel):
-    """Respuesta paginada de lista de movimientos.
+    """Paginated response for movement list.
 
-    Ejemplo::
+    Example::
 
         {
             "items": [...],
@@ -188,10 +188,10 @@ class MovementListOutput(BaseModel):
         }
     """
 
-    items: list[MovementOutput] = Field(description="Lista de movimientos.")
-    total: int = Field(description="Total de movimientos disponibles.")
-    limit: int = Field(description="Limite aplicado en la consulta.")
-    offset: int = Field(description="Desplazamiento aplicado en la consulta.")
+    items: list[MovementOutput] = Field(description="List of movements.")
+    total: int = Field(description="Total number of available movements.")
+    limit: int = Field(description="Limit applied in the query.")
+    offset: int = Field(description="Offset applied in the query.")
 ```
 
 ---
@@ -205,9 +205,9 @@ from pydantic import BaseModel, Field
 
 
 class CurrentStockOutput(BaseModel):
-    """Stock actual de un producto.
+    """Current stock for a product.
 
-    Ejemplo::
+    Example::
 
         {
             "product_id": 1,
@@ -215,8 +215,8 @@ class CurrentStockOutput(BaseModel):
         }
     """
 
-    product_id: int = Field(description="ID del producto.")
-    current_stock: float = Field(description="Stock actual (puede ser decimal).")
+    product_id: int = Field(description="ID of the product.")
+    current_stock: float = Field(description="Current stock (can be decimal).")
 ```
 
 #### Output: `StockAtDateOutput`
@@ -228,9 +228,9 @@ from pydantic import BaseModel, Field
 
 
 class StockAtDateOutput(BaseModel):
-    """Stock de un producto en una fecha historica.
+    """Stock for a product at a historical date.
 
-    Ejemplo::
+    Example::
 
         {
             "product_id": 1,
@@ -239,9 +239,9 @@ class StockAtDateOutput(BaseModel):
         }
     """
 
-    product_id: int = Field(description="ID del producto.")
-    stock: float = Field(description="Stock en la fecha especificada.")
-    date: datetime = Field(description="Fecha de consulta.")
+    product_id: int = Field(description="ID of the product.")
+    stock: float = Field(description="Stock at the specified date.")
+    date: datetime = Field(description="Query date.")
 ```
 
 ---
@@ -255,16 +255,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class CreateProductInput(BaseModel):
-    """Datos de entrada para crear un producto.
+    """Input data to create a product.
 
-    Ejemplo::
+    Example::
 
         {
             "sku": "PROD-001",
             "name": "Widget A",
             "unit_of_measure": "unit",
             "category_id": 1,
-            "description": "Widget de prueba",
+            "description": "Test widget",
             "min_stock_threshold": 10
         }
     """
@@ -275,44 +275,44 @@ class CreateProductInput(BaseModel):
         min_length=1,
         max_length=50,
         pattern=r"^[A-Za-z0-9\-_]{1,50}$",
-        description="Codigo SKU unico del producto.",
+        description="Unique SKU code for the product.",
         json_schema_extra={"examples": ["PROD-001"]},
     )
     name: str = Field(
         min_length=1,
         max_length=255,
-        description="Nombre del producto.",
+        description="Product name.",
         json_schema_extra={"examples": ["Widget A"]},
     )
     unit_of_measure: str = Field(
         min_length=1,
         max_length=50,
-        description="Unidad de medida (e.g., 'unit', 'kg', 'liter').",
+        description="Unit of measure (e.g., 'unit', 'kg', 'liter').",
         json_schema_extra={"examples": ["unit"]},
     )
     category_id: int = Field(
         gt=0,
-        description="ID de la categoria a la que pertenece.",
+        description="ID of the category it belongs to.",
         json_schema_extra={"examples": [1]},
     )
     description: str | None = Field(
         default=None,
         max_length=1000,
-        description="Descripcion opcional del producto.",
-        json_schema_extra={"examples": ["Widget de prueba"]},
+        description="Optional product description.",
+        json_schema_extra={"examples": ["Test widget"]},
     )
     min_stock_threshold: int = Field(
         default=0,
         ge=0,
-        description="Umbral minimo de stock para alertas.",
+        description="Minimum stock threshold for alerts.",
         json_schema_extra={"examples": [10]},
     )
 ```
 
 **Design Notes:**
-- El patrón regex del SKU es idéntico al del VO `SKU` (`^[A-Za-z0-9\-_]{1,50}$`) para consistencia
-- `category_id: int > 0` — el use case verificará que la categoría existe
-- `min_stock_threshold: int >= 0` — validación de dominio reflejada en el DTO
+- The SKU regex pattern is identical to the `SKU` VO (`^[A-Za-z0-9\-_]{1,50}$`) for consistency
+- `category_id: int > 0` — the use case will verify that the category exists
+- `min_stock_threshold: int >= 0` — domain validation reflected in the DTO
 
 #### Output: `ProductOutput`
 
@@ -323,15 +323,15 @@ from pydantic import BaseModel, Field
 
 
 class ProductOutput(BaseModel):
-    """Datos de salida de un producto.
+    """Output data for a product.
 
-    Ejemplo::
+    Example::
 
         {
             "id": 1,
             "sku": "PROD-001",
             "name": "Widget A",
-            "description": "Widget de prueba",
+            "description": "Test widget",
             "unit_of_measure": "unit",
             "category_id": 1,
             "min_stock_threshold": 10,
@@ -339,14 +339,14 @@ class ProductOutput(BaseModel):
         }
     """
 
-    id: int = Field(description="Identificador unico del producto.")
-    sku: str = Field(description="Codigo SKU.")
-    name: str = Field(description="Nombre del producto.")
-    description: str | None = Field(description="Descripcion opcional.")
-    unit_of_measure: str = Field(description="Unidad de medida.")
-    category_id: int = Field(description="ID de la categoria.")
-    min_stock_threshold: int = Field(description="Umbral minimo de stock.")
-    created_at: datetime = Field(description="Fecha y hora UTC de creacion.")
+    id: int = Field(description="Unique identifier of the product.")
+    sku: str = Field(description="SKU code.")
+    name: str = Field(description="Product name.")
+    description: str | None = Field(description="Optional description.")
+    unit_of_measure: str = Field(description="Unit of measure.")
+    category_id: int = Field(description="Category ID.")
+    min_stock_threshold: int = Field(description="Minimum stock threshold.")
+    created_at: datetime = Field(description="UTC creation date and time.")
 ```
 
 #### List Output: `ProductListOutput`
@@ -356,9 +356,9 @@ from pydantic import BaseModel, Field
 
 
 class ProductListOutput(BaseModel):
-    """Respuesta paginada de lista de productos.
+    """Paginated response for product list.
 
-    Ejemplo::
+    Example::
 
         {
             "items": [...],
@@ -368,10 +368,10 @@ class ProductListOutput(BaseModel):
         }
     """
 
-    items: list[ProductOutput] = Field(description="Lista de productos.")
-    total: int = Field(description="Total de productos disponibles.")
-    limit: int = Field(description="Limite aplicado en la consulta.")
-    offset: int = Field(description="Desplazamiento aplicado en la consulta.")
+    items: list[ProductOutput] = Field(description="List of products.")
+    total: int = Field(description="Total number of available products.")
+    limit: int = Field(description="Limit applied in the query.")
+    offset: int = Field(description="Offset applied in the query.")
 ```
 
 ---
@@ -385,13 +385,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class CreateCategoryInput(BaseModel):
-    """Datos de entrada para crear una categoria.
+    """Input data to create a category.
 
-    Ejemplo::
+    Example::
 
         {
             "name": "Electronics",
-            "description": "Productos electronicos"
+            "description": "Electronic products"
         }
     """
 
@@ -400,14 +400,14 @@ class CreateCategoryInput(BaseModel):
     name: str = Field(
         min_length=1,
         max_length=100,
-        description="Nombre de la categoria.",
+        description="Category name.",
         json_schema_extra={"examples": ["Electronics"]},
     )
     description: str | None = Field(
         default=None,
         max_length=500,
-        description="Descripcion opcional de la categoria.",
-        json_schema_extra={"examples": ["Productos electronicos"]},
+        description="Optional category description.",
+        json_schema_extra={"examples": ["Electronic products"]},
     )
 ```
 
@@ -420,22 +420,22 @@ from pydantic import BaseModel, Field
 
 
 class CategoryOutput(BaseModel):
-    """Datos de salida de una categoria.
+    """Output data for a category.
 
-    Ejemplo::
+    Example::
 
         {
             "id": 1,
             "name": "Electronics",
-            "description": "Productos electronicos",
+            "description": "Electronic products",
             "created_at": "2025-05-18T14:30:00Z"
         }
     """
 
-    id: int = Field(description="Identificador unico de la categoria.")
-    name: str = Field(description="Nombre de la categoria.")
-    description: str | None = Field(description="Descripcion opcional.")
-    created_at: datetime = Field(description="Fecha y hora UTC de creacion.")
+    id: int = Field(description="Unique identifier of the category.")
+    name: str = Field(description="Category name.")
+    description: str | None = Field(description="Optional description.")
+    created_at: datetime = Field(description="UTC creation date and time.")
 ```
 
 ---
@@ -449,9 +449,9 @@ from pydantic import BaseModel, Field
 
 
 class ErrorDetail(BaseModel):
-    """Detalle de un error de API.
+    """API error detail.
 
-    Ejemplo::
+    Example::
 
         {
             "code": "INSUFFICIENT_STOCK",
@@ -461,21 +461,21 @@ class ErrorDetail(BaseModel):
     """
 
     code: str = Field(
-        description="Codigo de error machine-readable (UPPER_SNAKE_CASE)."
+        description="Machine-readable error code (UPPER_SNAKE_CASE)."
     )
-    message: str = Field(description="Mensaje legible para humanos.")
+    message: str = Field(description="Human-readable message.")
     details: dict[str, str | int | float] | None = Field(
         default=None,
-        description="Contexto adicional del error (opcional).",
+        description="Additional error context (optional).",
     )
 
 
 class ErrorResponse(BaseModel):
-    """Envoltura de respuesta de error.
+    """Error response wrapper.
 
-    Todos los endpoints retornan este formato en caso de error.
+    All endpoints return this format in case of error.
 
-    Ejemplo::
+    Example::
 
         {
             "error": {
@@ -485,7 +485,7 @@ class ErrorResponse(BaseModel):
         }
     """
 
-    error: ErrorDetail = Field(description="Detalle del error.")
+    error: ErrorDetail = Field(description="Error detail.")
 ```
 
 ---
@@ -499,56 +499,56 @@ class ErrorResponse(BaseModel):
 | `src/application/dtos/product_dtos.py` | `CreateProductInput`, `ProductOutput`, `ProductListOutput` |
 | `src/application/dtos/category_dtos.py` | `CreateCategoryInput`, `CategoryOutput` |
 | `src/application/dtos/error_dtos.py` | `ErrorResponse`, `ErrorDetail` |
-| `src/application/dtos/__init__.py` | Re-exports: todos los DTOs |
+| `src/application/dtos/__init__.py` | Re-exports: all DTOs |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Todos los input DTOs usan `ConfigDict(strict=True)` para evitar coerction silenciosa
-- [ ] `CreateMovementInput` valida metadata condicionalmente via `@model_validator(mode="after")`
-- [ ] `CreateProductInput` valida SKU con regex `^[A-Za-z0-9\-_]{1,50}$` (mismo patron que VO `SKU`)
-- [ ] Los input DTOs NO tienen campos `id` ni `created_at` (los genera el servidor)
-- [ ] Los output DTOs SI tienen campos `id` y `created_at`
-- [ ] `ErrorResponse` tiene formato consistente: `{error: {code, message, details?}}`
-- [ ] Todos los DTOs incluyen `json_schema_extra` con ejemplos para OpenAPI
-- [ ] `src/application/dtos/__init__.py` exporta todos los DTOs publicos
-- [ ] `make lint` pasa sin errores en todos los archivos de DTOs
+- [ ] All input DTOs use `ConfigDict(strict=True)` to prevent silent coercion
+- [ ] `CreateMovementInput` validates metadata conditionally via `@model_validator(mode="after")`
+- [ ] `CreateProductInput` validates SKU with regex `^[A-Za-z0-9\-_]{1,50}$` (same pattern as VO `SKU`)
+- [ ] Input DTOs do NOT have `id` or `created_at` fields (generated by the server)
+- [ ] Output DTOs DO have `id` and `created_at` fields
+- [ ] `ErrorResponse` has consistent format: `{error: {code, message, details?}}`
+- [ ] All DTOs include `json_schema_extra` with examples for OpenAPI
+- [ ] `src/application/dtos/__init__.py` exports all public DTOs
+- [ ] `make lint` passes without errors on all DTO files
 
 ---
 
 ## Testing Strategy
 
-- **Tests unitarios de validación de input** — Para cada input DTO:
-  - Datos válidos: se construye sin error
-  - Datos inválidos: lanza `ValidationError` con mensaje descriptivo
-  - Campos requeridos omitidos: lanza `ValidationError`
-  - Constraints (`gt=0`, `ge=0`, `min_length`, `max_length`, `pattern`): validar que se aplican
+- **Input validation unit tests** — For each input DTO:
+  - Valid data: constructs without error
+  - Invalid data: raises `ValidationError` with descriptive message
+  - Required fields omitted: raises `ValidationError`
+  - Constraints (`gt=0`, `ge=0`, `min_length`, `max_length`, `pattern`): verify they are applied
 
-- **`CreateMovementInput` — validación condicional:**
-  - TRANSFER sin origin/destination: `ValueError`
-  - TRANSFER con origin y destination: OK
-  - ADJUSTMENT sin reason: `ValueError`
-  - ADJUSTMENT con reason: OK
-  - IN/OUT con metadata vacía: OK
-  - IN/OUT sin metadata: OK (default Factory)
+- **`CreateMovementInput` — conditional validation:**
+  - TRANSFER without origin/destination: `ValueError`
+  - TRANSFER with origin and destination: OK
+  - ADJUSTMENT without reason: `ValueError`
+  - ADJUSTMENT with reason: OK
+  - IN/OUT with empty metadata: OK
+  - IN/OUT without metadata: OK (default factory)
 
 - **`CreateProductInput` — SKU validation:**
-  - SKU válido (`PROD-001`): OK
-  - SKU vacío: `ValidationError`
-  - SKU con caracteres especiales (`PROD@001`): `ValidationError`
+  - Valid SKU (`PROD-001`): OK
+  - Empty SKU: `ValidationError`
+  - SKU with special characters (`PROD@001`): `ValidationError`
   - SKU > 50 chars: `ValidationError`
 
-- **Tests de serialización de output** — Construir cada output DTO, verificar que `model.model_dump_json()` produce JSON válido con los campos esperados
+- **Output serialization tests** — Construct each output DTO, verify that `model.model_dump_json()` produces valid JSON with expected fields
 
-- **Tests de `ErrorResponse`** — Construir con cada tipo de error, verificar formato consistente
+- **`ErrorResponse` tests** — Construct with each error type, verify consistent format
 
 ---
 
 ## Resolved Questions
 
-1. **¿La API usa snake_case o camelCase para los campos JSON?** → **snake_case.** Consistente con Python, más simple (sin aliases), y el consumidor de la API es controlado por el equipo. Si en el futuro se necesita soporte para clientes frontend que exigen camelCase, se pueden añadir aliases sin romper el contrato interno.
+1. **Does the API use snake_case or camelCase for JSON fields?** → **snake_case.** Consistent with Python, simpler (no aliases), and the API consumer is controlled by the team. If frontend clients requiring camelCase are needed in the future, aliases can be added without breaking the internal contract.
 
-2. **¿Incluir `CreateCategoryInput` y `CategoryOutput` en F4 o deferir?** → **Incluir en F4.** La categoría es un prerrequisito para crear productos (`CreateProductUseCase` verifica que la categoría existe). Sin un endpoint para crear categorías, el sistema no sería funcional para un cliente HTTP.
+2. **Include `CreateCategoryInput` and `CategoryOutput` in F4 or defer?** → **Include in F4.** Category is a prerequisite for creating products (`CreateProductUseCase` verifies the category exists). Without an endpoint to create categories, the system would not be functional for an HTTP client.
 
-3. **¿`MovementListOutput` necesita paginación con `total`/`total_pages`?** → **Sí, con `total`, `limit`, `offset`.** El patrón consistente con `ProductListOutput`. `total_pages` no se incluye porque el cliente puede calcularlo (`ceil(total / limit)`). Añadirlo en el DTO añade ambigüedad (¿redondea hacia arriba? ¿hacia abajo?). El cálculo total/items es suficiente.
+3. **Does `MovementListOutput` need pagination with `total`/`total_pages`?** → **Yes, with `total`, `limit`, `offset`.** Consistent pattern with `ProductListOutput`. `total_pages` is not included because the client can calculate it (`ceil(total / limit)`). Adding it to the DTO introduces ambiguity (does it round up? down?). The total/items calculation is sufficient.

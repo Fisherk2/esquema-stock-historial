@@ -1,21 +1,21 @@
-# Reglas de Proceso
+# Process Rules
 
-## Workflow Spec-Driven
+## Spec-Driven Workflow
 
-1. **Especificación antes que Código:** Ningún archivo de implementación (`*.py`, `*.sql`) se creará sin un `specs/SPEC-XX.md` validado con contratos, payloads y criterios de aceptación.
-2. **Orden Estricto del DAG:** Un spec solo pasa a `En Progreso` cuando **todas** sus dependencias estén `Completado`. Saltar dependencias rompe la trazabilidad y se rechaza automáticamente.
-3. **Dirección de Dependencias (Clean Architecture):** El código siempre apunta hacia el dominio. `infrastructure` → `application` → `domain`. Se aplica DIP mediante `typing.Protocol` y mocks en testing.
-4. **Inmutabilidad y Append-Only:** La tabla `movements` es sagrada. `UPDATE`/`DELETE` directos están prohibidos. Correcciones mediante movimientos compensatorios (`type: ADJUSTMENT`).
-5. **SQL Explícito y Optimización:** Las consultas analíticas usan CTEs/Window Functions nativas. Prohibido usar ORM para queries de stock histórico. Cada query compleja debe incluir su `EXPLAIN ANALYZE`.
-6. **Testing con Testcontainers:** Las pruebas de integración **no** mockean PostgreSQL. Se usa `testcontainers.postgres` para comportamiento 1:1 con producción.
-7. **Commits y Versionado:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`). Cada merge a `main` debe cerrar un spec completo.
-8. **Revisión de Deuda Técnica:** Si un spec lleva >48h en pendiente o bloqueado, se detienen specs dependientes y se escala a análisis de riesgo.
+1. **Specification before Code:** No implementation file (`*.py`, `*.sql`) will be created without a validated `specs/SPEC-XX.md` with contracts, payloads, and acceptance criteria.
+2. **Strict DAG Order:** A spec only transitions to `In Progress` when **all** its dependencies are `Completed`. Skipping dependencies breaks traceability and is automatically rejected.
+3. **Dependency Direction (Clean Architecture):** Code always points toward the domain. `infrastructure` → `application` → `domain`. DIP is applied via `typing.Protocol` and mocks in testing.
+4. **Immutability and Append-Only:** The `movements` table is sacred. Direct `UPDATE`/`DELETE` is prohibited. Corrections via compensatory movements (`type: ADJUSTMENT`).
+5. **Explicit SQL and Optimization:** Analytical queries use native CTEs/Window Functions. Using ORM for historical stock queries is prohibited. Each complex query must include its `EXPLAIN ANALYZE`.
+6. **Testing with Testcontainers:** Integration tests **do not** mock PostgreSQL. `testcontainers.postgres` is used for 1:1 behavior with production.
+7. **Commits and Versioning:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`). Each merge to `main` must close a complete spec.
+8. **Technical Debt Review:** If a spec has been pending or blocked for >48h, dependent specs are stopped and escalated for risk analysis.
 
-## Notas para la IA Agéntica
+## Notes for Agentic AI
 
-1. Inyectar siempre las restricciones de arquitectura (SRP, DIP, Inmutabilidad, SQL explícito, Testcontainers). Si una solicitud contradice estos principios, rechazar explícitamente y proponer alternativa alineada.
-2. Antes de escribir implementación, verificar que el spec exista, tenga contratos definidos, y que sus dependencias estén completadas. Si falta información, solicitar aclaración.
-3. Mantener registro mental del estado actual de cada spec. Al generar código, actualizar implícitamente el checklist y notificar al usuario.
-4. Aplicar conceptos de Clean Architecture, Spec-Driven Development y SOLID para justificar decisiones técnicas.
-5. Si una query supera `<100ms` en pruebas E2E, validar `EXPLAIN` primero, luego ajustar índices parciales o acotar rangos de fecha. Documentar en el spec.
-6. Mantener tono técnico, pedagógico y directo. Usar Mermaid para diagramas, tablas para contratos, y bloques de código con sintaxis destacada.
+1. Always inject architecture constraints (SRP, DIP, Immutability, Explicit SQL, Testcontainers). If a request contradicts these principles, explicitly reject it and propose an aligned alternative.
+2. Before writing implementation, verify that the spec exists, has defined contracts, and its dependencies are completed. If information is missing, request clarification.
+3. Maintain a mental record of the current state of each spec. When generating code, implicitly update the checklist and notify the user.
+4. Apply Clean Architecture, Spec-Driven Development, and SOLID concepts to justify technical decisions.
+5. If a query exceeds `<100ms` in E2E tests, validate `EXPLAIN` first, then adjust partial indexes or narrow date ranges. Document in the spec.
+6. Maintain a technical, pedagogical, and direct tone. Use Mermaid for diagrams, tables for contracts, and code blocks with syntax highlighting.

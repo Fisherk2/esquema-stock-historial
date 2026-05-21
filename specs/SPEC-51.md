@@ -1,37 +1,37 @@
 # SPEC-51: Optimistic Concurrency & Retry
 
-**Fase:** F5 — Scheduler & Concurrencia  
-**Dependencias:** Spec-40 (Casos de Uso) ✅ Completado, Spec-50 (APScheduler) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** Pendiente  
+**Phase:** F5 — Scheduler & Concurrency  
+**Dependencies:** Spec-40 (Use Cases) ✅ Completed, Spec-50 (APScheduler) ✅ Completed  
+**Priority:** High  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Implementar un decorador `@retry_with_backoff` con backoff exponencial y jitter para manejar conflictos de concurrencia de forma resiliente. Añadir la excepción de dominio `ConcurrencyConflictError` para representar conflictos de concurrencia (HTTP 409). **En F5, el decorador se aplica exclusivamente al refresh job del scheduler** — no se modifica `RecordMovementUseCase` ni otros use cases ya completados en Spec-40.
+Implement a `@retry_with_backoff` decorator with exponential backoff and jitter to handle concurrency conflicts resiliently. Add the `ConcurrencyConflictError` domain exception to represent concurrency conflicts (HTTP 409). **In F5, the decorator is applied exclusively to the scheduler's refresh job** — `RecordMovementUseCase` and other use cases already completed in Spec-40 are not modified.
 
-**Principios de diseño:**
-- **Backoff exponencial con jitter** — evita thundering herd cuando múltiples instancias reintentan simultáneamente
-- **Async-compatible** — funciona con funciones `async def`
-- **Configurable** — max retries, base delay, max delay, y tipos de excepción a capturar
-- **Logging por reintento** — cada reintento se loggea con el delay y el número de intento
-- **Fail-fast para errores no-retryables** — solo se reintentan excepciones específicas
-- **Separación de responsabilidades** — el decorador es utilitario genérico, no específico del dominio
+**Design principles:**
+- **Exponential backoff with jitter** — prevents thundering herd when multiple instances retry simultaneously
+- **Async-compatible** — works with `async def` functions
+- **Configurable** — max retries, base delay, max delay, and exception types to catch
+- **Retry logging** — each retry is logged with the delay and attempt number
+- **Fail-fast for non-retryable errors** — only specific exceptions are retried
+- **Separation of concerns** — the decorator is a generic utility, not domain-specific
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Decorador genérico (no específico de DB) | Reutilizable en cualquier operación retryable (refresh, HTTP calls, etc.) |
-| Backoff exponencial con jitter | `delay = min(base * 2^attempt + random(0, jitter), max_delay)`. Estándar de la industria (AWS, Google Cloud) |
-| Excepciones configurables por defecto | Por defecto captura `ConcurrencyConflictError` y `asyncpg.SerializationError`. Caller puede añadir más |
-| No captura `Exception` genérica | Solo reintentar errores known-retryable. Errores desconocidos deben propagarse |
-| Logging en WARNING para reintentos | INFO para éxito, WARNING para reintentos, ERROR para fallo final |
-| Máximo 3 reintentos por defecto | Balance entre resiliencia y latencia. 3 reintentos con base 1s = máx ~7s de delay total |
-| Jitter de 500ms por defecto | Suficiente para desincronizar reintentos concurrentes sin añadir demasiado delay |
+| Generic decorator (not DB-specific) | Reusable in any retryable operation (refresh, HTTP calls, etc.) |
+| Exponential backoff with jitter | `delay = min(base * 2^attempt + random(0, jitter), max_delay)`. Industry standard (AWS, Google Cloud) |
+| Configurable exceptions by default | By default catches `ConcurrencyConflictError` and `asyncpg.SerializationError`. Caller can add more |
+| Does not catch generic `Exception` | Only retry known-retryable errors. Unknown errors must propagate |
+| WARNING logging for retries | INFO for success, WARNING for retries, ERROR for final failure |
+| Maximum 3 retries by default | Balance between resilience and latency. 3 retries with 1s base = max ~7s total delay |
+| 500ms jitter by default | Sufficient to desynchronize concurrent retries without adding too much delay |
 
 ---
 
@@ -40,12 +40,12 @@ Implementar un decorador `@retry_with_backoff` con backoff exponencial y jitter 
 ### `src/domain/exceptions/concurrency_conflict.py`
 
 ```python
-"""Excepcion para conflictos de concurrencia.
+"""Exception for concurrency conflicts.
 
-Se lanza cuando una operación falla debido a un conflicto de
-concurrencia (ej: dos transacciones intentando modificar los
-mismos datos simultaneamente). El caller debe reintentar la
-operación.
+Raised when an operation fails due to a concurrency
+conflict (e.g., two transactions attempting to modify the
+same data simultaneously). The caller should retry the
+operation.
 """
 from __future__ import annotations
 
@@ -53,11 +53,11 @@ from src.domain.exceptions.domain_error import DomainError
 
 
 class ConcurrencyConflictError(DomainError):
-    """Conflicto de concurrencia en operacion.
+    """Concurrency conflict in operation.
 
-    Indica que la operacion no pudo completarse porque otro proceso
-    modifico los mismos datos simultaneamente. Se recomienda reintentar
-    con backoff exponencial.
+    Indicates that the operation could not complete because another process
+    modified the same data simultaneously. It is recommended to retry
+    with exponential backoff.
     """
 
     def __init__(self, operation: str, detail: str | None = None) -> None:
@@ -76,13 +76,13 @@ class ConcurrencyConflictError(DomainError):
 ### `src/core/retry.py`
 
 ```python
-"""Decorador de reintentos con backoff exponencial y jitter.
+"""Retry decorator with exponential backoff and jitter.
 
-Proporciona un decorador reutilizable para funciones async que
-pueden fallar transitoriamente. Implementa backoff exponencial
-con jitter para evitar thundering herd en reintentos concurrentes.
+Provides a reusable decorator for async functions that
+may fail transiently. Implements exponential backoff
+with jitter to prevent thundering herd on concurrent retries.
 
-Ejemplo::
+Example::
 
     from src.core.retry import retry_with_backoff
     from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
@@ -115,33 +115,33 @@ def retry_with_backoff(
     jitter: float = 0.5,
     exceptions: tuple[type[Exception], ...] = (),
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    """Decorador de reintentos con backoff exponencial y jitter.
+    """Retry decorator with exponential backoff and jitter.
 
-    Reintenta la funcion decorada hasta ``max_retries`` veces cuando
-    se lanza una de las excepciones especificadas. El delay entre
-    reintentos sigue la formula::
+    Retries the decorated function up to ``max_retries`` times when
+    one of the specified exceptions is raised. The delay between
+    retries follows the formula::
 
         delay = min(base_delay * 2^attempt + random(0, jitter), max_delay)
 
     Args:
-        max_retries: Numero maximo de reintentos (no cuenta el intento
-            inicial).
-        base_delay: Delay base en segundos para el primer reintento.
-        max_delay: Delay maximo en segundos (tope del backoff).
-        jitter: Rango de aleatoriedad añadido a cada delay (segundos).
-        exceptions: Tupla de excepciones que disparan el reintento.
-            **Requerido** — no usar el valor por defecto vacio, ya que
-            capturar todas las excepciones reintentaria errores no
-            recuperables (ValueError, logica, etc.).
+        max_retries: Maximum number of retries (does not count the
+            initial attempt).
+        base_delay: Base delay in seconds for the first retry.
+        max_delay: Maximum delay in seconds (backoff cap).
+        jitter: Randomness range added to each delay (seconds).
+        exceptions: Tuple of exceptions that trigger a retry.
+            **Required** — do not use the empty default value, as
+            catching all exceptions would retry non-recoverable
+            errors (ValueError, logic errors, etc.).
 
     Raises:
-        ValueError: Si ``exceptions`` esta vacio (se requiere al menos
-            una excepcion configurada).
+        ValueError: If ``exceptions`` is empty (at least one
+            exception type must be configured).
 
     Returns:
-        Decorador que envuelve la funcion con logica de reintento.
+        Decorator that wraps the function with retry logic.
 
-    Ejemplo::
+    Example::
 
         @retry_with_backoff(
             max_retries=3,
@@ -200,11 +200,11 @@ def retry_with_backoff(
 
 ---
 
-## Application: Refresh con Retry
+## Application: Refresh with Retry
 
-El decorador se aplica al job del scheduler para que el refresh de la vista sea resiliente a conflictos transaccionales:
+The decorator is applied to the scheduler job so that the view refresh is resilient to transactional conflicts:
 
-### Actualización de `src/infrastructure/scheduler/scheduler.py`
+### Update to `src/infrastructure/scheduler/scheduler.py`
 
 ```python
 from src.core.retry import retry_with_backoff
@@ -227,13 +227,13 @@ _RETRYABLE_EXCEPTIONS = (
     exceptions=_RETRYABLE_EXCEPTIONS,
 )
 async def _refresh_job(pool: Pool) -> None:
-    """Job que refresca la vista materializada con reintentos."""
+    """Job that refreshes the materialized view with retries."""
     from src.infrastructure.db.refresh import refresh_stock_view
     import time
 
     start = time.monotonic()
     _logger.info("Starting mv_stock_historical refresh")
-    await refresh_stock_view(pool)  # Puede lanzar asyncpg.SerializationFailure
+    await refresh_stock_view(pool)  # Can raise asyncpg.SerializationFailure
     elapsed = time.monotonic() - start
     _logger.info("mv_stock_historical refreshed in %.2fs", elapsed)
 ```
@@ -242,9 +242,9 @@ async def _refresh_job(pool: Pool) -> None:
 
 ## Error Handler Mapping
 
-Actualizar el error handler de Spec-42 para mapear `ConcurrencyConflictError` a HTTP 409:
+Update the error handler from Spec-42 to map `ConcurrencyConflictError` to HTTP 409:
 
-### Actualización en `src/adapters/api/middleware/error_handler.py`
+### Update in `src/adapters/api/middleware/error_handler.py`
 
 ```python
 from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
@@ -253,7 +253,7 @@ from src.domain.exceptions.concurrency_conflict import ConcurrencyConflictError
 async def handle_concurrency_conflict(
     request, exc: ConcurrencyConflictError
 ) -> JSONResponse:
-    """Mapea ConcurrencyConflictError a HTTP 409 Conflict."""
+    """Maps ConcurrencyConflictError to HTTP 409 Conflict."""
     return JSONResponse(
         status_code=409,
         content=ErrorResponse(
@@ -269,21 +269,21 @@ async def handle_concurrency_conflict(
     )
 ```
 
-### Tabla de Errores Actualizada
+### Updated Error Table
 
-| Excepción Dominio | HTTP Status | Error Code | Contexto |
+| Domain Exception | HTTP Status | Error Code | Context |
 |-------------------|-------------|------------|----------|
-| `ConcurrencyConflictError` | 409 Conflict | `CONCURRENCY_CONFLICT` | Dos operaciones concurrentes en el mismo recurso |
+| `ConcurrencyConflictError` | 409 Conflict | `CONCURRENCY_CONFLICT` | Two concurrent operations on the same resource |
 
 ---
 
 ## Retry Parameter Guide
 
-| Escenario | max_retries | base_delay | max_delay | Rationale |
+| Scenario | max_retries | base_delay | max_delay | Rationale |
 |-----------|-------------|------------|-----------|-----------|
-| Refresh de vista (F5) | 3 | 1.0s | 10.0s | Operación background, puede esperar |
+| View refresh (F5) | 3 | 1.0s | 10.0s | Background operation, can wait |
 
-> **Nota:** En F5 el retry solo se aplica al refresh job. Si en F6+ se detectan conflictos de concurrencia en use cases de escritura, se añadirá retry con parámetros más conservadores (ej: 2 reintentos, base 0.5s).
+> **Note:** In F5 the retry is only applied to the refresh job. If in F6+ concurrency conflicts are detected in write use cases, retry will be added with more conservative parameters (e.g., 2 retries, 0.5s base).
 
 ---
 
@@ -291,40 +291,40 @@ async def handle_concurrency_conflict(
 
 | File | Description |
 |------|-------------|
-| `src/domain/exceptions/concurrency_conflict.py` | Nueva excepción de dominio |
+| `src/domain/exceptions/concurrency_conflict.py` | New domain exception |
 | `src/domain/exceptions/__init__.py` | Re-export: `ConcurrencyConflictError` |
-| `src/core/retry.py` | Decorador `@retry_with_backoff` |
+| `src/core/retry.py` | `@retry_with_backoff` decorator |
 | `src/core/__init__.py` | Re-export: `retry_with_backoff` |
-| `src/infrastructure/scheduler/scheduler.py` | Aplicar retry al refresh job |
-| `src/adapters/api/middleware/error_handler.py` | Handler para `ConcurrencyConflictError` |
+| `src/infrastructure/scheduler/scheduler.py` | Apply retry to refresh job |
+| `src/adapters/api/middleware/error_handler.py` | Handler for `ConcurrencyConflictError` |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `ConcurrencyConflictError` se puede instanciar con `operation` y `detail` opcionales
-- [ ] `ConcurrencyConflictError` hereda de `DomainError` y es capturada por el handler genérico
-- [ ] `@retry_with_backoff` reintenta con backoff exponencial + jitter
-- [ ] El decorador solo captura las excepciones especificadas (no `Exception` genérica)
-- [ ] Cada reintento se loggea con nivel WARNING incluyendo número de intento y delay
-- [ ] El último fallo se loggea con nivel ERROR
-- [ ] El refresh job del scheduler usa retry con 3 reintentos
-- [ ] `ConcurrencyConflictError` se mapea a HTTP 409 con código `CONCURRENCY_CONFLICT`
-- [ ] Tests unitarios validan el comportamiento de retry (mock sleep)
-- [ ] `make lint` pasa sin errores
+- [ ] `ConcurrencyConflictError` can be instantiated with optional `operation` and `detail`
+- [ ] `ConcurrencyConflictError` inherits from `DomainError` and is caught by the generic handler
+- [ ] `@retry_with_backoff` retries with exponential backoff + jitter
+- [ ] The decorator only catches specified exceptions (not generic `Exception`)
+- [ ] Each retry is logged at WARNING level including attempt number and delay
+- [ ] The final failure is logged at ERROR level
+- [ ] The scheduler refresh job uses retry with 3 retries
+- [ ] `ConcurrencyConflictError` maps to HTTP 409 with code `CONCURRENCY_CONFLICT`
+- [ ] Unit tests validate retry behavior (mock sleep)
+- [ ] `make lint` passes without errors
 
 ---
 
 ## Testing Strategy
 
-- **Test unitario de `ConcurrencyConflictError`**: verificar mensaje, atributos, herencia de `DomainError`
-- **Test unitario de `@retry_with_backoff` (éxito al reintento)**: mock de función que falla 2 veces y éxito a la tercera, verificar que se llama 3 veces
-- **Test unitario de `@retry_with_backoff` (fallo final)**: mock de función que siempre falla, verificar que se llama `max_retries + 1` veces y que la excepción se propaga
-- **Test unitario de `@retry_with_backoff` (excepción no-retryable)**: mock de función que lanza `ValueError`, verificar que se llama solo 1 vez y la excepción se propaga inmediatamente
-- **Test unitario de delay**: con mock de `asyncio.sleep`, verificar que los delays siguen el patrón exponencial
-- **Test de error handler**: simular `ConcurrencyConflictError` y verificar respuesta 409
+- **Unit test for `ConcurrencyConflictError`**: verify message, attributes, inheritance from `DomainError`
+- **Unit test for `@retry_with_backoff` (success on retry)**: mock function that fails 2 times and succeeds on the third, verify it is called 3 times
+- **Unit test for `@retry_with_backoff` (final failure)**: mock function that always fails, verify it is called `max_retries + 1` times and that the exception propagates
+- **Unit test for `@retry_with_backoff` (non-retryable exception)**: mock function that raises `ValueError`, verify it is called only 1 time and the exception propagates immediately
+- **Unit test for delay**: with mock of `asyncio.sleep`, verify that delays follow the exponential pattern
+- **Error handler test**: simulate `ConcurrencyConflictError` and verify 409 response
 
-### Ejemplo: Test de retry con éxito al reintento
+### Example: Retry test with success on retry
 
 ```python
 import pytest
@@ -338,7 +338,7 @@ async def test_retry_succeeds_on_third_attempt():
 
     @retry_with_backoff(
         max_retries=3,
-        base_delay=0.01,  # delay mínimo para tests rápidos
+        base_delay=0.01,  # minimum delay for fast tests
         jitter=0.0,
         exceptions=(ConcurrencyConflictError,),
     )
@@ -360,14 +360,14 @@ async def test_retry_succeeds_on_third_attempt():
 
 ## Resolved Questions
 
-1. **¿El decorador debe ser síncrono o asíncrono?** → **Asíncrono.** El proyecto usa FastAPI + asyncpg, todas las operaciones que necesitan retry son async. Un decorador sync que envuelve async sería innecesariamente complejo.
+1. **Should the decorator be synchronous or asynchronous?** → **Asynchronous.** The project uses FastAPI + asyncpg, all operations that need retry are async. A sync decorator wrapping async would be unnecessarily complex.
 
-2. **¿Debe incluirse jitter o es opcional?** → **Siempre jitter.** Sin jitter, múltiples instancias reintentan al mismo tiempo (thundering herd). El jitter por defecto de 500ms es suficiente para desincronizar sin afectar significativamente la latencia.
+2. **Should jitter be included or is it optional?** → **Always jitter.** Without jitter, multiple instances retry at the same time (thundering herd). The default 500ms jitter is sufficient to desynchronize without significantly affecting latency.
 
-3. **¿Qué excepciones de asyncpg son retryables?** → **`SerializationFailure` y `DeadlockDetectedError`.** Ambas indican conflictos transaccionales que se resuelven reintentando. Otros errores (connection loss, syntax error) no son retryables y deben propagarse.
+3. **Which asyncpg exceptions are retryable?** → **`SerializationFailure` and `DeadlockDetectedError`.** Both indicate transactional conflicts that are resolved by retrying. Other errors (connection loss, syntax error) are not retryable and must propagate.
 
-4. **¿El decorador debe aceptar una función callback para logging custom?** → **No en F5.** El logging por defecto es suficiente. Si en el futuro se necesita logging específico por operación, se puede añadir un parámetro `logger` opcional al decorador.
+4. **Should the decorator accept a custom logging callback function?** → **Not in F5.** Default logging is sufficient. If in the future specific per-operation logging is needed, an optional `logger` parameter can be added to the decorator.
 
-5. **¿Debe existir un middleware HTTP de retry?** → **No.** El retry es a nivel de operación (función), no a nivel HTTP. El cliente HTTP (navegador, Postman) decide si reintentar requests. El servidor solo debe ser idempotente en operaciones que lo requieran.
+5. **Should there be an HTTP retry middleware?** → **No.** Retry is at the operation level (function), not at the HTTP level. The HTTP client (browser, Postman) decides whether to retry requests. The server should only be idempotent on operations that require it.
 
-6. **¿Debe aplicarse retry a los use cases de movimiento en F5?** → **No.** En F5 el retry se aplica exclusivamente al refresh job del scheduler. Los use cases de movimiento (Spec-40) ya están completados y no se modifican. Si en F6 se detectan conflictos de concurrencia en escrituras, se añadirá retry como una extensión sin romper los tests existentes.
+6. **Should retry be applied to movement use cases in F5?** → **No.** In F5 the retry is applied exclusively to the scheduler's refresh job. Movement use cases (Spec-40) are already completed and are not modified. If in F6 concurrency conflicts are detected in writes, retry will be added as an extension without breaking existing tests.

@@ -1,52 +1,52 @@
-# Guías de Desarrollo
+# Development Guidelines
 
-## Principios SOLID Aplicados
+## Applied SOLID Principles
 
-1. **SRP:** Cada archivo cumple una única responsabilidad. `repositories.py` solo maneja I/O de datos. `use_cases.py` solo orquesta lógica. `base_repository.py` centraliza gestión de conexión.
-2. **OCP:** Nuevos tipos de movimientos se añaden extendiendo clases o enums, no modificando condicionales existentes.
-3. **LSP:** Las implementaciones de repositorio deben ser sustituibles por mocks sin alterar contratos Pydantic.
-4. **DIP:** Los casos de uso dependen de protocolos (`abc.ABC` o `typing.Protocol`), no de `asyncpg` directamente.
-5. **ISP:** Interfaces granulares (`IMovementRepository`, `IStockQueryRepository`). No se exponen métodos `delete` si el dominio requiere inmutabilidad.
+1. **SRP:** Each file has a single responsibility. `repositories.py` only handles data I/O. `use_cases.py` only orchestrates logic. `base_repository.py` centralizes connection management.
+2. **OCP:** New movement types are added by extending classes or enums, not modifying existing conditionals.
+3. **LSP:** Repository implementations must be substitutable by mocks without altering Pydantic contracts.
+4. **DIP:** Use cases depend on protocols (`abc.ABC` or `typing.Protocol`), not on `asyncpg` directly.
+5. **ISP:** Granular interfaces (`IMovementRepository`, `IStockQueryRepository`). `delete` methods are not exposed if the domain requires immutability.
 
-## Patrones de Diseño
+## Design Patterns
 
-- **Repository Pattern:** Abstrae acceso a PostgreSQL. `create_movement()`, `get_stock_at_date()`. Todos los repos heredan de `BasePostgresRepository`.
-- **Unit of Work:** Transacciones explícitas vía `asyncpg.transaction()`. Commit/Rollback determinístico. Si rollback falla con excepción activa, se preserva la excepción original.
-- **Humble Object:** Lógica compleja en SQL puro. Python solo valida, mapea y coordina.
-- **Strategy (Refresh):** Scheduler inyecta política de refresco. Permite swapping futuro sin tocar dominio.
+- **Repository Pattern:** Abstracts PostgreSQL access. `create_movement()`, `get_stock_at_date()`. All repos inherit from `BasePostgresRepository`.
+- **Unit of Work:** Explicit transactions via `asyncpg.transaction()`. Deterministic Commit/Rollback. If rollback fails with an active exception, the original exception is preserved.
+- **Humble Object:** Complex logic in pure SQL. Python only validates, maps, and coordinates.
+- **Strategy (Refresh):** Scheduler injects refresh policy. Allows future swapping without touching the domain.
 
-## Convenciones y Estructura
+## Conventions and Structure
 
 ```
 src/
-├── domain/          # Entidades, excepciones, reglas de negocio puras, ports (protocols)
+├── domain/          # Entities, exceptions, pure business rules, ports (protocols)
 ├── application/     # UseCases, DTOs (Pydantic Input/Output)
 ├── infrastructure/ # DB (connection, uow, migrations, seed), repositories (asyncpg wrappers), scheduler, logging
 │ ├── db/ # connection.py, uow.py, migrate.py (non-transactional support), seed.py
 │ ├── repositories/ # base_repository.py, movement_repository.py, product_repository.py, category_repository.py, stock_query_repository.py, mappers.py
 │   ├── scheduler/   # APScheduler config
-│   └── logging/     # Logging estructurado
+│   └── logging/     # Structured logging
 ├── adapters/        # FastAPI routers, controllers, dependency injection
 └── main.py          # DI Container, setup, entrypoint
 tests/
 ├── unit/            # Mocked protocols, pure business logic
-├── integration/     # Testcontainers, SQL real, endpoints
-└── e2e/             # Flujos completos, load testing básico
+├── integration/     # Testcontainers, real SQL, endpoints
+└── e2e/             # Complete flows, basic load testing
 ```
 
-## Checklist Pre-Commit
+## Pre-Commit Checklist
 
-- [ ] Linter (`ruff`) sin warnings críticos.
-- [ ] Formato (`black`/`isort`) aplicado.
-- [ ] Tests unitarios passing (`>80%` cobertura dominio).
-- [ ] Migraciones/queries validadas con `EXPLAIN` en staging local.
-- [ ] No hardcode, no `print()` en producción, loggers configurados.
+- [ ] Linter (`ruff`) without critical warnings.
+- [ ] Format (`black`/`isort`) applied.
+- [ ] Unit tests passing (`>80%` domain coverage).
+- [ ] Migrations/queries validated with `EXPLAIN` on local staging.
+- [ ] No hardcoded values, no `print()` in production, loggers configured.
 
-## Manejo de Errores y Fallbacks
+## Error Handling and Fallbacks
 
-- **Errores de dominio:** Excepciones específicas (`ProductNotFoundError`, `CategoryNotFoundError`, `InsufficientStockError`) se mapean a HTTP status codes en middleware. Los use cases lanzan excepciones de dominio (no `ValueError` genérico).
-- **Errores DB:** `asyncpg.PostgresError` y `asyncpg.DataError` se capturan en middleware → HTTP 500. Los repositorios NO envuelven errores de asyncpg en `ValueError`; dejan que bubblen up al handler existente.
-- **`ValueError` handler con verificacion de origen:** El `handle_value_error` ya no captura todos los `ValueError` indiscriminadamente. Verifica el traceback para determinar si el error se originó en módulos de validación (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Errores de infraestructura se re-lanzan → HTTP 500. Esto previene enmascarar bugs internos como errores de cliente.
-- **Timeouts:** `statement_timeout` se configura via `server_settings` en `create_pool()`. El enfoque anterior (`SET statement_timeout` post-creacion) solo afectaba la primera conexión, dejando las demás sin timeout.
-- **Reintentos:** Decorador `@retry` con backoff exponencial para conflictos de concurrencia.
-- **Mappers:** `JSONDecodeError` en metadata JSONB se maneja con fallback a `{}` y warning log (no crash).
+- **Domain errors:** Specific exceptions (`ProductNotFoundError`, `CategoryNotFoundError`, `InsufficientStockError`) are mapped to HTTP status codes in middleware. Use cases raise domain exceptions (not generic `ValueError`).
+- **DB errors:** `asyncpg.PostgresError` and `asyncpg.DataError` are caught in middleware → HTTP 500. Repositories do NOT wrap asyncpg errors in `ValueError`; they let them bubble up to the existing handler.
+- **`ValueError` handler with origin verification:** The `handle_value_error` no longer catches all `ValueError` indiscriminately. It verifies the traceback to determine if the error originated in validation modules (`src/application/dtos`, `src/domain/value_objects`, `src/domain/entities`, `src/domain/rules`). Infrastructure errors are re-raised → HTTP 500. This prevents masking internal bugs as client errors.
+- **Timeouts:** `statement_timeout` is configured via `server_settings` in `create_pool()`. The previous approach (`SET statement_timeout` post-creation) only affected the first connection, leaving the rest without a timeout.
+- **Retries:** `@retry` decorator with exponential backoff for concurrency conflicts.
+- **Mappers:** `JSONDecodeError` in JSONB metadata is handled with a fallback to `{}` and a warning log (no crash).

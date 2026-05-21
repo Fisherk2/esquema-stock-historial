@@ -1,10 +1,10 @@
 # AGENTS.md
 
-> **Nota:** Este documento es la fuente de verdad arquitectónica del proyecto. Para el orden de ejecución y trazabilidad de specs, consultar [WORKFLOW.md](WORKFLOW.md).
+> **Note:** This document is the project's architectural source of truth. For execution order and spec traceability, see [WORKFLOW.md](WORKFLOW.md).
 
-Sistema de gestión de inventario basado en **Source of Truth Inmutable** — cada movimiento es atómico e inalterable, con consultas de stock histórico en `<100ms` mediante vistas materializadas.
+Inventory management system based on an **Immutable Source of Truth** — each movement is atomic and unalterable, with historical stock queries in `<100ms` via materialized views.
 
-**Fase actual:** F7 — Despliegue & Documentación ✅ Completada (v1.0.0)
+**Current phase:** F7 — Deployment & Documentation ✅ Completed (v1.0.0)
 
 ## Quick Reference
 
@@ -17,9 +17,9 @@ Sistema de gestión de inventario basado en **Source of Truth Inmutable** — ca
 
 ## Detailed Guidelines
 
-- [Arquitectura y Diseño](docs/agents/architecture-design.md) — Clean Architecture, patrones, capas
-- [Guías de Desarrollo](docs/agents/development-guidelines.md) — SOLID, estructura, pre-commit, errores
-- [Estrategia de Testing](docs/agents/testing-strategy.md) — Fases, frameworks, métricas, mocking
-- [Seguridad y Prohibiciones](docs/agents/security-prohibitions.md) — Validación, secretos, prácticas prohibidas
-- [Optimización de Rendimiento](docs/agents/performance-optimisation.md) — SQL, vistas, índices, latencia
-- [Tooling y CI/CD](docs/agents/tooling-ci-cd.md) — Ruff, Black, pytest, GitHub Actions, Docker
+- [Architecture and Design](docs/agents/architecture-design.md) — Clean Architecture, patterns, layers
+- [Development Guidelines](docs/agents/development-guidelines.md) — SOLID, structure, pre-commit, errors
+- [Testing Strategy](docs/agents/testing-strategy.md) — Phases, frameworks, metrics, mocking
+- [Security and Prohibitions](docs/agents/security-prohibitions.md) — Validation, secrets, prohibited practices
+- [Performance Optimization](docs/agents/performance-optimisation.md) — SQL, views, indexes, latency
+- [Tooling and CI/CD](docs/agents/tooling-ci-cd.md) — Ruff, Black, pytest, GitHub Actions, Docker

@@ -1,9 +1,9 @@
 # SPEC-21: Reglas de Negocio
 
-**Fase:** F2 — Núcleo de Dominio  
-**Dependencias:** Spec-20 (Entidades) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** Pendiente
+**Phase:** F2 — Domain Core
+**Dependencies:** Spec-20 (Entities) ✅ Completed
+**Priority:** High
+**Status:** Pending
 
 ---
 
@@ -23,7 +23,7 @@ Definir las reglas de negocio puras del dominio: validación de stock no negativ
 
 ### Rule: `validate_stock_not_negative`
 
-Valida que un movimiento no resulte en stock negativo.
+Validates that a movement does not result in negative stock.
 
 ```python
 from src.domain.value_objects.movement_type import MovementType
@@ -35,19 +35,19 @@ def validate_stock_not_negative(
     quantity: int,
     current_stock: int,
 ) -> None:
-    """Valida que el movimiento no resulte en stock negativo.
+    """Validates that the movement does not result in negative stock.
 
-    Para IN y ADJUSTMENT: siempre válido (stock aumenta).
-    Para OUT: current_stock - quantity >= 0
-    Para TRANSFER: current_stock - quantity >= 0 (desde la perspectiva del origen).
+    For IN and ADJUSTMENT: always valid (stock increases).
+    For OUT: current_stock - quantity >= 0
+    For TRANSFER: current_stock - quantity >= 0 (from origin perspective).
 
     Args:
-        movement_type: Tipo de movimiento que se está registrando.
-        quantity: Cantidad a mover (siempre > 0, validada por Quantity VO).
-        current_stock: Nivel actual de stock del producto.
+        movement_type: Type of movement being registered.
+        quantity: Quantity to move (always > 0, validated by Quantity VO).
+        current_stock: Current stock level of the product.
 
     Raises:
-        InsufficientStockError: Si el movimiento resultaría en stock negativo.
+        InsufficientStockError: If the movement would result in negative stock.
 
     Examples:
         >>> validate_stock_not_negative(MovementType.IN, 10, 5)
@@ -67,34 +67,34 @@ def validate_stock_not_negative(
 ```
 
 **Design Notes:**
-- `product_id=0` es un placeholder — el use case debe crear la excepción con el `product_id` real
-- IN y ADJUSTMENT nunca fallan (siempre suman stock)
-- ADJUSTMENT siempre +qty (confirmado por el usuario — no hay ajustes negativos)
+- `product_id=0` is a placeholder — the use case must create the exception with the real `product_id`
+- IN and ADJUSTMENT never fail (always add stock)
+- ADJUSTMENT always +qty (confirmed by user — no negative adjustments)
 
 ---
 
 ### Rule: `calculate_stock_delta`
 
-Calcula el cambio de stock resultante de un movimiento.
+Calculates the stock change resulting from a movement.
 
 ```python
 from src.domain.value_objects.movement_type import MovementType
 
 
 def calculate_stock_delta(movement_type: MovementType, quantity: int) -> int:
-    """Calcula el cambio de stock resultante de un movimiento.
+    """Calculates the stock change resulting from a movement.
 
-    IN: +quantity (entrada de stock)
-    OUT: -quantity (salida de stock)
-    ADJUSTMENT: +quantity (ajuste siempre positivo)
-    TRANSFER: -quantity (desde la perspectiva del origen)
+    IN: +quantity (stock entry)
+    OUT: -quantity (stock exit)
+    ADJUSTMENT: +quantity (always positive adjustment)
+    TRANSFER: -quantity (from origin perspective)
 
     Args:
         movement_type: Tipo de movimiento.
         quantity: Cantidad del movimiento (siempre > 0).
 
     Returns:
-        int: Cambio de stock con signo (+aumento, -disminución).
+        int: Stock change with sign (+increase, -decrease).
 
     Examples:
         >>> calculate_stock_delta(MovementType.IN, 10)
@@ -116,14 +116,14 @@ def calculate_stock_delta(movement_type: MovementType, quantity: int) -> int:
 ```
 
 **Design Notes:**
-- Función pura total — sin excepciones posibles (todos los MovementType están cubiertos)
-- El delta de TRANSFER es negativo desde la perspectiva del origen; el destino se maneja con metadata
+- Total pure function — no possible exceptions (all MovementType covered)
+- TRANSFER delta is negative from origin perspective; destination is handled via metadata
 
 ---
 
 ### Rule: `enforce_immutability`
 
-Valida que un Movement no haya sido modificado después de su creación.
+Validates that a Movement has not been modified after its creation.
 
 ```python
 from src.domain.entities.movement import Movement
@@ -131,45 +131,45 @@ from src.domain.exceptions.immutability_violation import ImmutabilityViolationEr
 
 
 def enforce_immutability(entity: Movement) -> None:
-    """Valida que un Movement no haya sido modificado.
+    """Validates that a Movement has not been modified.
 
-    Dado que Movement es un frozen dataclass, Python previene mutaciones
-    en runtime automáticamente. Esta función sirve como:
-    1. Documentación explícita de la regla de inmutabilidad.
-    2. Punto de extensión para validaciones adicionales de inmutabilidad
-       (ej: verificar que el movimiento ya tiene id asignado).
+    Since Movement is a frozen dataclass, Python prevents mutations
+    at runtime automatically. This function serves as:
+    1. Explicit documentation of the immutability rule.
+    2. Extension point for additional immutability validations
+       (e.g., verifying that the movement already has an id assigned).
 
     Args:
-        entity: Instancia de Movement a validar.
+        entity: Movement instance to validate.
 
     Raises:
-        ImmutabilityViolationError: Si se detecta una violación de inmutabilidad.
+        ImmutabilityViolationError: If an immutability violation is detected.
 
     Note:
-        En la práctica, esta función nunca lanza excepciones porque
-        frozen=True previene mutaciones a nivel de lenguaje. Su propósito
-        principal es documentar la regla y servir como hook para
-        validaciones futuras.
+        In practice, this function never raises exceptions because
+        frozen=True prevents mutations at the language level. Its main
+        purpose is to document the rule and serve as a hook for
+        future validations.
     """
-    # frozen dataclass ya previene mutaciones en runtime
-    # Esta función documenta la regla explícitamente
+    # frozen dataclass already prevents mutations at runtime
+    # This function explicitly documents the rule
     pass
 ```
 
 **Design Notes:**
-- La inmutabilidad real la garantiza `frozen=True` en el dataclass
-- Esta función existe como documentación explícita de la regla
-- Se puede extender en el futuro para validar que el movement tiene `id` asignado (persistido)
+- Real immutability is guaranteed by `frozen=True` on the dataclass
+- This function exists as explicit documentation of the rule
+- Can be extended in the future to validate that the movement has an assigned `id` (persisted)
 
 ---
 
 ### Rule: `validate_movement_type_consistency`
 
-Valida que el metadata sea consistente con el tipo de movimiento.
+Validates that metadata is consistent with the movement type.
 
-> **Nota:** Esta función se invoca desde `Movement.__post_init__` al construir
-> la entidad. Es la **única fuente de verdad** para esta validación.
-> Los use cases NO llaman esta función directamente (evita duplicación).
+> **Note:** This function is called from `Movement.__post_init__` when building
+> the entity. It is the **single source of truth** for this validation.
+> Use cases do NOT call this function directly (avoids duplication).
 
 ```python
 from typing import Any
@@ -181,18 +181,18 @@ def validate_movement_type_consistency(
     movement_type: MovementType,
     metadata: dict[str, Any],
 ) -> None:
-    """Valida que el metadata sea consistente con el tipo de movimiento.
+    """Validates that metadata is consistent with the movement type.
 
-    TRANSFER: debe contener 'origin' y 'destination' en metadata.
-    ADJUSTMENT: debe contener 'reason' en metadata.
-    IN/OUT: metadata es opcional (no se requiere validación).
+    TRANSFER: must contain 'origin' and 'destination' in metadata.
+    ADJUSTMENT: must contain 'reason' in metadata.
+    IN/OUT: metadata is optional (no validation required).
 
     Args:
-        movement_type: Tipo de movimiento.
-        metadata: Diccionario de datos contextuales.
+        movement_type: Movement type.
+        metadata: Dictionary of contextual data.
 
     Raises:
-        ValueError: Si el metadata es inconsistente con el tipo de movimiento.
+        ValueError: If metadata is inconsistent with the movement type.
     """
     if movement_type == MovementType.TRANSFER and (
         "origin" not in metadata or "destination" not in metadata
@@ -203,10 +203,10 @@ def validate_movement_type_consistency(
 ```
 
 **Design Notes:**
-- Se llama desde `Movement.__post_init__` — **single source of truth**
-- Usa `ValueError` porque es error de validación de input (no regla de negocio)
-- Condiciones mutuamente exclusivas usan `elif` (no dos `if` independientes)
-- IN y OUT no requieren metadata — la función retorna silenciosamente
+- Called from `Movement.__post_init__` — **single source of truth**
+- Uses `ValueError` because it's an input validation error (not a business rule)
+- Mutually exclusive conditions use `elif` (not two independent `if`s)
+- IN and OUT do not require metadata — the function returns silently
 
 ---
 
@@ -227,10 +227,10 @@ def validate_movement_type_consistency(
 - [ ] `validate_stock_not_negative` raises `InsufficientStockError` with full context (product_id, requested, available)
 - [ ] `calculate_stock_delta` returns correct sign for each `MovementType` (IN=+, OUT=-, ADJUSTMENT=+, TRANSFER=-)
 - [ ] `validate_movement_type_consistency` enforces metadata requirements for TRANSFER and ADJUSTMENT
-- [ ] `validate_movement_type_consistency` se invoca desde `Movement.__post_init__` (single source of truth)
+- [ ] `validate_movement_type_consistency` is called from `Movement.__post_init__` (single source of truth)
 - [ ] `enforce_immutability` exists as explicit documentation of the immutability rule
 - [ ] `domain/rules/` imports only from `domain/` (no external dependencies)
-- [ ] Use cases NO llaman `validate_movement_type_consistency` directamente (evita duplicación)
+- [ ] Use cases do NOT call `validate_movement_type_consistency` directly (avoids duplication)
 - [ ] `make lint` passes with zero errors on all rule files
 - [ ] Unit tests with parametrized cases for each rule (covering all MovementType variants)
 
@@ -239,5 +239,5 @@ def validate_movement_type_consistency(
 ## Open Questions
 
 1. Should `validate_stock_not_negative` accept `product_id` as a parameter instead of using `0` as placeholder?
-2. ~~Should `ValueError` in `validate_movement_type_consistency` be replaced with a domain exception?~~ → **Resolved:** Se mantiene `ValueError` porque es validación de input. Se invoca desde `Movement.__post_init__` como single source of truth.
-3. ~~Should `enforce_immutability` be removed entirely?~~ → **Resolved:** Se mantiene como documentación explícita de la regla.
+2. ~~Should `ValueError` in `validate_movement_type_consistency` be replaced with a domain exception?~~ → **Resolved:** Keep `ValueError` because it's input validation. Called from `Movement.__post_init__` as single source of truth.
+3. ~~Should `enforce_immutability` be removed entirely?~~ → **Resolved:** Kept as explicit documentation of the rule.

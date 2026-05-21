@@ -1,58 +1,58 @@
-# SPEC-52: Logging Estructurado & Errors
+# SPEC-52: Structured Logging & Errors
 
-**Fase:** F5 — Scheduler & Concurrencia  
-**Dependencias:** Spec-42 (Rutas FastAPI) ✅ Completado, Spec-51 (Retry/Conc) ✅ Completado  
-**Prioridad:** Media  
-**Estado:** Pendiente  
+**Phase:** F5 — Scheduler & Concurrency  
+**Dependencies:** Spec-42 (FastAPI Routes) ✅ Completed, Spec-51 (Retry/Conc) ✅ Completed  
+**Priority:** Medium  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Configurar un sistema de logging estructurado que proporcione visibilidad completa del comportamiento de la aplicación en desarrollo y producción. Implementar logging JSON en producción, logging legible en desarrollo, middleware de request logging para FastAPI, y configuración de timeouts de DB. El logging es la base para debugging, monitoring, y alerting.
+Configure a structured logging system that provides complete visibility into application behavior in development and production. Implement JSON logging in production, readable logging in development, request logging middleware for FastAPI, and DB timeout configuration. Logging is the foundation for debugging, monitoring, and alerting.
 
-**Principios de diseño:**
-- **Structured logging** — cada log entry es un objeto con campos consistentes (timestamp, level, module, message, extra)
-- **Formato según entorno** — legible en development (color, texto), JSON en production (parseable por herramientas)
-- **Request correlation** — cada request HTTP tiene un `request_id` único que se propaga a todos los logs relacionados
-- **Zero sensitive data** — nunca loggear passwords, tokens, o datos personales
-- **Performance consciente** — logging async o bufferado para no bloquear el event loop
-- **Graceful degradation** — si el logging falla, la aplicación sigue funcionando
+**Design principles:**
+- **Structured logging** — each log entry is an object with consistent fields (timestamp, level, module, message, extra)
+- **Environment-based format** — readable in development (color, text), JSON in production (parseable by tools)
+- **Request correlation** — each HTTP request has a unique `request_id` that propagates to all related logs
+- **Zero sensitive data** — never log passwords, tokens, or personal data
+- **Performance aware** — async or buffered logging to avoid blocking the event loop
+- **Graceful degradation** — if logging fails, the application continues functioning
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| `logging` estándar de Python (no structlog en F5) | Sin dependencia extra. `logging` es suficiente para F5. Se puede migrar a structlog en F6+ si se necesita más potencia |
-| JSON formatter en production | Compatible con ELK, Datadog, CloudWatch. Cada línea es un JSON parseable |
-| Colored output en development | Legibilidad para desarrolladores. `logging` con formatter custom |
-| Request ID via middleware | Correlación de logs por request. UUID4 por request, pasado a los handlers via contextvars |
-| `contextvars` para request_id | Thread-safe y async-safe. Propagación automática dentro del mismo request |
-| DB `statement_timeout` configurado | Prevenir queries infinitas. Configurable via Settings: 5s para API, 30s para refresh |
-| Excluir `/v1/health` del request logging | Los health checks son frecuentes (K8s/Docker) y no aportan valor a los logs |
-| Log level por módulo | `uvicorn` en WARNING (verbose), `asyncpg` en WARNING, app modules en INFO/DEBUG |
+| Python standard `logging` (no structlog in F5) | No extra dependency. `logging` is sufficient for F5. Can migrate to structlog in F6+ if more power is needed |
+| JSON formatter in production | Compatible with ELK, Datadog, CloudWatch. Each line is parseable JSON |
+| Colored output in development | Readability for developers. `logging` with custom formatter |
+| Request ID via middleware | Log correlation per request. UUID4 per request, passed to handlers via contextvars |
+| `contextvars` for request_id | Thread-safe and async-safe. Automatic propagation within the same request |
+| DB `statement_timeout` configured | Prevent infinite queries. Configurable via Settings: 5s for API, 30s for refresh |
+| Exclude `/v1/health` from request logging | Health checks are frequent (K8s/Docker) and add no value to logs |
+| Log level per module | `uvicorn` at WARNING (verbose), `asyncpg` at WARNING, app modules at INFO/DEBUG |
 
 ---
 
 ## Settings Extensions
 
-Añadir campo de configuración de logging en `src/core/config.py`:
+Add logging configuration field in `src/core/config.py`:
 
 ```python
-# Campo de logging (añadir a la clase Settings existente)
+# Logging field (add to existing Settings class)
 log_format: str = "text"  # "text" | "json"
 
-# Campos de timeout (añadir a la clase Settings existente)
-api_statement_timeout_seconds: int = 5  # Timeout para queries de API
+# Timeout fields (add to existing Settings class)
+api_statement_timeout_seconds: int = 5  # Timeout for API queries
 ```
 
-Variables de entorno:
+Environment variables:
 - `LOG_FORMAT=text|json`
 - `API_STATEMENT_TIMEOUT_SECONDS=5`
 
-> **Nota:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` se define en Spec-50.
+> **Note:** `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` is defined in Spec-50.
 
 ---
 
@@ -60,16 +60,16 @@ Variables de entorno:
 
 ### `src/infrastructure/logging/config.py`
 
-Configuración centralizada del logging:
+Centralized logging configuration:
 
 ```python
-"""Configuracion de logging estructurado.
+"""Structured logging configuration.
 
-Configura los handlers, formatters y niveles de log de la aplicacion.
-En desarrollo usa formato legible con colores; en produccion usa
-formato JSON para parseo automatico por herramientas de monitoreo.
+Configures the application's handlers, formatters, and log levels.
+In development it uses a readable format with colors; in production it uses
+JSON format for automatic parsing by monitoring tools.
 
-Ejemplo::
+Example::
 
     from src.infrastructure.logging.config import setup_logging
 
@@ -84,7 +84,7 @@ from datetime import datetime, timezone
 
 
 class JSONFormatter(logging.Formatter):
-    """Formatter que produce JSON para cada log entry."""
+    """Formatter that produces JSON for each log entry."""
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
@@ -97,11 +97,11 @@ class JSONFormatter(logging.Formatter):
             "line": record.lineno,
         }
 
-        # Añadir request_id si existe en el record
+        # Add request_id if it exists in the record
         if hasattr(record, "request_id"):
             log_entry["request_id"] = record.request_id
 
-        # Añadir exception info si existe
+        # Add exception info if it exists
         if record.exc_info and record.exc_info[0] is not None:
             log_entry["exception"] = self.formatException(record.exc_info)
 
@@ -112,11 +112,11 @@ def setup_logging(
     log_level: str = "info",
     log_format: str = "text",
 ) -> None:
-    """Configura el logging de la aplicacion.
+    """Configure application logging.
 
     Args:
-        log_level: Nivel de logging (debug, info, warning, error).
-        log_format: Formato de salida ("text" o "json").
+        log_level: Logging level (debug, info, warning, error).
+        log_format: Output format ("text" or "json").
     """
     level = getattr(logging, log_level.upper(), logging.INFO)
 
@@ -140,7 +140,7 @@ def setup_logging(
     root.handlers.clear()
     root.addHandler(handler)
 
-    # Silenciar loggers verbosos de terceros
+    # Silence verbose third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
     logging.getLogger("apscheduler").setLevel(logging.INFO)
@@ -152,17 +152,17 @@ def setup_logging(
 
 ### `src/adapters/api/middleware/request_logging.py`
 
-Middleware que genera un `request_id` por request y loggea información de cada request:
+Middleware that generates a `request_id` per request and logs information for each request:
 
 ```python
-"""Middleware de logging de requests.
+"""Request logging middleware.
 
-Genera un ``request_id`` unico por request HTTP y lo propaga
-a todos los logs del request via ``contextvars``. Loggea el
-inicio y fin de cada request con metodo, path, status code y
-duracion.
+Generates a unique ``request_id`` per HTTP request and propagates it
+to all request logs via ``contextvars``. Logs the
+start and end of each request with method, path, status code and
+duration.
 
-Ejemplo::
+Example::
 
     from src.adapters.api.middleware.request_logging import RequestLoggingMiddleware
 
@@ -180,14 +180,14 @@ from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
-# Request ID propagado via contextvar para correlacion de logs
+# Request ID propagated via contextvar for log correlation
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware que loggea cada request con request_id y duracion.
+    """Middleware that logs each request with request_id and duration.
 
-    Excluye rutas de health check para reducir ruido en logs.
+    Excludes health check routes to reduce noise in logs.
     """
 
     EXCLUDED_PATHS: set[str] = {"/v1/health", "/health"}
@@ -195,7 +195,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> None:
-        # Excluir health checks del logging
+        # Exclude health checks from logging
         if request.url.path in self.EXCLUDED_PATHS:
             return await call_next(request)
 
@@ -224,17 +224,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             extra={"request_id": req_id},
         )
 
-        # Añadir request_id a los headers de respuesta para debugging
+        # Add request_id to response headers for debugging
         response.headers["X-Request-ID"] = req_id
 
         return response
 
 
 def get_request_id() -> str | None:
-    """Obtiene el request_id actual del contexto.
+    """Get the current request_id from context.
 
     Returns:
-        El request_id del request actual, o None si no hay request.
+        The request_id of the current request, or None if there is no request.
     """
     return request_id_ctx.get()
 ```
@@ -243,12 +243,12 @@ def get_request_id() -> str | None:
 
 ## DB Timeout Configuration
 
-### Actualización de `src/infrastructure/db/connection.py`
+### Update to `src/infrastructure/db/connection.py`
 
-`statement_timeout` se configura via `server_settings` en `create_pool()`, no via `SET statement_timeout` después de crear el pool. Esto asegura que el timeout se aplique a **todas** las conexiones del pool, no solo a la primera.
+`statement_timeout` is configured via `server_settings` in `create_pool()`, not via `SET statement_timeout` after creating the pool. This ensures the timeout applies to **all** pool connections, not just the first one.
 
 ```python
-# En la funcion init_pool(), al crear el pool:
+# In the init_pool() function, when creating the pool:
 _pool = await asyncpg.create_pool(
     dsn=settings.database_url,
     min_size=settings.db_pool_min_size,
@@ -259,17 +259,17 @@ _pool = await asyncpg.create_pool(
 )
 ```
 
-**Bug corregido:** El enfoque anterior (`SET statement_timeout = $1` despues de crear el pool) solo afectaba la primera conexion, dejando las demas sin timeout. Con `server_settings`, cada conexion del pool hereda el timeout automaticamente.
+**Bug fixed:** The previous approach (`SET statement_timeout = $1` after creating the pool) only affected the first connection, leaving the rest without a timeout. With `server_settings`, each pool connection inherits the timeout automatically.
 
-**Double-init guard:** Si `init_pool()` se llama cuando ya existe un pool (ej: en tests o hot reload), se cierra el pool existente antes de crear uno nuevo, con un warning log.
+**Double-init guard:** If `init_pool()` is called when a pool already exists (e.g., in tests or hot reload), the existing pool is closed before creating a new one, with a warning log.
 
-### Timeout por operación
+### Timeout per operation
 
-| Operación | Timeout | Configuración |
+| Operation | Timeout | Configuration |
 |-----------|---------|---------------|
-| Queries de API (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` via pool `server_settings` |
+| API queries (GET/POST) | 5s (default) | `API_STATEMENT_TIMEOUT_SECONDS` via pool `server_settings` |
 
-**Nota:** El refresh job ya no usa `SET LOCAL statement_timeout` porque no funcionaba con `pool.execute()` sin transaccion. Ahora hereda el timeout del pool via `server_settings`. El `retry_with_backoff` en `_do_refresh` tolera timeouts y conflictos.
+**Note:** The refresh job no longer uses `SET LOCAL statement_timeout` because it did not work with `pool.execute()` without a transaction. It now inherits the pool timeout via `server_settings`. The `retry_with_backoff` in `_do_refresh` handles timeouts and conflicts.
 
 ---
 
@@ -278,7 +278,7 @@ _pool = await asyncpg.create_pool(
 ### `src/infrastructure/logging/__init__.py`
 
 ```python
-"""Logging module — configuracion y utilidades de logging."""
+"""Logging module — logging configuration and utilities."""
 from __future__ import annotations
 
 from src.infrastructure.logging.config import setup_logging
@@ -290,14 +290,14 @@ __all__ = ["setup_logging"]
 
 ## Lifespan Integration
 
-Actualizar `src/main.py` para configurar logging al inicio:
+Update `src/main.py` to configure logging at startup:
 
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = Settings()
 
-    # F5: Configurar logging
+    # F5: Configure logging
     from src.infrastructure.logging import setup_logging
     setup_logging(
         log_level=settings.log_level,
@@ -305,16 +305,16 @@ async def lifespan(app: FastAPI):
     )
 
     await init_pool(settings)
-    # ... resto del lifespan ...
+    # ... rest of lifespan ...
 ```
 
 ---
 
 ## Error Enhancement
 
-### Actualización del Error Handler
+### Error Handler Update
 
-Los error handlers de Spec-42 se actualizan para incluir `request_id` en las respuestas de error:
+Error handlers from Spec-42 are updated to include `request_id` in error responses:
 
 ```python
 from src.adapters.api.middleware.request_logging import get_request_id
@@ -339,7 +339,7 @@ async def handle_insufficient_stock(
                     "product_id": exc.product_id,
                     "requested": exc.requested,
                     "available": exc.available,
-                    "request_id": req_id,  # Para debugging
+                    "request_id": req_id,  # For debugging
                 },
             )
         ).model_dump(),
@@ -374,42 +374,42 @@ async def handle_insufficient_stock(
 
 | File | Description |
 |------|-------------|
-| `src/core/config.py` | Añadir campos `log_format`, `api_statement_timeout_seconds` |
+| `src/core/config.py` | Add `log_format`, `api_statement_timeout_seconds` fields |
 | `src/infrastructure/logging/config.py` | Logging setup + JSON formatter |
-| `src/infrastructure/logging/__init__.py` | Re-exports públicos |
-| `src/adapters/api/middleware/request_logging.py` | Request ID middleware (excluye `/v1/health`) |
-| `src/infrastructure/db/connection.py` | Configurar `statement_timeout` con Settings |
-| `src/main.py` | Integrar logging setup en lifespan |
-| `src/adapters/api/middleware/error_handler.py` | Añadir request_id a errores |
+| `src/infrastructure/logging/__init__.py` | Public re-exports |
+| `src/adapters/api/middleware/request_logging.py` | Request ID middleware (excludes `/v1/health`) |
+| `src/infrastructure/db/connection.py` | Configure `statement_timeout` with Settings |
+| `src/main.py` | Integrate logging setup in lifespan |
+| `src/adapters/api/middleware/error_handler.py` | Add request_id to errors |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `setup_logging()` configura logging con formato text o JSON según `LOG_FORMAT`
-- [ ] JSON format produce un JSON válido por línea con timestamp, level, logger, message
-- [ ] Text format produce salida legible con timestamp, level, logger name, message
-- [ ] `RequestLoggingMiddleware` genera un `request_id` único por request
-- [ ] `request_id` se incluye en los headers de respuesta (`X-Request-ID`)
-- [ ] `request_id` se propaga a todos los logs del request via `contextvars`
-- [ ] `/v1/health` se excluye del request logging (no genera logs ni request_id)
-- [ ] `statement_timeout` se configura en el pool usando `API_STATEMENT_TIMEOUT_SECONDS`
-- [ ] Loggers de terceros (uvicorn.access, asyncio) se silencian a WARNING
-- [ ] Tests unitarios validan JSON formatter output
-- [ ] Tests de integración validan que `X-Request-ID` se devuelve en responses
-- [ ] `make lint` pasa sin errores
+- [ ] `setup_logging()` configures logging with text or JSON format based on `LOG_FORMAT`
+- [ ] JSON format produces valid JSON per line with timestamp, level, logger, message
+- [ ] Text format produces readable output with timestamp, level, logger name, message
+- [ ] `RequestLoggingMiddleware` generates a unique `request_id` per request
+- [ ] `request_id` is included in response headers (`X-Request-ID`)
+- [ ] `request_id` propagates to all request logs via `contextvars`
+- [ ] `/v1/health` is excluded from request logging (does not generate logs or request_id)
+- [ ] `statement_timeout` is configured on the pool using `API_STATEMENT_TIMEOUT_SECONDS`
+- [ ] Third-party loggers (uvicorn.access, asyncio) are silenced to WARNING
+- [ ] Unit tests validate JSON formatter output
+- [ ] Integration tests validate that `X-Request-ID` is returned in responses
+- [ ] `make lint` passes without errors
 
 ---
 
 ## Testing Strategy
 
-- **Test unitario de `JSONFormatter`**: verificar que produce JSON válido con los campos esperados
-- **Test unitario de `setup_logging()`**: verificar que los handlers se configuran correctamente (mock de root logger)
-- **Test unitario de `get_request_id()`**: verificar que retorna None fuera de request y el ID correcto dentro
-- **Test de integración de middleware**: hacer request a la app, verificar que `X-Request-ID` está en los headers
-- **Test de correlación**: verificar que el mismo `request_id` aparece en múltiples log entries del mismo request
+- **Unit test for `JSONFormatter`**: verify it produces valid JSON with expected fields
+- **Unit test for `setup_logging()`**: verify handlers are configured correctly (mock root logger)
+- **Unit test for `get_request_id()`**: verify it returns None outside a request and the correct ID inside
+- **Middleware integration test**: make a request to the app, verify `X-Request-ID` is in the headers
+- **Correlation test**: verify the same `request_id` appears in multiple log entries from the same request
 
-### Ejemplo: Test de JSON formatter
+### Example: JSON formatter test
 
 ```python
 import json
@@ -442,14 +442,14 @@ def test_json_formatter_produces_valid_json():
 
 ## Resolved Questions
 
-1. **¿Usar `structlog` o `logging` estándar?** → **`logging` estándar en F5.** Suficiente para los requisitos actuales. `structlog` añade una dependencia más y complejidad que no se necesita aún. Se puede migrar en F6+ si se necesita structured logging más potente.
+1. **Use `structlog` or standard `logging`?** → **Standard `logging` in F5.** Sufficient for current requirements. `structlog` adds an extra dependency and complexity that is not needed yet. Can migrate in F6+ if more powerful structured logging is needed.
 
-2. **¿El middleware de logging debe afectar la latencia?** → **Mínimo.** Solo genera UUID4, loggea, y añade header. `time.monotonic()` tiene overhead negligible. En producción, el logging JSON añade ~0.1ms por request, aceptable.
+2. **Should the logging middleware affect latency?** → **Minimally.** It only generates a UUID4, logs, and adds a header. `time.monotonic()` has negligible overhead. In production, JSON logging adds ~0.1ms per request, which is acceptable.
 
-3. **¿Debe incluirse tracing distribuido (OpenTelemetry)?** → **No en F5.** Demasiado complejo para la fase actual. El request_id local es suficiente para correlación dentro de la aplicación. OpenTelemetry se puede añadir en F6+ si se necesita tracing entre servicios.
+3. **Should distributed tracing (OpenTelemetry) be included?** → **Not in F5.** Too complex for the current phase. The local request_id is sufficient for correlation within the application. OpenTelemetry can be added in F6+ if cross-service tracing is needed.
 
-4. **¿Los logs deben ir a archivo además de stdout?** → **Solo stdout.** En contenedores Docker, stdout es capturado por el runtime (Docker, K8s) y dirigido al sistema de logging centralizado. Escribir a archivo añade complejidad de rotación y gestión de espacio.
+4. **Should logs go to a file in addition to stdout?** → **Only stdout.** In Docker containers, stdout is captured by the runtime (Docker, K8s) and directed to the centralized logging system. Writing to a file adds rotation and space management complexity.
 
-5. **¿Debe loggearse el body de los requests?** → **No.** Riesgo de loggear datos sensibles. Solo se loggea método, path, status code, duración y request_id. Si se necesita debugging de payloads, se usa el request_id para buscar en el tracing.
+5. **Should request bodies be logged?** → **No.** Risk of logging sensitive data. Only method, path, status code, duration, and request_id are logged. If payload debugging is needed, the request_id is used to search in tracing.
 
-6. **¿Debe excluirse `/v1/health` del request logging?** → **Sí.** Los health checks son muy frecuentes (cada 10-30s en K8s/Docker) y no aportan valor diagnóstico. Se excluyen del middleware de request logging para reducir ruido. La ruta sigue funcionando normalmente, solo no genera logs.
+6. **Should `/v1/health` be excluded from request logging?** → **Yes.** Health checks are very frequent (every 10-30s in K8s/Docker) and provide no diagnostic value. They are excluded from the request logging middleware to reduce noise. The route continues to function normally, it just does not generate logs.

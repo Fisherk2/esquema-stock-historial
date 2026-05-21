@@ -1,35 +1,35 @@
-# SPEC-62: Tests E2E & Latencia <100ms
+# SPEC-62: E2E Tests & Latency <100ms
 
-**Fase:** F6 — Testing Integral
-**Dependencias:** Spec-42 (Rutas FastAPI) ✅ Completado, Spec-61 (Integración Edge Cases) — Pre-requisito inmediato
-**Prioridad:** Alta
-**Estado:** Aprobado
+**Phase:** F6 — Comprehensive Testing
+**Dependencies:** Spec-42 (FastAPI Routes) ✅ Completed, Spec-61 (Integration Edge Cases) — Immediate prerequisite
+**Priority:** High
+**Status:** Approved
 
 ---
 
 ## Objective
 
-Implementar la suite de tests E2E (end-to-end) que valida el **core product promise** del sistema: consultas de stock histórico en **<100ms**. Esta fase introduce `pytest-benchmark` para medir latencia de endpoints críticos, tests de flujos HTTP completos (crear categoría → producto → movimiento → consultar stock), y validación de contratos OpenAPI contra esquemas Pydantic. Los tests E2E usan la misma infraestructura de testcontainers que los tests de integración, pero con foco en latencia, flujos transversales, y contratos de API.
+Implement the E2E (end-to-end) test suite that validates the **core product promise** of the system: historical stock queries in **<100ms**. This phase introduces `pytest-benchmark` to measure latency of critical endpoints, tests for complete HTTP flows (create category → product → movement → query stock), and OpenAPI contract validation against Pydantic schemas. E2E tests use the same testcontainers infrastructure as integration tests, but focused on latency, cross-cutting flows, and API contracts.
 
-**Principios de diseño:**
-- **SLA gate: p95 < 100ms** — el 95% de las consultas de stock deben responder en menos de 100ms
-- **In-process benchmark** — `pytest-benchmark` mide latencia dentro del proceso de test (no red externa)
-- **Flujos transversales** — no testean un endpoint aislado sino la secuencia completa de operaciones
-- **Contratos OpenAPI** — las respuestas JSON deben coincidir con los esquemas Pydantic definidos
-- **Cero regresiones** — todos los tests existentes deben pasar
+**Design principles:**
+- **SLA gate: p95 < 100ms** — 95% of stock queries must respond in under 100ms
+- **In-process benchmark** — `pytest-benchmark` measures latency within the test process (no external network)
+- **Cross-cutting flows** — not testing an isolated endpoint but the complete sequence of operations
+- **OpenAPI contracts** — JSON responses must match the defined Pydantic schemas
+- **Zero regressions** — all existing tests must pass
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| `pytest-benchmark` (no Locust/k6) | In-process, sin servidor externo. Determinista. Se integra con pytest. Suficiente para medir latencia del handler + DB |
-| **p95 < 100ms** como gate | p95 permite 5% de outliers (overhead de testcontainers). max y p99 son demasiado estrictos para CI con contenedores |
-| `httpx.AsyncClient` + `ASGITransport` | Ya usado en integración. Misma infraestructura, sin servidor separado |
-| E2E reutiliza `db_pool`/`db_clean` | Un solo contenedor PostgreSQL para toda la sesión. Consistente con integración |
-| Benchmark con `--benchmark-min-rounds=5` | Mínimo 5 rondas para estadística significativa. Warmup de 1 ronda |
-| Custom pytest hook para SLA gate | Hook `pytest_benchmark_update_machine_info` o `conftest.py` que falla si p95 > 100ms |
+| `pytest-benchmark` (not Locust/k6) | In-process, no external server. Deterministic. Integrates with pytest. Sufficient for measuring handler + DB latency |
+| **p95 < 100ms** as gate | p95 allows 5% outliers (testcontainers overhead). max and p99 are too strict for CI with containers |
+| `httpx.AsyncClient` + `ASGITransport` | Already used in integration. Same infrastructure, no separate server |
+| E2E reuses `db_pool`/`db_clean` | Single PostgreSQL container for the entire session. Consistent with integration |
+| Benchmark with `--benchmark-min-rounds=5` | Minimum 5 rounds for meaningful statistics. 1 round warmup |
+| Custom pytest hook for SLA gate | Hook `pytest_benchmark_update_machine_info` or `conftest.py` that fails if p95 > 100ms |
 
 ---
 
@@ -49,13 +49,13 @@ markers = [
 ### `tests/e2e/conftest.py`
 
 ```python
-"""Fixtures compartidos para tests E2E.
+"""Shared fixtures for E2E tests.
 
-Proporciona el fixture ``api_client`` reutilizado de integración,
-más configuración de benchmark para medición de latencia.
+Provides the ``api_client`` fixture reused from integration,
+plus benchmark configuration for latency measurement.
 
-El SLA gate se implementa como un custom pytest hook que verifica
-que el p95 de los benchmarks de stock esté bajo 100ms.
+The SLA gate is implemented as a custom pytest hook that verifies
+that the p95 of stock benchmarks is under 100ms.
 """
 from __future__ import annotations
 
@@ -77,10 +77,10 @@ if TYPE_CHECKING:
 async def api_client(
     db_pool: asyncpg.Pool, db_clean: asyncpg.Pool
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Fixture E2E: cliente HTTP async contra la app con datos limpios.
+    """E2E fixture: async HTTP client against the app with clean data.
 
-    Reutiliza la misma infraestructura que los tests de integración:
-    testcontainers PostgreSQL, migraciones, seed data.
+    Reuses the same infrastructure as integration tests:
+    testcontainers PostgreSQL, migrations, seed data.
     """
     from src.adapters.api.dependencies import get_db_pool
 
@@ -98,25 +98,25 @@ async def api_client(
     app.dependency_overrides.clear()
 
 
-# ── SLA Gate: p95 < 100ms para stock queries ─────────────────────────────
+# ── SLA Gate: p95 < 100ms for stock queries ─────────────────────────────
 
 STOCK_SLA_MS = 100.0
 
 
 def pytest_benchmark_update_machine_info(config, machine_info):
-    """Hook: añade info del entorno de benchmark."""
+    """Hook: adds benchmark environment info."""
     machine_info["testcontainers"] = True
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_benchmark_compare_stats(config, bench_id, compare, current):
-    """Hook: verifica SLA después de cada benchmark de stock."""
+    """Hook: verifies SLA after each stock benchmark."""
     yield
-    # Solo verificar SLA en benchmarks de stock
+    # Only verify SLA on stock benchmarks
     if "stock" in bench_id and current:
         stats = current.stats
         if stats and hasattr(stats, "p95"):
-            p95_ms = stats.p95 * 1000  # Convertir segundos a ms
+            p95_ms = stats.p95 * 1000  # Convert seconds to ms
             if p95_ms > STOCK_SLA_MS:
                 pytest.fail(
                     f"SLA violation: {bench_id} p95={p95_ms:.1f}ms > {STOCK_SLA_MS}ms"
@@ -125,20 +125,20 @@ def pytest_benchmark_compare_stats(config, bench_id, compare, current):
 
 ---
 
-## E2E Test: Latencia de Stock
+## E2E Test: Stock Latency
 
 ### `tests/e2e/test_stock_latency.py`
 
 ```python
-"""Tests E2E de latencia para consultas de stock.
+"""E2E latency tests for stock queries.
 
-Valida el SLA core del sistema: consultas de stock actual e histórico
-deben responder en p95 < 100ms. Usa pytest-benchmark para medición
-estadística con múltiples rondas.
+Validates the core system SLA: current and historical stock queries
+must respond at p95 < 100ms. Uses pytest-benchmark for statistical
+measurement with multiple rounds.
 
-El SLA se mide in-process (httpx.AsyncClient + ASGITransport),
-sin overhead de red. En producción con red, se espera que la
-latencia se mantenga <100ms gracias a la vista materializada.
+The SLA is measured in-process (httpx.AsyncClient + ASGITransport),
+without network overhead. In production with network, latency is
+expected to remain <100ms thanks to the materialized view.
 """
 from __future__ import annotations
 
@@ -154,15 +154,15 @@ if TYPE_CHECKING:
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 async def _setup_product_with_movements(client: httpx.AsyncClient) -> int:
-    """Crea categoría, producto y movimientos para tests de latencia."""
-    # Crear categoría
+    """Creates category, product and movements for latency tests."""
+    # Create category
     resp = await client.post("/v1/categories", json={
         "name": f"bench-cat-{id(client)}",
         "description": "Benchmark category",
     })
     cat_id = resp.json()["id"]
 
-    # Crear producto
+    # Create product
     resp = await client.post("/v1/products", json={
         "sku": f"BENCH-{id(client)}",
         "name": "Benchmark Product",
@@ -172,7 +172,7 @@ async def _setup_product_with_movements(client: httpx.AsyncClient) -> int:
     })
     product_id = resp.json()["id"]
 
-    # Crear movimientos
+    # Create movements
     for _ in range(10):
         await client.post("/v1/movements", json={
             "product_id": product_id,
@@ -187,16 +187,16 @@ async def _setup_product_with_movements(client: httpx.AsyncClient) -> int:
 # ── SLA Tests ────────────────────────────────────────────────────────────
 
 class TestStockLatency:
-    """SLA: consultas de stock en p95 < 100ms."""
+    """SLA: stock queries at p95 < 100ms."""
 
     @pytest.mark.benchmark(group="stock-current")
     async def test_current_stock_latency(
         self, benchmark, api_client: httpx.AsyncClient
     ) -> None:
-        """SLA: GET /v1/stock/{id}/current en p95 < 100ms."""
+        """SLA: GET /v1/stock/{id}/current at p95 < 100ms."""
         product_id = await _setup_product_with_movements(api_client)
 
-        # Benchmark: medir latencia de la consulta
+        # Benchmark: measure query latency
         result = benchmark(
             lambda: asyncio.run(
                 api_client.get(f"/v1/stock/{product_id}/current")
@@ -211,7 +211,7 @@ class TestStockLatency:
     async def test_stock_at_date_latency(
         self, benchmark, api_client: httpx.AsyncClient
     ) -> None:
-        """SLA: GET /v1/stock/{id}/at-date?date=... en p95 < 100ms."""
+        """SLA: GET /v1/stock/{id}/at-date?date=... at p95 < 100ms."""
         from datetime import datetime, timezone
 
         product_id = await _setup_product_with_movements(api_client)
@@ -230,8 +230,8 @@ class TestStockLatency:
     async def test_current_stock_no_movements_latency(
         self, benchmark, api_client: httpx.AsyncClient
     ) -> None:
-        """SLA: stock de producto sin movimientos también < 100ms."""
-        # Crear categoría y producto sin movimientos
+        """SLA: stock for product without movements also < 100ms."""
+        # Create category and product without movements
         resp = await api_client.post("/v1/categories", json={
             "name": f"empty-cat-{id(api_client)}",
         })
@@ -256,17 +256,17 @@ class TestStockLatency:
 
 ---
 
-## E2E Test: Flujos Completos
+## E2E Test: Full Flows
 
 ### `tests/e2e/test_full_flows.py`
 
 ```python
-"""Tests E2E de flujos HTTP completos.
+"""E2E tests for complete HTTP flows.
 
-Valida las secuencias de operaciones que un usuario real ejecutaría:
-1. Crear categoría → producto → movimiento → consultar stock
-2. Registrar OUT cuando hay stock insuficiente → error
-3. Consultar stock en múltiples fechas → consistencia histórica
+Validates the operation sequences that a real user would execute:
+1. Create category → product → movement → query stock
+2. Register OUT when stock is insufficient → error
+3. Query stock on multiple dates → historical consistency
 """
 from __future__ import annotations
 
@@ -280,21 +280,21 @@ if TYPE_CHECKING:
 
 
 class TestFullInventoryFlow:
-    """Flujo completo: categoría → producto → movimiento → stock."""
+    """Complete flow: category → product → movement → stock."""
 
     async def test_create_and_query_stock(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Flujo feliz: crear categoría, producto, movimiento, consultar stock."""
-        # 1. Crear categoría
+        """Happy path: create category, product, movement, query stock."""
+        # 1. Create category
         resp = await api_client.post("/v1/categories", json={
-            "name": "Electrónicos",
-            "description": "Dispositivos electrónicos",
+            "name": "Electronics",
+            "description": "Electronic devices",
         })
         assert resp.status_code == 201
         cat_id = resp.json()["id"]
 
-        # 2. Crear producto
+        # 2. Create product
         resp = await api_client.post("/v1/products", json={
             "sku": "ELEC-001",
             "name": "Monitor 27\"",
@@ -305,7 +305,7 @@ class TestFullInventoryFlow:
         assert resp.status_code == 201
         product_id = resp.json()["id"]
 
-        # 3. Registrar entrada de stock
+        # 3. Register stock entry
         resp = await api_client.post("/v1/movements", json={
             "product_id": product_id,
             "movement_type": "IN",
@@ -316,12 +316,12 @@ class TestFullInventoryFlow:
         movement_id = resp.json()["id"]
         assert movement_id > 0
 
-        # 4. Consultar stock actual
+        # 4. Query current stock
         resp = await api_client.get(f"/v1/stock/{product_id}/current")
         assert resp.status_code == 200
         assert resp.json()["current_stock"] == 100.0
 
-        # 5. Registrar salida
+        # 5. Register exit
         resp = await api_client.post("/v1/movements", json={
             "product_id": product_id,
             "movement_type": "OUT",
@@ -330,7 +330,7 @@ class TestFullInventoryFlow:
         })
         assert resp.status_code == 201
 
-        # 6. Verificar stock actualizado
+        # 6. Verify updated stock
         resp = await api_client.get(f"/v1/stock/{product_id}/current")
         assert resp.status_code == 200
         assert resp.json()["current_stock"] == 70.0
@@ -338,8 +338,8 @@ class TestFullInventoryFlow:
     async def test_insufficient_stock_flow(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Flujo de error: OUT con stock insuficiente → 409."""
-        # Setup: categoría + producto con 10 unidades
+        """Error flow: OUT with insufficient stock → 409."""
+        # Setup: category + product with 10 units
         cat = await api_client.post("/v1/categories", json={"name": "Test"})
         product = await api_client.post("/v1/products", json={
             "sku": "TEST-INSUF",
@@ -355,7 +355,7 @@ class TestFullInventoryFlow:
             "quantity": 10,
         })
 
-        # Intentar OUT de 20 (solo hay 10)
+        # Attempt OUT of 20 (only 10 available)
         resp = await api_client.post("/v1/movements", json={
             "product_id": product_id,
             "movement_type": "OUT",
@@ -368,7 +368,7 @@ class TestFullInventoryFlow:
     async def test_historical_stock_consistency(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """Flujo histórico: stock en diferentes fechas es consistente."""
+        """Historical flow: stock at different dates is consistent."""
         # Setup
         cat = await api_client.post("/v1/categories", json={"name": "Hist"})
         product = await api_client.post("/v1/products", json={
@@ -379,22 +379,22 @@ class TestFullInventoryFlow:
         })
         product_id = product.json()["id"]
 
-        # Stock actual = 0
+        # Current stock = 0
         resp = await api_client.get(f"/v1/stock/{product_id}/current")
         assert resp.json()["current_stock"] == 0.0
 
-        # Registrar entrada
+        # Register entry
         await api_client.post("/v1/movements", json={
             "product_id": product_id,
             "movement_type": "IN",
             "quantity": 50,
         })
 
-        # Stock actual ahora = 50
+        # Current stock now = 50
         resp = await api_client.get(f"/v1/stock/{product_id}/current")
         assert resp.json()["current_stock"] == 50.0
 
-        # Stock en fecha pasada (antes del movimiento) = 0
+        # Stock on past date (before the movement) = 0
         past_date = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat()
         resp = await api_client.get(
             f"/v1/stock/{product_id}/at-date?date={past_date}"
@@ -404,16 +404,16 @@ class TestFullInventoryFlow:
 
 ---
 
-## E2E Test: Contratos OpenAPI
+## E2E Test: OpenAPI Contracts
 
 ### `tests/e2e/test_openapi_contracts.py`
 
 ```python
-"""Tests E2E de validación de contratos OpenAPI.
+"""E2E tests for OpenAPI contract validation.
 
-Verifica que las respuestas JSON de los endpoints coinciden con
-los esquemas Pydantic definidos en src/application/dtos/.
-Usa model_validate() para validar cada respuesta contra su DTO.
+Verifies that JSON responses from endpoints match the Pydantic
+schemas defined in src/application/dtos/.
+Uses model_validate() to validate each response against its DTO.
 """
 from __future__ import annotations
 
@@ -431,12 +431,12 @@ if TYPE_CHECKING:
 
 
 class TestOpenAPIContracts:
-    """Las respuestas de la API deben validar contra sus DTOs Pydantic."""
+    """API responses must validate against their Pydantic DTOs."""
 
     async def test_movement_response_contract(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """POST /v1/movements retorna MovementOutput válido."""
+        """POST /v1/movements returns valid MovementOutput."""
         # Setup
         cat = await api_client.post("/v1/categories", json={"name": "Contract"})
         product = await api_client.post("/v1/products", json={
@@ -453,7 +453,7 @@ class TestOpenAPIContracts:
             "quantity": 25,
         })
         assert resp.status_code == 201
-        # Validar contra Pydantic model
+        # Validate against Pydantic model
         movement = MovementOutput.model_validate(resp.json())
         assert movement.id > 0
         assert movement.product_id == product_id
@@ -463,7 +463,7 @@ class TestOpenAPIContracts:
     async def test_current_stock_response_contract(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """GET /v1/stock/{id}/current retorna CurrentStockOutput válido."""
+        """GET /v1/stock/{id}/current returns valid CurrentStockOutput."""
         # Setup
         cat = await api_client.post("/v1/categories", json={"name": "Stock"})
         product = await api_client.post("/v1/products", json={
@@ -482,7 +482,7 @@ class TestOpenAPIContracts:
     async def test_product_list_response_contract(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """GET /v1/products retorna ProductListOutput válido."""
+        """GET /v1/products returns valid ProductListOutput."""
         resp = await api_client.get("/v1/products")
         assert resp.status_code == 200
         product_list = ProductListOutput.model_validate(resp.json())
@@ -492,7 +492,7 @@ class TestOpenAPIContracts:
     async def test_category_response_contract(
         self, api_client: httpx.AsyncClient
     ) -> None:
-        """POST /v1/categories retorna CategoryOutput válido."""
+        """POST /v1/categories returns valid CategoryOutput."""
         resp = await api_client.post("/v1/categories", json={
             "name": "Contract Category",
         })
@@ -508,10 +508,10 @@ class TestOpenAPIContracts:
 
 | File | Description | Action |
 |------|-------------|--------|
-| `tests/e2e/conftest.py` | Fixtures E2E + benchmark config + SLA gate | NEW |
+| `tests/e2e/conftest.py` | E2E fixtures + benchmark config + SLA gate | NEW |
 | `tests/e2e/test_stock_latency.py` | SLA <100ms benchmark tests | NEW |
-| `tests/e2e/test_full_flows.py` | Flujos HTTP end-to-end completos | NEW |
-| `tests/e2e/test_openapi_contracts.py` | Validación contra esquemas Pydantic | NEW |
+| `tests/e2e/test_full_flows.py` | Complete end-to-end HTTP flows | NEW |
+| `tests/e2e/test_openapi_contracts.py` | Validation against Pydantic schemas | NEW |
 | `pyproject.toml` | +pytest-benchmark, markers | MODIFY |
 | `requirements.txt` | +pytest-benchmark | MODIFY |
 
@@ -519,41 +519,41 @@ class TestOpenAPIContracts:
 
 ## Acceptance Criteria
 
-- [ ] `pytest-benchmark` añadido a `requirements.txt` y `pyproject.toml`
-- [ ] `tests/e2e/conftest.py` con fixture `api_client` + benchmark config + SLA gate hook
-- [ ] Tests de latencia: `/v1/stock/{id}/current` p95 < 100ms
-- [ ] Tests de latencia: `/v1/stock/{id}/at-date` p95 < 100ms
-- [ ] Tests de latencia: producto sin movimientos también < 100ms
-- [ ] Tests de flujos completos: categoría → producto → movimiento → stock
-- [ ] Tests de flujos completos: OUT con stock insuficiente → 409
-- [ ] Tests de flujos completos: consistencia histórica entre fechas
-- [ ] Tests de contratos OpenAPI: respuestas validan contra Pydantic DTOs
-- [ ] SLA gate falla si p95 > 100ms en benchmarks de stock
-- [ ] 0 regresiones en tests existentes
-- [ ] `make lint` pasa sin errores
+- [ ] `pytest-benchmark` added to `requirements.txt` and `pyproject.toml`
+- [ ] `tests/e2e/conftest.py` with `api_client` fixture + benchmark config + SLA gate hook
+- [ ] Latency tests: `/v1/stock/{id}/current` p95 < 100ms
+- [ ] Latency tests: `/v1/stock/{id}/at-date` p95 < 100ms
+- [ ] Latency tests: product without movements also < 100ms
+- [ ] Full flow tests: category → product → movement → stock
+- [ ] Full flow tests: OUT with insufficient stock → 409
+- [ ] Full flow tests: historical consistency between dates
+- [ ] OpenAPI contract tests: responses validate against Pydantic DTOs
+- [ ] SLA gate fails if p95 > 100ms on stock benchmarks
+- [ ] 0 regressions in existing tests
+- [ ] `make lint` passes without errors
 
 ---
 
 ## Testing Strategy
 
-- **Benchmark tests:** miden latencia in-process con `pytest-benchmark`. Mínimo 5 rondas, warmup de 1. SLA gate en p95
-- **Full flow tests:** secuencia de operaciones HTTP que simulan uso real. Verifican consistencia de datos
-- **OpenAPI contract tests:** validan respuestas JSON contra modelos Pydantic con `model_validate()`
-- **Ejecución:** `pytest tests/e2e/ -v` o `pytest tests/e2e/ --benchmark-only` para solo benchmarks
+- **Benchmark tests:** measure in-process latency with `pytest-benchmark`. Minimum 5 rounds, 1 warmup. SLA gate on p95
+- **Full flow tests:** HTTP operation sequences that simulate real usage. Verify data consistency
+- **OpenAPI contract tests:** validate JSON responses against Pydantic models with `model_validate()`
+- **Execution:** `pytest tests/e2e/ -v` or `pytest tests/e2e/ --benchmark-only` for benchmarks only
 
-### Ejecución de benchmarks
+### Benchmark Execution
 
 ```bash
-# Todos los E2E tests (incluye benchmarks)
+# All E2E tests (includes benchmarks)
 pytest tests/e2e/ -v
 
-# Solo benchmarks
+# Benchmarks only
 pytest tests/e2e/ -v --benchmark-only
 
-# Benchmarks con más rondas para análisis
+# Benchmarks with more rounds for analysis
 pytest tests/e2e/ -v --benchmark-only --benchmark-min-rounds=20
 
-# Guardar resultados para comparación
+# Save results for comparison
 pytest tests/e2e/ -v --benchmark-only --benchmark-json=bench_results.json
 ```
 
@@ -561,10 +561,10 @@ pytest tests/e2e/ -v --benchmark-only --benchmark-json=bench_results.json
 
 ## Resolved Questions
 
-| # | Pregunta | Decisión | Rationale |
+| # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| F6-62-Q1 | ¿Herramienta de benchmark? | **pytest-benchmark** | In-process, sin servidor externo. Determinista. Se integra con pytest. Locust/k6 son para load testing externo |
-| F6-62-Q2 | ¿Percentil SLA? | **p95 < 100ms** | Permite 5% de outliers por overhead de testcontainers. max y p99 son demasiado estrictos para CI con contenedores |
-| F6-62-Q3 | ¿Mínimo de rondas? | **5** (warmup=1) | Estadística mínima significativa. 5 rondas × 2 endpoints × 2 casos = 20 mediciones totales en ~5s |
-| F6-62-Q4 | ¿SLA gate como pytest hook o assertion? | **Pytest hook** | Falla automáticamente si p95 > 100ms. No requiere assertion manual en cada test. Más limpio |
-| F6-62-Q5 | ¿Contratos OpenAPI con schema JSON o Pydantic? | **Pydantic model_validate()** | Los DTOs ya existen. Validar contra ellos es más directo y mantiene una sola fuente de verdad |
+| F6-62-Q1 | Benchmark tool? | **pytest-benchmark** | In-process, no external server. Deterministic. Integrates with pytest. Locust/k6 are for external load testing |
+| F6-62-Q2 | SLA percentile? | **p95 < 100ms** | Allows 5% outliers due to testcontainers overhead. max and p99 are too strict for CI with containers |
+| F6-62-Q3 | Minimum rounds? | **5** (warmup=1) | Minimum meaningful statistics. 5 rounds × 2 endpoints × 2 cases = 20 total measurements in ~5s |
+| F6-62-Q4 | SLA gate as pytest hook or assertion? | **Pytest hook** | Automatically fails if p95 > 100ms. No manual assertion required in each test. Cleaner |
+| F6-62-Q5 | OpenAPI contracts with JSON schema or Pydantic? | **Pydantic model_validate()** | DTOs already exist. Validating against them is more direct and maintains a single source of truth |

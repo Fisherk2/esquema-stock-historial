@@ -1,9 +1,9 @@
 # SPEC-22: Protocolos/Interfaces (Ports)
 
-**Fase:** F2 — Núcleo de Dominio  
-**Dependencias:** Spec-20 (Entidades) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** Pendiente
+**Phase:** F2 — Domain Core
+**Dependencies:** Spec-20 (Entities) ✅ Completed
+**Priority:** High
+**Status:** Pending
 
 ---
 
@@ -33,32 +33,32 @@ from src.domain.entities.movement import Movement
 
 @runtime_checkable
 class IMovementRepository(Protocol):
-    """Protocolo para persistencia y consulta de movimientos.
+    """Protocol for movement persistence and querying.
 
-    No incluye métodos update() ni delete() — los movimientos son
-    inmutables por diseño del dominio. Las correcciones se realizan
-    mediante nuevos movimientos compensatorios (ADJUSTMENT).
+    Does not include update() or delete() methods — movements are
+    immutable by domain design. Corrections are performed
+    via new compensatory movements (ADJUSTMENT).
     """
 
     async def create(self, movement: Movement) -> Movement:
-        """Persiste un nuevo movimiento.
+        """Persists a new movement.
 
         Args:
-            movement: Movimiento a persistir (sin id asignado).
+            movement: Movement to persist (no id assigned).
 
         Returns:
-            Movement: El mismo movimiento con id populated tras persistencia.
+            Movement: The same movement with id populated after persistence.
         """
         ...
 
     async def get_by_id(self, movement_id: int) -> Movement | None:
-        """Recupera un movimiento por su ID.
+        """Retrieves a movement by its ID.
 
         Args:
-            movement_id: Identificador técnico del movimiento.
+            movement_id: Technical identifier of the movement.
 
         Returns:
-            Movement | None: El movimiento si existe, None si no.
+            Movement | None: The movement if it exists, None otherwise.
         """
         ...
 
@@ -69,15 +69,15 @@ class IMovementRepository(Protocol):
         limit: int = 50,
         offset: int = 0,
     ) -> list[Movement]:
-        """Lista movimientos de un producto, ordenados por created_at DESC.
+        """Lists movements for a product, ordered by created_at DESC.
 
         Args:
-            product_id: Identificador del producto.
-            limit: Máximo número de movimientos a retornar.
-            offset: Número de movimientos a saltar (paginación).
+            product_id: Product identifier.
+            limit: Maximum number of movements to return.
+            offset: Number of movements to skip (pagination).
 
         Returns:
-            list[Movement]: Lista de movimientos ordenados por fecha descendente.
+            list[Movement]: List of movements ordered by date descending.
         """
         ...
 ```
@@ -101,38 +101,38 @@ from src.domain.entities.product import Product
 
 @runtime_checkable
 class IProductRepository(Protocol):
-    """Protocolo para persistencia y consulta de productos."""
+    """Protocol for product persistence and querying."""
 
     async def create(self, product: Product) -> Product:
-        """Persiste un nuevo producto.
+        """Persists a new product.
 
         Args:
-            product: Producto a persistir (sin id asignado).
+            product: Product to persist (no id assigned).
 
         Returns:
-            Product: El mismo producto con id populated tras persistencia.
+            Product: The same product with id populated after persistence.
         """
         ...
 
     async def get_by_id(self, product_id: int) -> Product | None:
-        """Recupera un producto por su ID.
+        """Retrieves a product by its ID.
 
         Args:
-            product_id: Identificador técnico del producto.
+            product_id: Technical identifier of the product.
 
         Returns:
-            Product | None: El producto si existe, None si no.
+            Product | None: The product if it exists, None otherwise.
         """
         ...
 
     async def get_by_sku(self, sku: str) -> Product | None:
-        """Recupera un producto por su SKU.
+        """Retrieves a product by its SKU.
 
         Args:
-            sku: Identificador de negocio del producto.
+            sku: Business identifier of the product.
 
         Returns:
-            Product | None: El producto si existe, None si no.
+            Product | None: The product if it exists, None otherwise.
         """
         ...
 
@@ -142,33 +142,33 @@ class IProductRepository(Protocol):
         limit: int = 50,
         offset: int = 0,
     ) -> list[Product]:
-        """Lista todos los productos con paginación.
+        """Lists all products with pagination.
 
         Args:
-            limit: Máximo número de productos a retornar.
-            offset: Número de productos a saltar (paginación).
+            limit: Maximum number of products to return.
+            offset: Number of products to skip (pagination).
 
         Returns:
-            list[Product]: Lista de productos.
+            list[Product]: List of products.
         """
         ...
 
     async def list_below_threshold(self) -> list[Product]:
-        """Lista productos con stock actual por debajo del umbral mínimo.
+        """Lists products with current stock below the minimum threshold.
 
-        Esta consulta requiere calcular el stock actual de cada producto
-        (suma de movimientos) y compararlo con su min_stock_threshold.
+        This query requires calculating the current stock for each product
+        (sum of movements) and comparing it with their min_stock_threshold.
 
         Returns:
-            list[Product]: Productos con stock por debajo del umbral.
+            list[Product]: Products with stock below the threshold.
         """
         ...
 ```
 
 **Design Notes:**
-- `list_below_threshold()` es una consulta compleja que requiere join con movimientos
-- `get_by_sku()` usa el SKU como string (no el VO) para simplificar la capa de infraestructura
-- Paginación consistente con `IMovementRepository` (limit/offset)
+- `list_below_threshold()` is a complex query requiring join with movements
+- `get_by_sku()` uses SKU as string (not the VO) to simplify the infrastructure layer
+- Consistent pagination with `IMovementRepository` (limit/offset)
 
 ---
 
@@ -184,42 +184,42 @@ from src.domain.entities.category import Category
 
 @runtime_checkable
 class ICategoryRepository(Protocol):
-    """Protocolo para persistencia y consulta de categorías."""
+    """Protocol for category persistence and querying."""
 
     async def create(self, category: Category) -> Category:
-        """Persiste una nueva categoría.
+        """Persists a new category.
 
         Args:
-            category: Categoría a persistir (sin id asignado).
+            category: Category to persist (no id assigned).
 
         Returns:
-            Category: La misma categoría con id populated tras persistencia.
+            Category: The same category with id populated after persistence.
         """
         ...
 
     async def get_by_id(self, category_id: int) -> Category | None:
-        """Recupera una categoría por su ID.
+        """Retrieves a category by its ID.
 
         Args:
-            category_id: Identificador técnico de la categoría.
+            category_id: Technical identifier of the category.
 
         Returns:
-            Category | None: La categoría si existe, None si no.
+            Category | None: The category if it exists, None otherwise.
         """
         ...
 
     async def list_all(self) -> list[Category]:
-        """Lista todas las categorías.
+        """Lists all categories.
 
         Returns:
-            list[Category]: Lista de todas las categorías.
+            list[Category]: List of all categories.
         """
         ...
 ```
 
 **Design Notes:**
-- Sin paginación en `list_all()` — se espera un número pequeño de categorías
-- Sin `get_by_name()` — el nombre es UNIQUE pero la consulta por ID es suficiente
+- No pagination in `list_all()` — a small number of categories is expected
+- No `get_by_name()` — name is UNIQUE but ID lookup is sufficient
 
 ---
 
@@ -235,32 +235,32 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class IStockQueryRepository(Protocol):
-    """Protocolo para consultas analíticas de stock.
+    """Protocol for analytical stock queries.
 
-    Separado de IMovementRepository (Interface Segregation Principle).
-    Las consultas de stock son operaciones de lectura que pueden usar
-    vistas materializadas, CTEs, o cálculos directos según la implementación.
+    Separated from IMovementRepository (Interface Segregation Principle).
+    Stock queries are read operations that can use
+    materialized views, CTEs, or direct calculations depending on implementation.
     """
 
     async def get_current_stock(self, product_id: int) -> float:
-        """Calcula el stock actual de un producto.
+        """Calculates the current stock of a product.
 
-        Suma todos los movimientos del producto:
+        Sums all movements for the product:
         - IN: +quantity
         - OUT: -quantity
         - ADJUSTMENT: +quantity
-        - TRANSFER: -quantity (desde la perspectiva del origen)
+        - TRANSFER: -quantity (from origin perspective)
 
         Args:
-            product_id: Identificador del producto.
+            product_id: Product identifier.
 
         Returns:
-            float: Stock actual del producto (0.0 si no tiene movimientos).
+            float: Current stock of the product (0.0 if no movements).
 
         Note:
-            Resolución F3-Q1: el tipo de retorno es `float` para compatibilidad
-            con la implementación en SPEC-30/31 (vista materializada + asyncpg).
-            Corregido de `int` a `float` para coincidir con el código real.
+            Resolution F3-Q1: return type is `float` for compatibility
+            with the implementation in SPEC-30/31 (materialized view + asyncpg).
+            Changed from `int` to `float` to match actual code.
         """
         ...
 
@@ -269,25 +269,25 @@ class IStockQueryRepository(Protocol):
         product_id: int,
         date: datetime,
     ) -> float:
-        """Calcula el stock de un producto en una fecha específica.
+        """Calculates the stock of a product on a specific date.
 
-        Solo considera movimientos donde created_at <= date.
+        Only considers movements where created_at <= date.
 
         Args:
-            product_id: Identificador del producto.
-            date: Fecha/hora de referencia (timezone-aware).
+            product_id: Product identifier.
+            date: Reference date/time (timezone-aware).
 
         Returns:
-            float: Stock del producto en la fecha especificada (0.0 si no hay movimientos anteriores).
+            float: Product stock on the specified date (0.0 if no prior movements).
         """
         ...
 ```
 
 **Design Notes:**
-- Separado de `IMovementRepository` — ISP: consultas analíticas vs. CRUD de movimientos
-- Retorna `float` (no entidades) — son consultas de agregación (resolución F3-Q1)
-- `get_stock_at_date()` es la consulta principal para el objetivo de stock histórico <100ms
-- La implementación puede usar vistas materializadas o cálculo directo según performance
+- Separated from `IMovementRepository` — ISP: analytical queries vs. movement CRUD
+- Returns `float` (not entities) — these are aggregation queries (resolution F3-Q1)
+- `get_stock_at_date()` is the main query for the <100ms historical stock objective
+- Implementation can use materialized views or direct calculation based on performance
 
 ---
 

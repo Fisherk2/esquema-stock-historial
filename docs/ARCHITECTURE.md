@@ -39,7 +39,7 @@ graph TB
 
 subgraph "Infrastructure (outer)"
 D1[PostgresRepository impls ← BasePostgresRepository]
-D2[asyncpg Connection Pool (configurable)]
+D2[asyncpg Connection Pool <configurable>]
 D3[APScheduler]
 D4[Structured Logging]
 D5[Materialized Views]

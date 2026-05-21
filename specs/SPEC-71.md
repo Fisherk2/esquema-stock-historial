@@ -1,39 +1,39 @@
-# SPEC-71: README Técnico & Demo Script & Documentación Completa
+# SPEC-71: Technical README & Demo Script & Complete Documentation
 
-**Fase:** F7 — Despliegue & Documentación
-**Dependencias:** Spec-62 (Tests E2E) ✅ Completado, Spec-70 (Dockerfile & Docker Compose Prod) ✅ Completado
-**Prioridad:** Media
-**Estado:** Aprobado
+**Phase:** F7 — Deployment & Documentation
+**Dependencies:** Spec-62 (E2E Tests) ✅ Completed, Spec-70 (Dockerfile & Docker Compose Prod) ✅ Completed
+**Priority:** Medium
+**Status:** Approved
 
 ---
 
 ## Objective
 
-Reescribir todos los stubs de documentación (`ARCHITECTURE.md`, `API_REFERENCE.md`, `SETUP.md`), actualizar `README.md` a v1.0.0, crear `CONTRIBUTING.md` funcional, y desarrollar `scripts/demo.sh` — un script Bash que ejercita el flujo completo del sistema contra la API local.
+Rewrite all documentation stubs (`ARCHITECTURE.md`, `API_REFERENCE.md`, `SETUP.md`), update `README.md` to v1.0.0, create a functional `CONTRIBUTING.md`, and develop `scripts/demo.sh` — a Bash script that exercises the complete system flow against the local API.
 
-**Principios de diseño:**
-- **Documentación como código** — los ejemplos `curl` son ejecutables contra un servidor local
-- **Diagramas Mermaid embebidos** — sin herramientas externas, renderizan en GitHub/GitLab
-- **Demo script robusto** — `set -euo pipefail`, `curl -sf`, falla rápido si el servidor no está disponible
-- **Progressive disclosure** — README da overview; docs/ dan profundidad
-- **Cero nuevas dependencias** — F7 no añade nada a `requirements.txt`
-- **Error examples por endpoint** — cada endpoint muestra 1-2 errores más comunes
+**Design principles:**
+- **Documentation as code** — `curl` examples are executable against a local server
+- **Embedded Mermaid diagrams** — no external tools, render in GitHub/GitLab
+- **Robust demo script** — `set -euo pipefail`, `curl -sf`, fails fast if server is unavailable
+- **Progressive disclosure** — README gives overview; docs/ provide depth
+- **Zero new dependencies** — F7 adds nothing to `requirements.txt`
+- **Error examples per endpoint** — each endpoint shows 1-2 most common errors
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| Reescribir stubs (no parchear) | Los stubs tienen 1-2 líneas. Reescribir desde cero da coherencia y calidad |
-| Mermaid embebido en ARCHITECTURE.md | Renderiza nativamente en GitHub. Sin herramientas externas ni CI steps adicionales |
-| Demo script en `scripts/demo.sh` | Separado del Makefile. El Makefile solo lo invoca con `make demo` |
-| `DEMO_BASE_URL` env var | Consistente con el patrón `.env` del proyecto. Permite demo contra staging u otro host |
-| `set -euo pipefail` en demo script | Falla rápido ante cualquier error (comando fallido, pipe roto, variable undefined) |
-| `curl -sf` en demo script | `-s` silencia progreso, `-f` falla con código de error si HTTP ≥400 |
-| Error examples en API_REFERENCE | Cada endpoint muestra 1-2 errores comunes (400, 404, 409, 422, 405). Más útil para consumidores |
-| 9 endpoints documentados (no 10) | El sistema tiene 9 endpoints HTTP: health(1), categories(2), products(3), movements(3), stock(2) |
-| CONTRIBUTING.md nuevo | Guía para contribuidores: setup, convenciones, PR process, commits |
+| Rewrite stubs (not patch) | Stubs are 1-2 lines. Rewriting from scratch gives coherence and quality |
+| Mermaid embedded in ARCHITECTURE.md | Renders natively in GitHub. No external tools or additional CI steps |
+| Demo script in `scripts/demo.sh` | Separated from Makefile. Makefile only invokes it with `make demo` |
+| `DEMO_BASE_URL` env var | Consistent with project's `.env` pattern. Allows demo against staging or another host |
+| `set -euo pipefail` in demo script | Fails fast on any error (failed command, broken pipe, undefined variable) |
+| `curl -sf` in demo script | `-s` silences progress, `-f` fails with error code if HTTP ≥400 |
+| Error examples in API_REFERENCE | Each endpoint shows 1-2 common errors (400, 404, 409, 422, 405). More useful for consumers |
+| 9 documented endpoints (not 10) | The system has 9 HTTP endpoints: health(1), categories(2), products(3), movements(3), stock(2) |
+| New CONTRIBUTING.md | Guide for contributors: setup, conventions, PR process, commits |
 
 ---
 
@@ -41,21 +41,21 @@ Reescribir todos los stubs de documentación (`ARCHITECTURE.md`, `API_REFERENCE.
 
 ### Target Structure (v1.0.0)
 
-El README sigue el patrón de **progressive disclosure**: overview → stack → commands → arquitectura → docs → estado.
+The README follows the **progressive disclosure** pattern: overview → stack → commands → architecture → docs → status.
 
-**Secciones:**
+**Sections:**
 
-1. **Header** — Título + descripción + badges (CI, coverage, Python version, license)
+1. **Header** — Title + description + badges (CI, coverage, Python version, license)
 2. **Badges** — GitHub Actions CI status, coverage percentage, Python 3.12, MIT License
-3. **Features** — Tabla de funcionalidades clave (Source of Truth Inmutable, Stock histórico <100ms, etc.)
-4. **Stack Tecnológico** — Tabla de componentes (igual que v0.6.0, actualizada a v1.0.0)
-5. **Comandos Principales** — Tabla con todos los `make` commands incluyendo `demo`, `docker-prod-up`, `docker-prod-down`
-6. **Quick Start** — 3 pasos: `make install && make docker-prod-up && make demo`
-7. **Estructura del Proyecto** — Árbol de directorios (igual que v0.6.0)
-8. **Arquitectura** — Párrafo resumido + link a `docs/ARCHITECTURE.md`
-9. **Documentación** — Tabla de archivos de documentación con links
-10. **API Endpoints** — Tabla resumida de los 9 endpoints con método + ruta
-11. **Estado Actual** — F7 completada, v1.0.0
+3. **Features** — Table of key features (Immutable Source of Truth, Historical stock <100ms, etc.)
+4. **Technology Stack** — Component table (same as v0.6.0, updated to v1.0.0)
+5. **Main Commands** — Table with all `make` commands including `demo`, `docker-prod-up`, `docker-prod-down`
+6. **Quick Start** — 3 steps: `make install && make docker-prod-up && make demo`
+7. **Project Structure** — Directory tree (same as v0.6.0)
+8. **Architecture** — Summary paragraph + link to `docs/ARCHITECTURE.md`
+9. **Documentation** — Table of documentation files with links
+10. **API Endpoints** — Summary table of the 9 endpoints with method + route
+11. **Current Status** — F7 completed, v1.0.0
 
 ### Badge URLs
 
@@ -69,31 +69,31 @@ El README sigue el patrón de **progressive disclosure**: overview → stack →
 ### Quick Start Section
 
 ```bash
-# 1. Instalar dependencias
+# 1. Install dependencies
 make install
 
-# 2. Levantar stack de producción (app + PostgreSQL)
+# 2. Start production stack (app + PostgreSQL)
 make docker-prod-up
 
-# 3. Ejecutar demo completa
+# 3. Run complete demo
 make demo
 ```
 
 ### API Endpoints Summary Table
 
-| Método | Ruta | Descripción |
+| Method | Route | Description |
 |--------|------|-------------|
-| GET | `/v1/health` | Health check del sistema |
-| POST | `/v1/categories` | Crear categoría |
-| GET | `/v1/categories` | Listar categorías |
-| POST | `/v1/products` | Crear producto |
-| GET | `/v1/products` | Listar productos (paginado) |
-| GET | `/v1/products/{id}` | Obtener producto por ID |
-| POST | `/v1/movements` | Registrar movimiento |
-| GET | `/v1/movements` | Listar movimientos por producto (paginado) |
-| GET | `/v1/movements/{id}` | Obtener movimiento por ID |
-| GET | `/v1/stock/{id}/current` | Stock actual de un producto |
-| GET | `/v1/stock/{id}/at-date` | Stock histórico a una fecha |
+| GET | `/v1/health` | System health check |
+| POST | `/v1/categories` | Create category |
+| GET | `/v1/categories` | List categories |
+| POST | `/v1/products` | Create product |
+| GET | `/v1/products` | List products (paginated) |
+| GET | `/v1/products/{id}` | Get product by ID |
+| POST | `/v1/movements` | Register movement |
+| GET | `/v1/movements` | List movements by product (paginated) |
+| GET | `/v1/movements/{id}` | Get movement by ID |
+| GET | `/v1/stock/{id}/current` | Current stock for a product |
+| GET | `/v1/stock/{id}/at-date` | Historical stock at a date |
 
 ---
 
@@ -101,16 +101,16 @@ make demo
 
 ### Target Structure
 
-1. **Overview** — Qué es el sistema, qué problema resuelve, principios arquitectónicos
-2. **Diagrama de Capas** — Mermaid: Domain → Application → Infrastructure → Adapters
-3. **Capas Detalladas** — Cada capa con responsabilidades, componentes, y reglas de importación
-4. **Patrones Clave** — Repository, Unit of Work, CQRS (queries via MV), Source of Truth
-5. **Decisions Técnicas** — SQL explícito (no ORM), asyncpg, APScheduler, Pydantic strict
-6. **Reglas de Importación** — Tabla de qué capa puede importar qué
-7. **Diagrama de Datos** — Mermaid: Products → Movements → MV
-8. **Diagrama de Request Flow** — Mermaid: HTTP → Router → UseCase → Repo → DB
+1. **Overview** — What the system is, what problem it solves, architectural principles
+2. **Layer Diagram** — Mermaid: Domain → Application → Infrastructure → Adapters
+3. **Detailed Layers** — Each layer with responsibilities, components, and import rules
+4. **Key Patterns** — Repository, Unit of Work, CQRS (queries via MV), Source of Truth
+5. **Technical Decisions** — Explicit SQL (no ORM), asyncpg, APScheduler, Pydantic strict
+6. **Import Rules** — Table of which layer can import from which
+7. **Data Diagram** — Mermaid: Products → Movements → MV
+8. **Request Flow Diagram** — Mermaid: HTTP → Router → UseCase → Repo → DB
 
-### Diagrama de Capas (Mermaid target)
+### Layer Diagram (Mermaid target)
 
 ```mermaid
 graph TB
@@ -148,16 +148,16 @@ graph TB
     Scheduler --> DB
 ```
 
-### Reglas de Importación (tabla target)
+### Import Rules (target table)
 
-| Capa | Puede importar de | No puede importar de |
+| Layer | Can import from | Cannot import from |
 |------|-------------------|---------------------|
-| Domain | Nada (solo stdlib) | Application, Infrastructure, Adapters |
+| Domain | Nothing (only stdlib) | Application, Infrastructure, Adapters |
 | Application | Domain (ports, entities, rules, VOs) | Infrastructure, Adapters |
 | Infrastructure | Domain (ports), Application (DTOs interfaces) | Adapters |
 | Adapters | Application (use cases, DTOs), Domain (exceptions) | Infrastructure internals |
 
-### Diagrama de Datos (Mermaid target)
+### Data Diagram (Mermaid target)
 
 ```mermaid
 erDiagram
@@ -193,7 +193,7 @@ erDiagram
     }
 ```
 
-### Diagrama de Request Flow (Mermaid target)
+### Request Flow Diagram (Mermaid target)
 
 ```mermaid
 sequenceDiagram
@@ -221,15 +221,15 @@ sequenceDiagram
 
 ### Target Structure
 
-1. **Overview** — Base URL, autenticación (ninguna), content-type, paginación
-2. **Error Response Format** — Contrato `ErrorResponse` con ejemplo
-3. **Endpoints** — Cada endpoint con: método, ruta, descripción, parámetros, request body, response body, códigos de error, ejemplo curl, ejemplo de error
-4. **Paginación** — Explicación de `limit`/`offset`/`total`
-5. **Rate Limiting** — No implementado (nota para futuro)
+1. **Overview** — Base URL, authentication (none), content-type, pagination
+2. **Error Response Format** — `ErrorResponse` contract with example
+3. **Endpoints** — Each endpoint with: method, route, description, parameters, request body, response body, error codes, curl example, error example
+4. **Pagination** — Explanation of `limit`/`offset`/`total`
+5. **Rate Limiting** — Not implemented (note for future)
 
 ### Error Response Contract
 
-Todas las respuestas de error siguen el mismo envelope:
+All error responses follow the same envelope:
 
 ```json
 {
@@ -241,44 +241,44 @@ Todas las respuestas de error siguen el mismo envelope:
 }
 ```
 
-### Error Codes por Endpoint
+### Error Codes per Endpoint
 
-| Endpoint | Error Code | HTTP Status | Descripción |
+| Endpoint | Error Code | HTTP Status | Description |
 |----------|------------|-------------|-------------|
-| POST /v1/categories | `VALIDATION_ERROR` | 422 | Campo inválido o faltante |
-| POST /v1/categories | `DUPLICATE_CATEGORY` | 409 | Nombre de categoría duplicado |
-| POST /v1/products | `VALIDATION_ERROR` | 422 | Campo inválido o faltante |
-| POST /v1/products | `DUPLICATE_SKU` | 409 | SKU duplicado |
-| POST /v1/products | `CATEGORY_NOT_FOUND` | 400 | category_id no existe |
-| GET /v1/products/{id} | `PRODUCT_NOT_FOUND` | 404 | Producto no encontrado |
-| POST /v1/movements | `VALIDATION_ERROR` | 422 | Campo inválido o faltante |
-| POST /v1/movements | `PRODUCT_NOT_FOUND` | 400 | product_id no existe |
-| POST /v1/movements | `INSUFFICIENT_STOCK` | 409 | Stock insuficiente para OUT/TRANSFER |
-| GET /v1/movements/{id} | `MOVEMENT_NOT_FOUND` | 404 | Movimiento no encontrado |
-| GET /v1/stock/{id}/current | `PRODUCT_NOT_FOUND` | 404 | Producto no encontrado |
-| GET /v1/stock/{id}/at-date | `PRODUCT_NOT_FOUND` | 404 | Producto no encontrado |
-| GET /v1/stock/{id}/at-date | `VALIDATION_ERROR` | 422 | Fecha inválida |
-| PUT/PATCH/DELETE /v1/movements/* | `METHOD_NOT_ALLOWED` | 405 | Movimientos son inmutables |
+| POST /v1/categories | `VALIDATION_ERROR` | 422 | Invalid or missing field |
+| POST /v1/categories | `DUPLICATE_CATEGORY` | 409 | Duplicate category name |
+| POST /v1/products | `VALIDATION_ERROR` | 422 | Invalid or missing field |
+| POST /v1/products | `DUPLICATE_SKU` | 409 | Duplicate SKU |
+| POST /v1/products | `CATEGORY_NOT_FOUND` | 400 | category_id does not exist |
+| GET /v1/products/{id} | `PRODUCT_NOT_FOUND` | 404 | Product not found |
+| POST /v1/movements | `VALIDATION_ERROR` | 422 | Invalid or missing field |
+| POST /v1/movements | `PRODUCT_NOT_FOUND` | 400 | product_id does not exist |
+| POST /v1/movements | `INSUFFICIENT_STOCK` | 409 | Insufficient stock for OUT/TRANSFER |
+| GET /v1/movements/{id} | `MOVEMENT_NOT_FOUND` | 404 | Movement not found |
+| GET /v1/stock/{id}/current | `PRODUCT_NOT_FOUND` | 404 | Product not found |
+| GET /v1/stock/{id}/at-date | `PRODUCT_NOT_FOUND` | 404 | Product not found |
+| GET /v1/stock/{id}/at-date | `VALIDATION_ERROR` | 422 | Invalid date |
+| PUT/PATCH/DELETE /v1/movements/* | `METHOD_NOT_ALLOWED` | 405 | Movements are immutable |
 
 ### Endpoint Documentation Template
 
-Cada endpoint sigue esta estructura:
+Each endpoint follows this structure:
 
 ```markdown
 ### POST /v1/movements
 
-Registra un nuevo movimiento de inventario. Los movimientos son **inmutables** —
-una vez creados, no pueden modificarse ni eliminarse.
+Registers a new inventory movement. Movements are **immutable** —
+once created, they cannot be modified or deleted.
 
 **Request Body:**
 
-| Campo | Tipo | Requerido | Constraints | Descripción |
+| Field | Type | Required | Constraints | Description |
 |-------|------|-----------|-------------|-------------|
-| product_id | int | Sí | gt=0 | ID del producto |
-| movement_type | string | Sí | IN, OUT, ADJUSTMENT, TRANSFER | Tipo de movimiento |
-| quantity | int | Sí | gt=0 | Cantidad positiva |
-| metadata | dict[str,str] | No | default={} | TRANSFER requiere origin/destination; ADJUSTMENT requiere reason |
-| reference | string | No | max_length=255 | Referencia externa |
+| product_id | int | Yes | gt=0 | Product ID |
+| movement_type | string | Yes | IN, OUT, ADJUSTMENT, TRANSFER | Movement type |
+| quantity | int | Yes | gt=0 | Positive quantity |
+| metadata | dict[str,str] | No | default={} | TRANSFER requires origin/destination; ADJUSTMENT requires reason |
+| reference | string | No | max_length=255 | External reference |
 
 **Response 201:**
 
@@ -294,7 +294,7 @@ una vez creados, no pueden modificarse ni eliminarse.
 }
 \`\`\`
 
-**Ejemplo curl:**
+**curl Example:**
 
 \`\`\`bash
 curl -X POST http://localhost:8000/v1/movements \
@@ -302,7 +302,7 @@ curl -X POST http://localhost:8000/v1/movements \
   -d '{"product_id": 1, "movement_type": "IN", "quantity": 50, "reference": "PO-2026-001"}'
 \`\`\`
 
-**Error 409 — Stock insuficiente:**
+**Error 409 — Insufficient stock:**
 
 \`\`\`json
 {
@@ -314,7 +314,7 @@ curl -X POST http://localhost:8000/v1/movements \
 }
 \`\`\`
 
-**Error 422 — Campo faltante:**
+**Error 422 — Missing field:**
 
 \`\`\`json
 {
@@ -332,18 +332,18 @@ curl -X POST http://localhost:8000/v1/movements \
 | # | Method | Route | Section Title |
 |---|--------|-------|---------------|
 | 1 | GET | `/v1/health` | Health Check |
-| 2 | POST | `/v1/categories` | Crear Categoría |
-| 3 | GET | `/v1/categories` | Listar Categorías |
-| 4 | POST | `/v1/products` | Crear Producto |
-| 5 | GET | `/v1/products` | Listar Productos |
-| 6 | GET | `/v1/products/{product_id}` | Obtener Producto |
-| 7 | POST | `/v1/movements` | Registrar Movimiento |
-| 8 | GET | `/v1/movements` | Listar Movimientos |
-| 9 | GET | `/v1/movements/{movement_id}` | Obtener Movimiento |
-| 10 | GET | `/v1/stock/{product_id}/current` | Stock Actual |
-| 11 | GET | `/v1/stock/{product_id}/at-date` | Stock Histórico |
+| 2 | POST | `/v1/categories` | Create Category |
+| 3 | GET | `/v1/categories` | List Categories |
+| 4 | POST | `/v1/products` | Create Product |
+| 5 | GET | `/v1/products` | List Products |
+| 6 | GET | `/v1/products/{product_id}` | Get Product |
+| 7 | POST | `/v1/movements` | Register Movement |
+| 8 | GET | `/v1/movements` | List Movements |
+| 9 | GET | `/v1/movements/{movement_id}` | Get Movement |
+| 10 | GET | `/v1/stock/{product_id}/current` | Current Stock |
+| 11 | GET | `/v1/stock/{product_id}/at-date` | Historical Stock |
 
-> **Nota:** Son 11 rutas (el SPEC.md original mencionaba 10, pero el inventario real es 11 contando `/v1/health`). Se documentan todas.
+> **Note:** There are 11 routes (the original SPEC.md mentioned 10, but the actual inventory is 11 counting `/v1/health`). All are documented.
 
 ---
 
@@ -351,47 +351,47 @@ curl -X POST http://localhost:8000/v1/movements \
 
 ### Target Structure
 
-1. **Prerequisitos** — Python 3.12+, PostgreSQL 16+, Docker, Git
-2. **Instalación** — `make install`, `.env` setup
-3. **Desarrollo Local** — `make dev`, PostgreSQL via Docker o local
+1. **Prerequisites** — Python 3.12+, PostgreSQL 16+, Docker, Git
+2. **Installation** — `make install`, `.env` setup
+3. **Local Development** — `make dev`, PostgreSQL via Docker or local
 4. **Docker Dev** — `make docker-up`, hot reload, debug
-5. **Docker Prod** — `make docker-prod-up`, `.env` de producción, healthchecks
+5. **Docker Prod** — `make docker-prod-up`, production `.env`, healthchecks
 6. **Demo** — `make demo`, `DEMO_BASE_URL`
-7. **Variables de Entorno** — Tabla completa de todas las variables (F0-F7)
-8. **Troubleshooting** — Problemas comunes y soluciones
-9. **Migraciones** — `make migrate`, `make seed`
+7. **Environment Variables** — Complete table of all variables (F0-F7)
+8. **Troubleshooting** — Common problems and solutions
+9. **Migrations** — `make migrate`, `make seed`
 
-### Variables de Entorno Table
+### Environment Variables Table
 
-| Variable | Default | Descripción | Desde |
+| Variable | Default | Description | Since |
 |----------|---------|-------------|-------|
-| `APP_NAME` | `Stock Historial` | Nombre de la app para logs | F0 |
-| `APP_HOST` | `0.0.0.0` | Interfaz de red (0.0.0.0 para Docker) | F0 |
-| `APP_PORT` | `8000` | Puerto de escucha HTTP | F0 |
-| `LOG_LEVEL` | `info` | Nivel de logging (debug/info/warning/error) | F0 |
-| `ENVIRONMENT` | `development` | Entorno de ejecución | F0 |
-| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial` | DSN asyncpg | F1 |
-| `LOG_FORMAT` | `text` | Formato de logs (text/json) | F5 |
-| `SCHEDULER_ENABLED` | `true` | Habilitar/deshabilitar scheduler | F5 |
-| `SCHEDULER_REFRESH_INTERVAL_MINUTES` | `5` | Intervalo entre refreshes de MV | F5 |
-| `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | `60` | Tolerancia para jobs retrasados | F5 |
-| `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | `30` | Timeout para refresh job | F5 |
-| `API_STATEMENT_TIMEOUT_SECONDS` | `5` | Timeout para queries de API | F5 |
-| `POSTGRES_USER` | `stock_user` | Usuario PostgreSQL (prod) | F7 |
-| `POSTGRES_PASSWORD` | (requerido) | Contraseña PostgreSQL (prod) | F7 |
-| `POSTGRES_DB` | `stock_historial` | Base de datos PostgreSQL (prod) | F7 |
-| `DEMO_BASE_URL` | `http://localhost:8000` | URL base para demo script | F7 |
+| `APP_NAME` | `Stock Historial` | App name for logs | F0 |
+| `APP_HOST` | `0.0.0.0` | Network interface (0.0.0.0 for Docker) | F0 |
+| `APP_PORT` | `8000` | HTTP listening port | F0 |
+| `LOG_LEVEL` | `info` | Logging level (debug/info/warning/error) | F0 |
+| `ENVIRONMENT` | `development` | Runtime environment | F0 |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/stock_historial` | asyncpg DSN | F1 |
+| `LOG_FORMAT` | `text` | Log format (text/json) | F5 |
+| `SCHEDULER_ENABLED` | `true` | Enable/disable scheduler | F5 |
+| `SCHEDULER_REFRESH_INTERVAL_MINUTES` | `5` | Interval between MV refreshes | F5 |
+| `SCHEDULER_MISFIRE_GRACE_TIME_SECONDS` | `60` | Tolerance for delayed jobs | F5 |
+| `SCHEDULER_STATEMENT_TIMEOUT_SECONDS` | `30` | Timeout for refresh job | F5 |
+| `API_STATEMENT_TIMEOUT_SECONDS` | `5` | Timeout for API queries | F5 |
+| `POSTGRES_USER` | `stock_user` | PostgreSQL user (prod) | F7 |
+| `POSTGRES_PASSWORD` | (required) | PostgreSQL password (prod) | F7 |
+| `POSTGRES_DB` | `stock_historial` | PostgreSQL database (prod) | F7 |
+| `DEMO_BASE_URL` | `http://localhost:8000` | Base URL for demo script | F7 |
 
 ### Troubleshooting Section
 
-| Problema | Solución |
+| Problem | Solution |
 |----------|----------|
-| `psycopg` o connection refused | Verificar que PostgreSQL está corriendo: `docker compose ps` |
-| `make demo` falla con connection refused | Verificar que el servidor está levantado: `curl http://localhost:8000/v1/health` |
-| `docker compose up` falla con port in use | Detener servicios previos: `make docker-down` o `make docker-prod-down` |
-| Migraciones pendientes | Ejecutar: `make migrate` |
-| Coverage baja | Ejecutar: `make test-cov` y revisar líneas sin cubrir |
-| `mypy` falla | Ejecutar: `make typecheck` y revisar errores |
+| `psycopg` or connection refused | Verify PostgreSQL is running: `docker compose ps` |
+| `make demo` fails with connection refused | Verify server is up: `curl http://localhost:8000/v1/health` |
+| `docker compose up` fails with port in use | Stop previous services: `make docker-down` or `make docker-prod-down` |
+| Pending migrations | Run: `make migrate` |
+| Low coverage | Run: `make test-cov` and review uncovered lines |
+| `mypy` fails | Run: `make typecheck` and review errors |
 
 ---
 
@@ -399,55 +399,55 @@ curl -X POST http://localhost:8000/v1/movements \
 
 ### NEW FILE: `scripts/demo.sh`
 
-Script de demostración que ejercita el flujo completo del sistema:
+Demonstration script that exercises the complete system flow:
 
-1. **Health check** — verificar que el servidor está vivo
-2. **Crear categoría** — POST `/v1/categories`
-3. **Crear producto** — POST `/v1/products`
-4. **Registrar entrada (IN)** — POST `/v1/movements` con `movement_type=IN`
-5. **Consultar stock actual** — GET `/v1/stock/{id}/current`
-6. **Registrar salida (OUT)** — POST `/v1/movements` con `movement_type=OUT`
-7. **Consultar stock actualizado** — GET `/v1/stock/{id}/current` (verificar stock reducido)
-8. **Consultar stock histórico** — GET `/v1/stock/{id}/at-date`
-9. **Listar movimientos** — GET `/v1/movements?product_id={id}`
-10. **Mensaje de éxito**
+1. **Health check** — verify server is alive
+2. **Create category** — POST `/v1/categories`
+3. **Create product** — POST `/v1/products`
+4. **Register entry (IN)** — POST `/v1/movements` with `movement_type=IN`
+5. **Query current stock** — GET `/v1/stock/{id}/current`
+6. **Register exit (OUT)** — POST `/v1/movements` with `movement_type=OUT`
+7. **Query updated stock** — GET `/v1/stock/{id}/current` (verify reduced stock)
+8. **Query historical stock** — GET `/v1/stock/{id}/at-date`
+9. **List movements** — GET `/v1/movements?product_id={id}`
+10. **Success message**
 
 ### Contract
 
 ```bash
 #!/usr/bin/env bash
-# scripts/demo.sh — Demo script del sistema Stock Historial
-# Ejecuta el flujo completo: health → categoría → producto → IN → stock → OUT → stock → histórico → movimientos
+# scripts/demo.sh — Stock Historial system demo script
+# Runs the complete flow: health → category → product → IN → stock → OUT → stock → historical → movements
 #
-# Uso: make demo
-# Con URL custom: DEMO_BASE_URL=http://staging:8000 make demo
-# Prerequisitos: servidor corriendo en localhost:8000
+# Usage: make demo
+# With custom URL: DEMO_BASE_URL=http://staging:8000 make demo
+# Prerequisites: server running on localhost:8000
 
 set -euo pipefail
 
 BASE_URL="${DEMO_BASE_URL:-http://localhost:8000}"
 HEALTH_URL="${BASE_URL}/v1/health"
 
-# 1. Verificar que el servidor está vivo
-echo "🔍 Verificando salud del servidor..."
+# 1. Verify server is alive
+echo "🔍 Checking server health..."
 curl -sf "${HEALTH_URL}" | python3 -m json.tool
 
-# 2. Crear categoría
-echo "\n📦 Creando categoría 'Electrónica'..."
+# 2. Create category
+echo "\n📦 Creating category 'Electronics'..."
 CATEGORY=$(curl -sf -X POST "${BASE_URL}/v1/categories" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Electrónica", "description": "Dispositivos electrónicos"}')
+  -d '{"name": "Electronics", "description": "Electronic devices"}')
 echo "$CATEGORY" | python3 -m json.tool
 CATEGORY_ID=$(echo "$CATEGORY" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-# 3. Crear producto
-echo "\n📱 Creando producto 'Monitor 27 4K'..."
+# 3. Create product
+echo "\n📱 Creating product '27 4K Monitor'..."
 PRODUCT=$(curl -sf -X POST "${BASE_URL}/v1/products" \
   -H "Content-Type: application/json" \
   -d "{
     \"sku\": \"MON-27-4K\",
-    \"name\": \"Monitor 27 4K\",
-    \"description\": \"Monitor IPS 4K 27 pulgadas\",
+    \"name\": \"27 4K Monitor\",
+    \"description\": \"27 inch IPS 4K Monitor\",
     \"unit_of_measure\": \"unit\",
     \"category_id\": ${CATEGORY_ID},
     \"min_stock_threshold\": 5
@@ -455,8 +455,8 @@ PRODUCT=$(curl -sf -X POST "${BASE_URL}/v1/products" \
 echo "$PRODUCT" | python3 -m json.tool
 PRODUCT_ID=$(echo "$PRODUCT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-# 4. Registrar entrada de stock
-echo "\n📥 Registrando IN de 50 unidades..."
+# 4. Register stock entry
+echo "\n📥 Registering IN of 50 units..."
 MOVEMENT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
   -H "Content-Type: application/json" \
   -d "{
@@ -467,13 +467,13 @@ MOVEMENT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
   }")
 echo "$MOVEMENT" | python3 -m json.tool
 
-# 5. Consultar stock actual
-echo "\n📊 Consultando stock actual..."
+# 5. Query current stock
+echo "\n📊 Querying current stock..."
 STOCK=$(curl -sf "${BASE_URL}/v1/stock/${PRODUCT_ID}/current")
 echo "$STOCK" | python3 -m json.tool
 
-# 6. Registrar salida
-echo "\n📤 Registrando OUT de 10 unidades..."
+# 6. Register exit
+echo "\n📤 Registering OUT of 10 units..."
 OUT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
   -H "Content-Type: application/json" \
   -d "{
@@ -484,32 +484,32 @@ OUT=$(curl -sf -X POST "${BASE_URL}/v1/movements" \
   }")
 echo "$OUT" | python3 -m json.tool
 
-# 7. Consultar stock actualizado
-echo "\n📊 Stock después de la salida..."
+# 7. Query updated stock
+echo "\n📊 Stock after exit..."
 STOCK2=$(curl -sf "${BASE_URL}/v1/stock/${PRODUCT_ID}/current")
 echo "$STOCK2" | python3 -m json.tool
 
-# 8. Consultar stock histórico
-echo "\n📅 Consultando stock histórico..."
+# 8. Query historical stock
+echo "\n📅 Querying historical stock..."
 STOCK_DATE=$(curl -sf "${BASE_URL}/v1/stock/${PRODUCT_ID}/at-date?date=2026-01-01T00:00:00Z")
 echo "$STOCK_DATE" | python3 -m json.tool
 
-# 9. Listar movimientos del producto
-echo "\n📋 Listando movimientos del producto..."
+# 9. List product movements
+echo "\n📋 Listing product movements..."
 MOVEMENTS=$(curl -sf "${BASE_URL}/v1/movements?product_id=${PRODUCT_ID}&limit=10")
 echo "$MOVEMENTS" | python3 -m json.tool
 
-echo "\n✅ Demo completada exitosamente!"
+echo "\n✅ Demo completed successfully!"
 ```
 
 ### Demo Script Validation
 
-| Validación | Comando | Criterio |
+| Validation | Command | Criteria |
 |------------|---------|----------|
-| Script ejecuta sin errores | `make demo` (con servidor levantado) | Exit code 0 |
-| Stock after IN = 50 | Verificar output del step 5 | `current_stock: 50.0` |
-| Stock after OUT = 40 | Verificar output del step 7 | `current_stock: 40.0` |
-| Servidor no disponible | `DEMO_BASE_URL=http://invalid make demo` | Exit code ≠ 0 (curl -sf falla) |
+| Script runs without errors | `make demo` (with server up) | Exit code 0 |
+| Stock after IN = 50 | Verify step 5 output | `current_stock: 50.0` |
+| Stock after OUT = 40 | Verify step 7 output | `current_stock: 40.0` |
+| Server unavailable | `DEMO_BASE_URL=http://invalid make demo` | Exit code ≠ 0 (curl -sf fails) |
 
 ---
 
@@ -517,18 +517,18 @@ echo "\n✅ Demo completada exitosamente!"
 
 ### NEW FILE: `CONTRIBUTING.md`
 
-Guía para contribuidores del proyecto:
+Guide for project contributors:
 
-1. **Setup** — Prerequisitos y primer setup (link a `docs/SETUP.md`)
-2. **Flujo de Trabajo** — Fork → Branch → Commit → PR
-3. **Convenciones de Commits** — Formato: `type(scope): description`
-4. **Calidad** — `make build` (lint + format + test) antes de commit
-5. **Type Checking** — `make typecheck` (mypy strict) debe pasar
-6. **Cobertura** — No reducir cobertura existente
-7. **Arquitectura** — Respetar reglas de importación (ver `docs/ARCHITECTURE.md`)
-8. **Testing** — Escribir tests para todo código nuevo
-9. **Commits** — Commits atómicos, mensajes descriptivos
-10. **PR** — Descripción clara, referencia a specs
+1. **Setup** — Prerequisites and initial setup (link to `docs/SETUP.md`)
+2. **Workflow** — Fork → Branch → Commit → PR
+3. **Commit Conventions** — Format: `type(scope): description`
+4. **Quality** — `make build` (lint + format + test) before commit
+5. **Type Checking** — `make typecheck` (mypy strict) must pass
+6. **Coverage** — Do not reduce existing coverage
+7. **Architecture** — Respect import rules (see `docs/ARCHITECTURE.md`)
+8. **Testing** — Write tests for all new code
+9. **Commits** — Atomic commits, descriptive messages
+10. **PR** — Clear description, reference to specs
 
 ### Commit Convention
 
@@ -545,57 +545,57 @@ Scopes: domain, application, infrastructure, adapters, db, scheduler, docs, ci
 
 | File | Description | Action |
 |------|-------------|--------|
-| `README.md` | Actualizar a v1.0.0: badges, features, quick start, API table | MODIFY |
-| `docs/ARCHITECTURE.md` | Reescribir: Clean Architecture, diagramas Mermaid, reglas de importación, decisiones técnicas | REWRITE |
-| `docs/API_REFERENCE.md` | Reescribir: 11 endpoints con parámetros, ejemplos curl, errores | REWRITE |
-| `docs/SETUP.md` | Reescribir: prereqs → install → dev → prod → demo → variables → troubleshooting | REWRITE |
-| `scripts/demo.sh` | Demo script: flujo completo curl contra API | NEW |
-| `CONTRIBUTING.md` | Guía de contribución: setup, convenciones, PR process | NEW |
-| `Makefile` | +demo command (ya cubierto en Spec-70) | MODIFY (coordinated) |
+| `README.md` | Update to v1.0.0: badges, features, quick start, API table | MODIFY |
+| `docs/ARCHITECTURE.md` | Rewrite: Clean Architecture, Mermaid diagrams, import rules, technical decisions | REWRITE |
+| `docs/API_REFERENCE.md` | Rewrite: 11 endpoints with parameters, curl examples, errors | REWRITE |
+| `docs/SETUP.md` | Rewrite: prereqs → install → dev → prod → demo → variables → troubleshooting | REWRITE |
+| `scripts/demo.sh` | Demo script: complete curl flow against API | NEW |
+| `CONTRIBUTING.md` | Contribution guide: setup, conventions, PR process | NEW |
+| `Makefile` | +demo command (already covered in Spec-70) | MODIFY (coordinated) |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `README.md` actualizado a v1.0.0 con badges, tabla de features, quick start, API endpoints summary
-- [ ] `docs/ARCHITECTURE.md` documenta: Clean Architecture con diagrama Mermaid de capas, reglas de importación (tabla), diagrama de datos (ER), diagrama de request flow (sequence), patrones (Repository, UoW, CQRS, MV), decisiones técnicas (SQL explícito, asyncpg, APScheduler, Pydantic strict)
-- [ ] `docs/API_REFERENCE.md` documenta: 11 endpoints con método, ruta, descripción, parámetros, request/response body, códigos de error, ejemplos `curl` ejecutables, y al menos 1 ejemplo de error por endpoint
-- [ ] `docs/SETUP.md` documenta: prerequisitos, instalación, desarrollo local, Docker dev, Docker prod, demo, tabla de variables de entorno (16 variables F0-F7), troubleshooting
-- [ ] `scripts/demo.sh` ejecuta flujo completo: health → categoría → producto → IN → stock → OUT → stock → histórico → movimientos
-- [ ] Demo script soporta `DEMO_BASE_URL` env var (default `http://localhost:8000`)
-- [ ] `make demo` ejecuta `bash scripts/demo.sh`
-- [ ] Demo script usa `set -euo pipefail` y falla si el servidor no está disponible
-- [ ] Demo script muestra output formateado con `python3 -m json.tool`
-- [ ] `CONTRIBUTING.md` documenta: setup, convenciones de commits, calidad, arquitectura, testing
-- [ ] Todos los ejemplos `curl` en `API_REFERENCE.md` son ejecutables contra un servidor local
-- [ ] `make lint` pasa sin errores
-- [ ] 0 regresiones en tests existentes (205+ tests)
+- [ ] `README.md` updated to v1.0.0 with badges, features table, quick start, API endpoints summary
+- [ ] `docs/ARCHITECTURE.md` documents: Clean Architecture with Mermaid layer diagram, import rules (table), data diagram (ER), request flow diagram (sequence), patterns (Repository, UoW, CQRS, MV), technical decisions (explicit SQL, asyncpg, APScheduler, Pydantic strict)
+- [ ] `docs/API_REFERENCE.md` documents: 11 endpoints with method, route, description, parameters, request/response body, error codes, executable `curl` examples, and at least 1 error example per endpoint
+- [ ] `docs/SETUP.md` documents: prerequisites, installation, local development, Docker dev, Docker prod, demo, environment variables table (16 variables F0-F7), troubleshooting
+- [ ] `scripts/demo.sh` executes complete flow: health → category → product → IN → stock → OUT → stock → historical → movements
+- [ ] Demo script supports `DEMO_BASE_URL` env var (default `http://localhost:8000`)
+- [ ] `make demo` runs `bash scripts/demo.sh`
+- [ ] Demo script uses `set -euo pipefail` and fails if server is unavailable
+- [ ] Demo script shows formatted output with `python3 -m json.tool`
+- [ ] `CONTRIBUTING.md` documents: setup, commit conventions, quality, architecture, testing
+- [ ] All `curl` examples in `API_REFERENCE.md` are executable against a local server
+- [ ] `make lint` passes without errors
+- [ ] 0 regressions in existing tests (205+ tests)
 
 ---
 
 ## Testing Strategy
 
-F7 no añade tests unitarios ni de integración. La validación es manual:
+F7 does not add unit or integration tests. Validation is manual:
 
-| Validación | Comando | Criterio |
+| Validation | Command | Criteria |
 |------------|---------|----------|
-| Demo script | `make demo` (con servidor levantado) | Exit code 0, output formateado |
-| Demo con URL custom | `DEMO_BASE_URL=http://localhost:8000 make demo` | Exit code 0 |
-| Demo falla sin servidor | `DEMO_BASE_URL=http://invalid:9999 make demo` | Exit code ≠ 0 |
-| Links internos | Verificar que todos los links en README/docs apuntan a archivos existentes | Sin 404s |
-| Mermaid rendering | Abrir ARCHITECTURE.md en GitHub | Diagramas renderizan correctamente |
-| curl examples | Ejecutar cada ejemplo curl de API_REFERENCE | Respuestas esperadas |
+| Demo script | `make demo` (with server up) | Exit code 0, formatted output |
+| Demo with custom URL | `DEMO_BASE_URL=http://localhost:8000 make demo` | Exit code 0 |
+| Demo fails without server | `DEMO_BASE_URL=http://invalid:9999 make demo` | Exit code ≠ 0 |
+| Internal links | Verify all links in README/docs point to existing files | No 404s |
+| Mermaid rendering | Open ARCHITECTURE.md in GitHub | Diagrams render correctly |
+| curl examples | Execute each curl example from API_REFERENCE | Expected responses |
 
 ---
 
 ## Resolved Questions
 
-| # | Pregunta | Decisión | Rationale |
+| # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| F7-71-Q1 | ¿Número de endpoints? | **11** (no 10) | El inventario real es 11 rutas: health(1), categories(2), products(3), movements(3), stock(2) |
-| F7-71-Q2 | ¿Ejemplos de error en API_REFERENCE? | **Sí, 1-2 por endpoint** | Cada endpoint muestra los errores más comunes (400, 404, 409, 422, 405). Más útil para consumidores de la API |
-| F7-71-Q3 | ¿Demo script con validación de stock? | **Sí** | El script verifica que el stock después de IN=50 y OUT=10 es 40. Validación implícita en el output |
-| F7-71-Q4 | ¿CONTRIBUTING.md? | **Sí, nuevo** | Guía para contribuidores. Incluye setup, convenciones, PR process, commits |
-| F7-71-Q5 | ¿Badges en README? | **Sí: CI, coverage, Python, license** | Badges dan visibilidad inmediata del estado del proyecto |
-| F7-71-Q6 | ¿Quick Start en README? | **Sí, 3 pasos** | `make install && make docker-prod-up && make demo` — mínimo friction para empezar |
-| F7-71-Q7 | ¿Diagramas Mermaid en ARCHITECTURE? | **Sí: capas, ER, sequence** | 3 diagramas cubren las vistas principales: estructura, datos, flujo |
+| F7-71-Q1 | Number of endpoints? | **11** (not 10) | The actual inventory is 11 routes: health(1), categories(2), products(3), movements(3), stock(2) |
+| F7-71-Q2 | Error examples in API_REFERENCE? | **Yes, 1-2 per endpoint** | Each endpoint shows the most common errors (400, 404, 409, 422, 405). More useful for API consumers |
+| F7-71-Q3 | Demo script with stock validation? | **Yes** | The script verifies that stock after IN=50 and OUT=10 is 40. Implicit validation in the output |
+| F7-71-Q4 | CONTRIBUTING.md? | **Yes, new** | Guide for contributors. Includes setup, conventions, PR process, commits |
+| F7-71-Q5 | Badges in README? | **Yes: CI, coverage, Python, license** | Badges give immediate visibility of project status |
+| F7-71-Q6 | Quick Start in README? | **Yes, 3 steps** | `make install && make docker-prod-up && make demo` — minimum friction to get started |
+| F7-71-Q7 | Mermaid diagrams in ARCHITECTURE? | **Yes: layers, ER, sequence** | 3 diagrams cover the main views: structure, data, flow |

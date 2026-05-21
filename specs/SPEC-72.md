@@ -1,44 +1,44 @@
 # SPEC-72: CI/CD Pipeline
 
-**Fase:** F7 — Despliegue & Documentación
-**Dependencias:** Spec-03 (Calidad y automatización) ✅ Completado, Spec-60 (Hypothesis + mypy strict) ✅ Completado, Spec-70 (Dockerfile & Docker Compose Prod) ✅ Completado
-**Prioridad:** Alta
-**Estado:** Aprobado
+**Phase:** F7 — Deployment & Documentation
+**Dependencies:** Spec-03 (Quality and automation) ✅ Completed, Spec-60 (Hypothesis + mypy strict) ✅ Completed, Spec-70 (Dockerfile & Docker Compose Prod) ✅ Completed
+**Priority:** High
+**Status:** Approved
 
 ---
 
 ## Objective
 
-Extender el pipeline CI/CD existente (3 gates: lint → test → coverage) a 5 gates secuenciales: **lint → typecheck → test → coverage → Docker build**. Cada gate es un job independiente en GitHub Actions. No hay deploy automático — el pipeline solo valida continuamente.
+Extend the existing CI/CD pipeline (3 gates: lint → test → coverage) to 5 sequential gates: **lint → typecheck → test → coverage → Docker build**. Each gate is an independent job in GitHub Actions. No automatic deployment — the pipeline only validates continuously.
 
-**Principios de diseño:**
-- **5 gates, 0 deploy** — validación continua sin despliegue automático
-- **Cada job independiente** — un job no comparte estado con otro (excepto dependencies vía `needs`)
-- **Fail fast** — si lint falla, no se ejecutan test/coverage/Docker build
-- **Docker build con cache** — `docker/build-push-action` con `cache_from: type=gha`, `cache_to: type=gha` reduce build time de ~2min a ~30s
-- **Cero nuevas dependencias** — los gates usan herramientas ya instaladas (ruff, mypy, pytest, docker)
-- **Python 3.12 consistente** — todos los jobs usan `actions/setup-python@v5` con `3.12`
+**Design principles:**
+- **5 gates, 0 deploy** — continuous validation without automatic deployment
+- **Each job independent** — no job shares state with another (except dependencies via `needs`)
+- **Fail fast** — if lint fails, test/coverage/Docker build are not executed
+- **Docker build with cache** — `docker/build-push-action` with `cache_from: type=gha`, `cache_to: type=gha` reduces build time from ~2min to ~30s
+- **Zero new dependencies** — gates use already installed tools (ruff, mypy, pytest, docker)
+- **Consistent Python 3.12** — all jobs use `actions/setup-python@v5` with `3.12`
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| 5 gates secuenciales | lint → typecheck → test → coverage → Docker build. Cada gate depende del anterior. Si uno falla, los siguientes no se ejecutan |
-| Jobs independientes (no steps en un solo job) | Cada job tiene su propio runner limpio. No hay contaminación de estado. Facilita debugging (cada job tiene su log separado) |
-| `needs: lint` en typecheck, `needs: typecheck` en test, etc. | Dependencias explícitas. Falla rápido: si un gate falla, los dependientes se skipped |
-| Docker build como último gate | Valida que el Dockerfile compila. Es el gate más lento, por eso va al final. Si lint/typecheck/test fallan, no se pierde tiempo en Docker build |
-| `docker/build-push-action` con `type=gha` cache | GitHub Actions cache es más rápido que registry cache para builds en CI. Reduce build time significativamente en runs subsecuentes |
-| No push a registry en CI | Solo valida que el build compila. No hay deploy automático. Push a registry es manual o en un workflow separado |
-| Coverage gate usa 1× pytest + report | Los umbrales por paquete se verifican via `coverage report --include` sobre datos ya collectados — no se re-ejecutan tests (3× → 1×, ~80% menos tiempo) |
-| Sin deploy automático | Deploy es manual. El pipeline es de validación continua, no de entrega continua |
+| 5 sequential gates | lint → typecheck → test → coverage → Docker build. Each gate depends on the previous one. If one fails, the following ones don't execute |
+| Independent jobs (not steps in a single job) | Each job has its own clean runner. No state contamination. Facilitates debugging (each job has its separate log) |
+| `needs: lint` in typecheck, `needs: typecheck` in test, etc. | Explicit dependencies. Fails fast: if a gate fails, dependent ones are skipped |
+| Docker build as last gate | Validates that the Dockerfile compiles. It's the slowest gate, which is why it goes at the end. If lint/typecheck/test fail, no time is wasted on Docker build |
+| `docker/build-push-action` with `type=gha` cache | GitHub Actions cache is faster than registry cache for CI builds. Significantly reduces build time in subsequent runs |
+| No push to registry in CI | Only validates that the build compiles. No automatic deployment. Push to registry is manual or in a separate workflow |
+| Coverage gate uses 1× pytest + report | Per-package thresholds are verified via `coverage report --include` on already collected data — tests are not re-executed (3× → 1×, ~80% less time) |
+| No automatic deployment | Deploy is manual. The pipeline is for continuous validation, not continuous delivery |
 
 ---
 
 ## Current State (v0.6.0)
 
-El `ci.yml` actual tiene 3 gates:
+The current `ci.yml` has 3 gates:
 
 ```yaml
 # Gate 1: lint (ruff)
@@ -48,19 +48,19 @@ El `ci.yml` actual tiene 3 gates:
 
 ### Problems with Current CI
 
-| Problema | Impacto |
+| Problem | Impact |
 |----------|---------|
-| Coverage corre como step dentro de `test` job | Si test falla, coverage no corre. Pero coverage es un gate distinto con semántica diferente |
-| No hay typecheck gate | mypy strict puede fallar localmente pero pasar desapercibido en CI |
-| No hay Docker build gate | Dockerfile puede romperse sin detección hasta que alguien intenta `docker build` |
-| Coverage step re-instala dependencies | Redundante con el step anterior en el mismo job |
-| No hay cache de Docker | Docker build desde cero cada vez (~2min) |
+| Coverage runs as a step inside `test` job | If test fails, coverage doesn't run. But coverage is a distinct gate with different semantics |
+| No typecheck gate | mypy strict can fail locally but go unnoticed in CI |
+| No Docker build gate | Dockerfile can break without detection until someone attempts `docker build` |
+| Coverage step re-installs dependencies | Redundant with the previous step in the same job |
+| No Docker cache | Docker build from scratch every time (~2min) |
 
 ---
 
 ## Target State (v1.0.0)
 
-5 gates secuenciales, cada uno como job independiente:
+5 sequential gates, each as an independent job:
 
 ```
     lint ──→ typecheck ──→ test ──→ coverage ──→ docker-build
@@ -86,7 +86,7 @@ on:
 
 jobs:
   # ── Gate 1: Lint ────────────────────────────────────────────────
-  # Ruff detecta errores de estilo, imports y bugs
+  # Ruff detects style errors, imports, and bugs
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -101,7 +101,7 @@ jobs:
         run: make lint
 
   # ── Gate 2: Type Check ─────────────────────────────────────────
-  # mypy strict valida tipos en src/ (tests excluidos)
+  # mypy strict validates types in src/ (tests excluded)
   typecheck:
     runs-on: ubuntu-latest
     needs: lint
@@ -117,7 +117,7 @@ jobs:
         run: make typecheck
 
   # ── Gate 3: Tests ──────────────────────────────────────────────
-  # pytest con todo el suite (unit + integration + e2e + security)
+  # pytest with the full suite (unit + integration + e2e + security)
   test:
     runs-on: ubuntu-latest
     needs: typecheck
@@ -133,7 +133,7 @@ jobs:
         run: make test
 
   # ── Gate 4: Coverage ───────────────────────────────────────────
-  # Coverage global ≥80%, domain/ ≥90%, application/ ≥85%
+  # Global coverage ≥80%, domain/ ≥90%, application/ ≥85%
   coverage:
     runs-on: ubuntu-latest
     needs: test
@@ -153,8 +153,8 @@ jobs:
         run: pytest --cov=src.application --cov-report=term-missing --cov-fail-under=85
 
   # ── Gate 5: Docker Build ───────────────────────────────────────
-  # Valida que el Dockerfile compila sin errores
-  # Usa GitHub Actions cache (type=gha) para acelerar builds
+  # Validates that the Dockerfile compiles without errors
+  # Uses GitHub Actions cache (type=gha) to speed up builds
   docker-build:
     runs-on: ubuntu-latest
     needs: coverage
@@ -178,58 +178,58 @@ jobs:
 
 ### Gate 1: Lint
 
-| Aspecto | Detalle |
+| Aspect | Detail |
 |---------|---------|
-| Herramienta | `ruff check src tests` |
-| Comando | `make lint` |
+| Tool | `ruff check src tests` |
+| Command | `make lint` |
 | Config | `pyproject.toml [tool.ruff]` |
-| Fallo si | Cualquier error de lint (0 tolerancia) |
-| Duración estimada | ~5s |
+| Fails if | Any lint error (0 tolerance) |
+| Estimated duration | ~5s |
 
 ### Gate 2: Type Check
 
-| Aspecto | Detalle |
+| Aspect | Detail |
 |---------|---------|
-| Herramienta | `mypy src/ --strict` |
-| Comando | `make typecheck` |
+| Tool | `mypy src/ --strict` |
+| Command | `make typecheck` |
 | Config | `pyproject.toml [tool.mypy]` — strict=true, tests.* override |
-| Fallo si | Cualquier error de tipos en `src/` |
-| Duración estimada | ~15s |
-| Nota | Tests excluidos (`strict=false` override en pyproject.toml) |
+| Fails if | Any type error in `src/` |
+| Estimated duration | ~15s |
+| Note | Tests excluded (`strict=false` override in pyproject.toml) |
 
 ### Gate 3: Tests
 
-| Aspecto | Detalle |
+| Aspect | Detail |
 |---------|---------|
-| Herramienta | `pytest` |
-| Comando | `make test` |
+| Tool | `pytest` |
+| Command | `make test` |
 | Config | `pyproject.toml [tool.pytest.ini_options]` |
-| Fallo si | Cualquier test falla (205+ tests) |
-| Duración estimada | ~30s (unit), ~60s (integration+e2e con testcontainers) |
-| Nota | Incluye Hypothesis con `--hypothesis-seed=0` para reproducibilidad |
+| Fails if | Any test fails (205+ tests) |
+| Estimated duration | ~30s (unit), ~60s (integration+e2e with testcontainers) |
+| Note | Includes Hypothesis with `--hypothesis-seed=0` for reproducibility |
 
 ### Gate 4: Coverage
 
-| Aspecto | Detalle |
+| Aspect | Detail |
 |---------|---------|
-| Herramienta | `pytest --cov` + `coverage report --include` |
-| Comando | `pytest --cov=src --cov-report=term-missing --cov-report=json` |
+| Tool | `pytest --cov` + `coverage report --include` |
+| Command | `pytest --cov=src --cov-report=term-missing --cov-report=json` |
 | Sub-gates | `coverage report --include="src/domain/*" --fail-under=90`, `coverage report --include="src/application/*" --fail-under=85` |
-| Fallo si | Coverage global <80%, domain <90%, o application <85% |
-| Duración estimada | ~60s (1 run de tests + verificaciones de umbral sin re-ejecutar) |
-| Nota | 1 solo `pytest --cov` run; los sub-gates usan `coverage report` sobre datos ya colectados — no re-ejecutan tests |
+| Fails if | Global coverage <80%, domain <90%, or application <85% |
+| Estimated duration | ~60s (1 test run + threshold verifications without re-executing) |
+| Note | Single `pytest --cov` run; sub-gates use `coverage report` on already collected data — tests are not re-executed |
 
 ### Gate 5: Docker Build
 
-| Aspecto | Detalle |
+| Aspect | Detail |
 |---------|---------|
-| Herramienta | `docker/build-push-action@v6` |
-| Comando | `docker build` (via action) |
+| Tool | `docker/build-push-action@v6` |
+| Command | `docker build` (via action) |
 | Config | `Dockerfile` (multi-stage, Spec-70) |
-| Fallo si | Build exit code ≠ 0 |
-| Duración estimada | ~30s (cached), ~2min (cold) |
+| Fails if | Build exit code ≠ 0 |
+| Estimated duration | ~30s (cached), ~2min (cold) |
 | Cache | `type=gha` (GitHub Actions cache) |
-| Nota | `push: false` — no se pushea imagen a registry |
+| Note | `push: false` — image is not pushed to registry |
 
 ---
 
@@ -237,38 +237,38 @@ jobs:
 
 ### Problem
 
-coverage.py no soporta `fail_under` por paquete nativamente. El `--cov-fail-under=80` es un gate global.
+coverage.py doesn't natively support per-package `fail_under`. The `--cov-fail-under=80` is a global gate.
 
 ### Solution (v1.0.0+)
 
-Un solo run de pytest con coverage, luego verificaciones de umbral por paquete via `coverage report`:
+A single pytest run with coverage, then per-package threshold verifications via `coverage report`:
 
 ```bash
-# Un solo run: genera coverage data completa
+# Single run: generates complete coverage data
 pytest --cov=src --cov-report=term-missing --cov-report=json
 
-# Verificacion de umbral global ≥80% (via script inline)
+# Global threshold verification ≥80% (via inline script)
 python -c "import json; d=json.load(open('coverage.json')); \
   pct=d['totals']['percent_covered_display']; \
   print(f'Global coverage: {pct}%'); \
   exit(0 if float(pct)>=80 else 1)"
 
-# Verificacion de umbrales por paquete sin re-ejecutar tests
+# Per-package threshold verification without re-executing tests
 coverage report --include="src/domain/*" --fail-under=90
 coverage report --include="src/application/*" --fail-under=85
 ```
 
 ### Performance Improvement
 
-| Metrica | Antes (3× pytest) | Después (1× pytest) | Mejora |
+| Metric | Before (3× pytest) | After (1× pytest) | Improvement |
 |---------|-------------------|---------------------|--------|
-| Test suite runs | 3 | 1 | **66% menos** |
-| Tiempo estimado | ~3min total | ~60s | **~80% menos** |
-| Contenedores testcontainers | 3 lifecycle | 1 lifecycle | **66% menos overhead** |
+| Test suite runs | 3 | 1 | **66% less** |
+| Estimated time | ~3min total | ~60s | **~80% less** |
+| Testcontainers containers | 3 lifecycle | 1 lifecycle | **66% less overhead** |
 
 ### Rationale
 
-`coverage report --include` lee datos de coverage ya colectados (archivo `.coverage`). Verificar umbrales por paquete no requiere re-ejecutar los tests, solo re-analizar los datos existentes.
+`coverage report --include` reads already collected coverage data (`.coverage` file). Verifying per-package thresholds doesn't require re-executing tests, only re-analyzing existing data.
 
 ---
 
@@ -276,31 +276,31 @@ coverage report --include="src/application/*" --fail-under=85
 
 ### Why `type=gha`
 
-GitHub Actions cache (`type=gha`) es la opción óptima para CI porque:
+GitHub Actions cache (`type=gha`) is the optimal option for CI because:
 
 | Cache Type | Pros | Cons |
 |------------|------|------|
-| `type=gha` | Sin registry externo, cache en el mismo runner, más rápido para CI | Solo disponible en GitHub Actions |
-| `type=registry` | Funciona en cualquier entorno CI, cache compartido entre runners | Requiere registry push/pull, más lento |
-| Sin cache | Simple | ~2min por build desde cero |
+| `type=gha` | No external registry, cache on the same runner, faster for CI | Only available in GitHub Actions |
+| `type=registry` | Works in any CI environment, cache shared between runners | Requires registry push/pull, slower |
+| No cache | Simple | ~2min per build from scratch |
 
 ### Expected Build Times
 
-| Escenario | Tiempo |
+| Scenario | Time |
 |-----------|--------|
-| Primera run (cold cache) | ~2min |
-| Segunda run (warm cache, sin cambios en requirements) | ~30s |
-| Run con cambio en requirements.txt | ~1min (solo re-installa deps) |
-| Run con cambio en código (sin deps) | ~30s (re-usa layer de deps) |
+| First run (cold cache) | ~2min |
+| Second run (warm cache, no changes in requirements) | ~30s |
+| Run with change in requirements.txt | ~1min (only re-installs deps) |
+| Run with code change (no deps) | ~30s (re-uses deps layer) |
 
 ### Cache Configuration
 
 ```yaml
-cache-from: type=gha      # Leer cache de runs anteriores
-cache-to: type=gha,mode=max  # Escribir cache completo (todas las layers)
+cache-from: type=gha      # Read cache from previous runs
+cache-to: type=gha,mode=max  # Write full cache (all layers)
 ```
 
-`mode=max` guarda todas las layers intermedias, no solo la final. Esto maximiza cache hits para builds futuras.
+`mode=max` saves all intermediate layers, not just the final one. This maximizes cache hits for future builds.
 
 ---
 
@@ -331,56 +331,56 @@ cache-to: type=gha,mode=max  # Escribir cache completo (todas las layers)
 
 ## Acceptance Criteria
 
-- [ ] `ci.yml` tiene 5 jobs secuenciales: lint, typecheck, test, coverage, docker-build
+- [ ] `ci.yml` has 5 sequential jobs: lint, typecheck, test, coverage, docker-build
 - [ ] Gate lint: `make lint` (ruff check src tests)
-- [ ] Gate typecheck: `make typecheck` (mypy strict en `src/`) — `needs: lint`
+- [ ] Gate typecheck: `make typecheck` (mypy strict on `src/`) — `needs: lint`
 - [ ] Gate test: `make test` (pytest 205+ tests) — `needs: typecheck`
 - [ ] Gate coverage: `pytest --cov=src --cov-fail-under=80` — `needs: test`
 - [ ] Gate coverage: sub-gate domain `--cov=src.domain --cov-fail-under=90`
 - [ ] Gate coverage: sub-gate application `--cov=src.application --cov-fail-under=85`
-- [ ] Gate docker-build: `docker/build-push-action@v6` con `push: false` — `needs: coverage`
-- [ ] Docker build usa `cache-from: type=gha` y `cache-to: type=gha,mode=max`
-- [ ] Docker build usa `docker/setup-buildx-action@v3`
-- [ ] Cada job usa `actions/setup-python@v5` con Python 3.12 (excepto docker-build)
-- [ ] Pipeline falla si cualquier gate falla (0 tolerancia)
-- [ ] No hay deploy automático — solo validación continua
-- [ ] `make lint` pasa sin errores
-- [ ] 0 regresiones en tests existentes (205+ tests)
+- [ ] Gate docker-build: `docker/build-push-action@v6` with `push: false` — `needs: coverage`
+- [ ] Docker build uses `cache-from: type=gha` and `cache-to: type=gha,mode=max`
+- [ ] Docker build uses `docker/setup-buildx-action@v3`
+- [ ] Each job uses `actions/setup-python@v5` with Python 3.12 (except docker-build)
+- [ ] Pipeline fails if any gate fails (0 tolerance)
+- [ ] No automatic deployment — only continuous validation
+- [ ] `make lint` passes without errors
+- [ ] 0 regressions in existing tests (205+ tests)
 
 ---
 
 ## Testing Strategy
 
-F7 no añade tests unitarios ni de integración. La validación del CI/CD es el pipeline mismo:
+F7 does not add unit or integration tests. CI/CD validation is the pipeline itself:
 
-| Validación | Comando | Criterio |
+| Validation | Command | Criteria |
 |------------|---------|----------|
-| Lint gate | Push a PR en GitHub | Job `lint` pasa (green check) |
-| Typecheck gate | Push a PR en GitHub | Job `typecheck` pasa |
-| Test gate | Push a PR en GitHub | Job `test` pasa (205+ tests) |
-| Coverage gate | Push a PR en GitHub | Job `coverage` pasa (≥80% global, ≥90% domain, ≥85% application) |
-| Docker build gate | Push a PR en GitHub | Job `docker-build` pasa (exit code 0) |
-| Fail fast | Introducir error de lint en PR | Jobs typecheck, test, coverage, docker-build se skipped |
-| Cache warming | Segundo push sin cambios | Docker build time ~30s (vs ~2min cold) |
+| Lint gate | Push to PR on GitHub | Job `lint` passes (green check) |
+| Typecheck gate | Push to PR on GitHub | Job `typecheck` passes |
+| Test gate | Push to PR on GitHub | Job `test` passes (205+ tests) |
+| Coverage gate | Push to PR on GitHub | Job `coverage` passes (≥80% global, ≥90% domain, ≥85% application) |
+| Docker build gate | Push to PR on GitHub | Job `docker-build` passes (exit code 0) |
+| Fail fast | Introduce lint error in PR | Jobs typecheck, test, coverage, docker-build are skipped |
+| Cache warming | Second push without changes | Docker build time ~30s (vs ~2min cold) |
 
 ### Manual Validation Steps
 
 ```bash
-# 1. Validar lint gate localmente
+# 1. Validate lint gate locally
 make lint
 
-# 2. Validar typecheck gate localmente
+# 2. Validate typecheck gate locally
 make typecheck
 
-# 3. Validar test gate localmente
+# 3. Validate test gate locally
 make test
 
-# 4. Validar coverage gate localmente (1× pytest + coverage report)
+# 4. Validate coverage gate locally (1× pytest + coverage report)
 pytest --cov=src --cov-report=term-missing --cov-report=json
 coverage report --include="src/domain/*" --fail-under=90
 coverage report --include="src/application/*" --fail-under=85
 
-# 5. Validar Docker build gate localmente
+# 5. Validate Docker build gate locally
 docker build -t stock-historial:latest .
 ```
 
@@ -388,29 +388,29 @@ docker build -t stock-historial:latest .
 
 ## Out of Scope
 
-Las siguientes capacidades de CI/CD están **explícitamente excluidas** de F7:
+The following CI/CD capabilities are **explicitly excluded** from F7:
 
-| Capacidad | Razón | Fase futura |
+| Capability | Reason | Future phase |
 |-----------|-------|-------------|
-| Deploy automático (staging/prod) | F7 es validación continua. Deploy es manual | F8+ |
-| Push a Docker registry (GHCR, Docker Hub) | No hay destino de deploy definido | F8+ |
-| Matrix testing (múltiples Python versions) | Solo Python 3.12 es soportado | F8+ |
-| Security scanning (`pip-audit`, `safety`) | Requiere nuevas dev dependencies | F8+ |
-| Performance regression testing | Requiere baseline y infraestructura de medición | F8+ |
-| Nightly builds | No hay necesidad con el volumen actual de commits | F8+ |
-| Release automation (tags, changelog) | Manual en F7, automatizable en el futuro | F8+ |
+| Automatic deployment (staging/prod) | F7 is continuous validation. Deploy is manual | F8+ |
+| Push to Docker registry (GHCR, Docker Hub) | No deploy destination defined | F8+ |
+| Matrix testing (multiple Python versions) | Only Python 3.12 is supported | F8+ |
+| Security scanning (`pip-audit`, `safety`) | Requires new dev dependencies | F8+ |
+| Performance regression testing | Requires baseline and measurement infrastructure | F8+ |
+| Nightly builds | No need with the current commit volume | F8+ |
+| Release automation (tags, changelog) | Manual in F7, automatable in the future | F8+ |
 
 ---
 
 ## Resolved Questions
 
-| # | Pregunta | Decisión | Rationale |
+| # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| F7-72-Q1 | ¿Jobs separados vs steps en un job? | **Jobs separados** | Cada job tiene runner limpio, logs separados, y se puede re-ejecutar independientemente. Steps comparten estado y dificultan debugging |
-| F7-72-Q2 | ¿Docker build cache type? | **`type=gha`** | GitHub Actions cache es más rápido para CI que registry cache. Sin configuración de registry externo |
-| F7-72-Q3 | ¿Push imagen a registry? | **No (`push: false`)** | F7 no tiene destino de deploy. Solo valida que el Dockerfile compila. Push es manual o en workflow separado |
-| F7-72-Q4 | ¿Coverage por paquete en CI? | **Sí, 3 sub-gates secuenciales** | Global ≥80%, domain ≥90%, application ≥85%. 3 comandos pytest secuenciales en el mismo job |
-| F7-72-Q5 | ¿Deploy automático? | **No** | F7 es validación continua. Deploy es manual. Se puede añadir en F8+ con GitHub Environments |
-| F7-72-Q6 | ¿Security scanning (pip-audit)? | **No en F7** | Añade dependencia dev nueva. Se puede añadir como gate adicional en F8+ |
-| F7-72-Q7 | ¿`mode=max` en cache-to? | **Sí** | Guarda todas las layers intermedias, no solo la final. Maximiza cache hits para builds futuras |
-| F7-72-Q8 | ¿Docker Buildx setup? | **Sí, `setup-buildx-action@v3`** | Requerido por `docker/build-push-action@v6` para cache y build improvements |
+| F7-72-Q1 | Separate jobs vs steps in a single job? | **Separate jobs** | Each job has a clean runner, separate logs, and can be re-executed independently. Steps share state and make debugging difficult |
+| F7-72-Q2 | Docker build cache type? | **`type=gha`** | GitHub Actions cache is faster for CI than registry cache. No external registry configuration |
+| F7-72-Q3 | Push image to registry? | **No (`push: false`)** | F7 has no deploy destination. Only validates that the Dockerfile compiles. Push is manual or in a separate workflow |
+| F7-72-Q4 | Per-package coverage in CI? | **Yes, 3 sequential sub-gates** | Global ≥80%, domain ≥90%, application ≥85%. 3 sequential pytest commands in the same job |
+| F7-72-Q5 | Automatic deployment? | **No** | F7 is continuous validation. Deploy is manual. Can be added in F8+ with GitHub Environments |
+| F7-72-Q6 | Security scanning (pip-audit)? | **No in F7** | Adds new dev dependency. Can be added as an additional gate in F8+ |
+| F7-72-Q7 | `mode=max` in cache-to? | **Yes** | Saves all intermediate layers, not just the final one. Maximizes cache hits for future builds |
+| F7-72-Q8 | Docker Buildx setup? | **Yes, `setup-buildx-action@v3`** | Required by `docker/build-push-action@v6` for cache and build improvements |

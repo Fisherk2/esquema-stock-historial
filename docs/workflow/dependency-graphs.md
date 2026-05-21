@@ -1,50 +1,50 @@
-# Grafos de Dependencia entre Specs
+# Dependency Graphs between Specs
 
 ```mermaid
 graph TD
-    %% F0: Preparación
-    S01[Spec-01: Estructura]
-    S02[Spec-02: Entorno Dev]
-    S03[Spec-03: Calidad/CI]
-    S04[Spec-04: Doc Inicial]
+    %% F0: Preparation
+    S01[Spec-01: Structure]
+    S02[Spec-02: Development Environment]
+    S03[Spec-03: Quality/CI]
+    S04[Spec-04: Initial Docs]
 
-    %% F1: Infraestructura
-    S10[Spec-10: Config DB]
-    S11[Spec-11: Esquema/Mig]
-    S12[Spec-12: Índices/Opt]
+    %% F1: Infrastructure
+    S10[Spec-10: DB Configuration]
+    S11[Spec-11: Schema/Migrations]
+    S12[Spec-12: Indexes/Optimization]
 
-    %% F2: Núcleo
-    S20[Spec-20: Entidades]
-    S21[Spec-21: Reglas]
-    S22[Spec-22: Protocolos]
+    %% F2: Core
+    S20[Spec-20: Entities]
+    S21[Spec-21: Business Rules]
+    S22[Spec-22: Protocols]
 
-    %% F3: Adaptadores
-    S30[Spec-30: Repositorio]
-    S31[Spec-31: Vistas Mat.]
-    S32[Spec-32: UoW/Trans]
+    %% F3: Adapters
+    S30[Spec-30: Repository]
+    S31[Spec-31: Materialized Views]
+    S32[Spec-32: UoW/Transactions]
 
     %% F4: API
     S40[Spec-40: Use Cases]
     S41[Spec-41: DTOs]
-    S42[Spec-42: Rutas FastAPI]
+    S42[Spec-42: FastAPI Routes]
 
     %% F5: Scheduler
     S50[Spec-50: APScheduler]
-    S51[Spec-51: Retry/Conc]
+    S51[Spec-51: Retry/Concurrency]
     S52[Spec-52: Logging]
 
     %% F6: Testing
     S60[Spec-60: Unit Tests]
-    S61[Spec-61: Integ Tests]
+    S61[Spec-61: Integration Tests]
     S62[Spec-62: E2E/Latency]
     S63[Spec-63: Security]
 
-    %% F7: Despliegue
+    %% F7: Deployment
     S70[Spec-70: Docker Prod]
     S71[Spec-71: README/Demo]
     S72[Spec-72: CI/CD]
 
-    %% Dependencies (Prerrequisito -> Dependiente)
+    %% Dependencies (Prerequisite -> Dependent)
     S01 --> S02
     S02 --> S03
     S01 --> S03
@@ -92,8 +92,8 @@ graph TD
     S70 --> S72
 ```
 
-> **Notas:**
-> - El grafo es un **DAG** sin ciclos.
-> - Cada flecha indica `Prerrequisito -> Dependiente`. Un spec solo puede iniciar cuando todos sus nodos entrantes estén completados.
-> - La estructura sigue Clean Architecture: dependencia hacia el dominio.
-> - Al añadir/modificar specs, actualizar este diagrama y verificar que no se introduzcan ciclos.
+> **Notes:**
+> - The graph is a **DAG** without cycles.
+> - Each arrow indicates `Prerequisite -> Dependent`. A spec can only start when all its incoming nodes are completed.
+> - The structure follows Clean Architecture: dependency flows towards the domain.
+> - When adding/modifying specs, update this diagram and verify that no cycles are introduced.

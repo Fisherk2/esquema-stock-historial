@@ -1,42 +1,42 @@
-# SPEC-30: Implementación Repositorio
+# SPEC-30: Repository Implementation
 
-**Fase:** F3 — Adaptadores de Datos  
-**Dependencias:** Spec-12 (Índices) ✅ Completado, Spec-22 (Protocolos) ✅ Completado  
-**Prioridad:** Alta  
-**Estado:** Pendiente  
+**Phase:** F3 — Data Adapters  
+**Dependencies:** Spec-12 (Indexes) ✅ Completed, Spec-22 (Protocols) ✅ Completed  
+**Priority:** High  
+**Status:** Pending  
 
 ---
 
 ## Objective
 
-Implementar los adaptadores concretos de los 4 ports del dominio usando `asyncpg` con SQL explícito, parámetros posicionales (`$1`, `$2`) y mapeo Row→Entity mediante funciones puras. **Sin ORM** — control total sobre queries y planes de ejecución.
+Implement the concrete adapters for the 4 domain ports using `asyncpg` with explicit SQL, positional parameters (`$1`, `$2`) and Row→Entity mapping via pure functions. **No ORM** — full control over queries and execution plans.
 
-**Principios de diseño:**
-- **SQL explícito** — cada método contiene su query SQL legible, sin abstracciones ocultas
-- **Parámetros posicionales** — `$1`, `$2`, etc. Nunca concatenación de strings (SQL injection)
-- **Mappers como funciones puras** — transformación `asyncpg.Record` → entidad de dominio, separada del repositorio
-- **asyncpg maneja JSONB nativamente** — no usar `json.dumps()` para parámetros `metadata`
-- **BasePostgresRepository** — clase abstracta centraliza `__init__` y `_get_conn()` para DRY
-- **Interface Segregation** — cada repositorio implementa su protocol específico del dominio
+**Design principles:**
+- **Explicit SQL** — each method contains its readable SQL query, no hidden abstractions
+- **Positional parameters** — `$1`, `$2`, etc. Never string concatenation (SQL injection)
+- **Mappers as pure functions** — `asyncpg.Record` → domain entity transformation, separated from the repository
+- **asyncpg handles JSONB natively** — do not use `json.dumps()` for `metadata` parameters
+- **BasePostgresRepository** — abstract class centralizes `__init__` and `_get_conn()` for DRY
+- **Interface Segregation** — each repository implements its domain-specific protocol
 
 ---
 
 ## Design Decisions
 
-| Decisión | Racional |
+| Decision | Rationale |
 |----------|----------|
-| SQL explícito inline | Control total sobre `EXPLAIN ANALYZE`, sin ORM que oculte el plan |
-| Parámetros posicionales `$N` | Prevención de SQL injection, performance de query caching |
-| Mappers como funciones puras | Testeables aisladamente, sin estado, determinísticas |
-| `BasePostgresRepository` abstracto | DRY: centraliza `__init__` y `_get_conn()` — 4 repos comparten la misma lógica |
-| asyncpg maneja JSONB nativo | No usar `json.dumps()` para `metadata` — asyncpg convierte `dict` a JSONB automáticamente |
-| Sin paginación en `list_all()` de categorías | Se esperaba un conjunto pequeño (<100). **Desde v1.0.0:** `list_all()` ahora acepta `limit` y `offset` con `LIMIT $1 OFFSET $2` en SQL para evitar fetch de todas las filas en memoria. |
+| Explicit inline SQL | Full control over `EXPLAIN ANALYZE`, no ORM hiding the plan |
+| Positional parameters `$N` | SQL injection prevention, query caching performance |
+| Mappers as pure functions | Isolated testable, stateless, deterministic |
+| Abstract `BasePostgresRepository` | DRY: centralizes `__init__` and `_get_conn()` — 4 repos share the same logic |
+| asyncpg handles JSONB natively | Do not use `json.dumps()` for `metadata` — asyncpg converts `dict` to JSONB automatically |
+| No pagination in `list_all()` for categories | A small set was expected (<100). **As of v1.0.0:** `list_all()` now accepts `limit` and `offset` with `LIMIT $1 OFFSET $2` in SQL to avoid fetching all rows into memory. |
 
 ---
 
 ## Mappers (`src/infrastructure/repositories/mappers.py`)
 
-Funciones puras que transforman `asyncpg.Record` en entidades de dominio.
+Pure functions that transform `asyncpg.Record` into domain entities.
 
 ### `map_category_row(record) -> Category`
 
@@ -46,15 +46,15 @@ from src.domain.entities.category import Category
 
 
 def map_category_row(record) -> Category:
-    """Transforma un asyncpg.Record en una entidad Category.
+    """Transforms an asyncpg.Record into a Category entity.
 
     Args:
-        record: asyncpg.Record con columnas id, name, description, created_at.
+        record: asyncpg.Record with columns id, name, description, created_at.
 
     Returns:
-        Category con campos mapeados desde la fila de base de datos.
+        Category with fields mapped from the database row.
 
-    Ejemplo::
+    Example::
 
         row = await pool.fetchrow("SELECT * FROM categories WHERE id = $1", 1)
         category = map_category_row(row)
@@ -76,19 +76,19 @@ from src.domain.value_objects.sku import SKU
 
 
 def map_product_row(record) -> Product:
-    """Transforma un asyncpg.Record en una entidad Product.
+    """Transforms an asyncpg.Record into a Product entity.
 
-    Construye el Value Object SKU desde el string almacenado en DB.
+    Builds the SKU Value Object from the string stored in DB.
 
     Args:
-        record: asyncpg.Record con columnas id, sku, name, description,
+        record: asyncpg.Record with columns id, sku, name, description,
                 unit_of_measure, category_id, min_stock_threshold, created_at.
 
     Returns:
-        Product con SKU como Value Object.
+        Product with SKU as Value Object.
 
     Raises:
-        InvalidSKUError: Si el SKU en DB no cumple las reglas de formato.
+        InvalidSKUError: If the SKU in DB does not meet format rules.
     """
     return Product(
         id=record["id"],
@@ -116,21 +116,21 @@ logger = logging.getLogger(__name__)
 
 
 def map_movement_row(record) -> Movement:
-    """Transforma un asyncpg.Record en una entidad Movement.
+    """Transforms an asyncpg.Record into a Movement entity.
 
-    Parsea el string movement_type al Enum MovementType y construye
-    el Value Object Quantity desde el integer almacenado.
+    Parses the movement_type string to the MovementType Enum and builds
+    the Quantity Value Object from the stored integer.
 
     Args:
-        record: asyncpg.Record con columnas id, product_id, movement_type,
+        record: asyncpg.Record with columns id, product_id, movement_type,
                 quantity, metadata, reference, created_at.
 
     Returns:
-        Movement con tipos de dominio correctos.
+        Movement with correct domain types.
 
     Raises:
-        ValueError: Si movement_type no es un valor válido del Enum.
-        InvalidQuantityError: Si quantity <= 0 (no debería ocurrir con CHECK constraint).
+        ValueError: If movement_type is not a valid Enum value.
+        InvalidQuantityError: If quantity <= 0 (should not occur with CHECK constraint).
     """
     metadata_raw = record["metadata"]
     if metadata_raw is None:
@@ -162,17 +162,17 @@ def map_movement_row(record) -> Movement:
 
 ## Repositories
 
-> **Nota F3-hardening:** Todos los repositorios heredan de `BasePostgresRepository`
-> (clase abstracta en `src/infrastructure/repositories/base_repository.py`).
-> `BasePostgresRepository` centraliza `__init__(pool, connection)` y `_get_conn()`.
-> Los ejemplos a continuación muestran el patrón completo para referencia;
-> en la implementación real, los repos delegan `__init__` y `_get_conn` a la clase base.
+> **Note F3-hardening:** All repositories inherit from `BasePostgresRepository`
+> (abstract class in `src/infrastructure/repositories/base_repository.py`).
+> `BasePostgresRepository` centralizes `__init__(pool, connection)` and `_get_conn()`.
+> The examples below show the full pattern for reference;
+> in the actual implementation, repos delegate `__init__` and `_get_conn` to the base class.
 
 ### `BasePostgresRepository` (abstract)
 
 ```python
 class BasePostgresRepository:
-    """Clase base para repositorios que usan asyncpg."""
+    """Base class for repositories using asyncpg."""
 
     def __init__(
         self,
@@ -183,13 +183,13 @@ class BasePostgresRepository:
         self._connection = connection
 
     def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexion activa o el pool."""
+        """Returns the active connection or the pool."""
         return self._connection if self._connection else self._pool
 ```
 
 ### `PostgresMovementRepository`
 
-Implementa `IMovementRepository` del dominio.
+Implements `IMovementRepository` from the domain.
 
 ```python
 from __future__ import annotations
@@ -207,17 +207,17 @@ if TYPE_CHECKING:
 
 
 class PostgresMovementRepository(IMovementRepository):
-    """Repositorio de movimientos con asyncpg y SQL explícito.
+    """Movement repository with asyncpg and explicit SQL.
 
-    No incluye update() ni delete() — los movimientos son inmutables.
-    Soporta conexión compartida para transacciones Unit of Work.
+    Does not include update() or delete() — movements are immutable.
+    Supports shared connection for Unit of Work transactions.
 
-    Ejemplo de uso sin transacción::
+    Usage example without transaction::
 
         repo = PostgresMovementRepository(pool)
         movement = await repo.create(movement_entity)
 
-    Ejemplo de uso con Unit of Work::
+    Usage example with Unit of Work::
 
         async with PostgresUnitOfWork(pool) as uow:
             repo = PostgresMovementRepository(pool, connection=uow.connection)
@@ -249,22 +249,22 @@ class PostgresMovementRepository(IMovementRepository):
         pool: asyncpg.Pool,
         connection: asyncpg.Connection | None = None,
     ) -> None:
-        """Inicializa el repositorio con pool y conexión opcional.
+        """Initializes the repository with pool and optional connection.
 
         Args:
-            pool: Pool de conexiones asyncpg (requerido).
-            connection: Conexión activa para transacciones (opcional).
-                        Si es None, se usa el pool directamente.
+            pool: asyncpg connection pool (required).
+            connection: Active connection for transactions (optional).
+                        If None, the pool is used directly.
         """
         self._pool = pool
         self._connection = connection
 
     def _get_conn(self) -> asyncpg.Pool | asyncpg.Connection:
-        """Retorna la conexión activa o el pool."""
+        """Returns the active connection or the pool."""
         return self._connection if self._connection else self._pool
 
     async def create(self, movement: Movement) -> Movement:
-        """Persiste un nuevo movimiento y retorna la entidad con id asignado."""
+        """Persists a new movement and returns the entity with assigned id."""
         row = await self._get_conn().fetchrow(
             self._CREATE_SQL,
             movement.product_id,
@@ -277,7 +277,7 @@ class PostgresMovementRepository(IMovementRepository):
         return map_movement_row(row)
 
     async def get_by_id(self, movement_id: int) -> Movement | None:
-        """Recupera un movimiento por su ID."""
+        """Retrieves a movement by its ID."""
         row = await self._get_conn().fetchrow(self._GET_BY_ID_SQL, movement_id)
         if row is None:
             return None
@@ -290,7 +290,7 @@ class PostgresMovementRepository(IMovementRepository):
         limit: int = 100,
         offset: int = 0,
     ) -> list[Movement]:
-        """Lista movimientos de un producto con paginación."""
+        """Lists movements for a product with pagination."""
         rows = await self._get_conn().fetch(
             self._LIST_BY_PRODUCT_SQL, product_id, limit, offset
         )
@@ -301,11 +301,11 @@ class PostgresMovementRepository(IMovementRepository):
 
 ### `PostgresProductRepository`
 
-Implementa `IProductRepository` del dominio.
+Implements `IProductRepository` from the domain.
 
 ```python
 class PostgresProductRepository(IProductRepository):
-    """Repositorio de productos con asyncpg y SQL explícito."""
+    """Product repository with asyncpg and explicit SQL."""
 
     _CREATE_SQL = """
         INSERT INTO products (sku, name, description, unit_of_measure, category_id, min_stock_threshold, created_at)
@@ -395,13 +395,13 @@ class PostgresProductRepository(IProductRepository):
 
 ---
 
-### `PostgresCategoryRepository` (actualizado v1.0.0)
+### `PostgresCategoryRepository` (updated v1.0.0)
 
-Implementa `ICategoryRepository` del dominio. **Desde v1.0.0, `list_all()` acepta `limit` y `offset` para paginacion en base de datos.**
+Implements `ICategoryRepository` from the domain. **As of v1.0.0, `list_all()` accepts `limit` and `offset` for database pagination.**
 
 ```python
 class PostgresCategoryRepository(ICategoryRepository):
-    """Repositorio de categorías con asyncpg y SQL explícito."""
+    """Category repository with asyncpg and explicit SQL."""
 
     _CREATE_SQL = """
         INSERT INTO categories (name, description, created_at)
@@ -422,10 +422,10 @@ class PostgresCategoryRepository(ICategoryRepository):
         LIMIT $1 OFFSET $2
     """
 
-    # ... __init__, _get_conn, create, get_by_id heredados de BasePostgresRepository ...
+    # ... __init__, _get_conn, create, get_by_id inherited from BasePostgresRepository ...
 
     async def list_all(self, limit: int = 100, offset: int = 0) -> list[Category]:
-        """Lista categorias con paginacion en base de datos."""
+        """Lists categories with database pagination."""
         rows = await self._get_conn().fetch(self._LIST_ALL_SQL, limit, offset)
         return [map_category_row(r) for r in rows]
 ```
@@ -434,17 +434,17 @@ class PostgresCategoryRepository(ICategoryRepository):
 
 ### `PostgresStockQueryRepository`
 
-Implementa `IStockQueryRepository` del dominio. Usa **cálculo directo** desde la tabla `movements` (sin vista materializada — la optimización se añade en Spec-31).
+Implements `IStockQueryRepository` from the domain. Uses **direct calculation** from the `movements` table (no materialized view — optimization added in Spec-31).
 
 ```python
 from datetime import datetime
 
 
 class PostgresStockQueryRepository(IStockQueryRepository):
-    """Repositorio de consultas de stock con cálculo directo desde movements.
+    """Stock query repository with direct calculation from movements.
 
-    Usa SQL con CASE/SUM para calcular stock. En Spec-31 se optimizará
-    con la vista materializada mv_stock_historical.
+    Uses SQL with CASE/SUM to calculate stock. In Spec-31 it will be optimized
+    with the materialized view mv_stock_historical.
     """
 
     _CURRENT_STOCK_SQL = """
@@ -492,12 +492,12 @@ class PostgresStockQueryRepository(IStockQueryRepository):
         return self._connection if self._connection else self._pool
 
     async def get_current_stock(self, product_id: int) -> float:
-        """Calcula el stock actual sumando todos los movimientos del producto."""
+        """Calculates current stock by summing all product movements."""
         row = await self._get_conn().fetchrow(self._CURRENT_STOCK_SQL, product_id)
         return float(row["stock"]) if row else 0.0
 
     async def get_stock_at_date(self, product_id: int, date: datetime) -> float:
-        """Calcula el stock en una fecha específica."""
+        """Calculates stock at a specific date."""
         row = await self._get_conn().fetchrow(self._STOCK_AT_DATE_SQL, product_id, date)
         return float(row["stock"]) if row else 0.0
 ```
@@ -508,45 +508,45 @@ class PostgresStockQueryRepository(IStockQueryRepository):
 
 | File | Description |
 |------|-------------|
-| `src/infrastructure/repositories/base_repository.py` | `BasePostgresRepository` — clase abstracta con `__init__` y `_get_conn()` compartidos |
-| `src/infrastructure/repositories/mappers.py` | Funciones puras: `map_category_row`, `map_product_row`, `map_movement_row` (con manejo `JSONDecodeError`) |
-| `src/infrastructure/repositories/movement_repository.py` | `PostgresMovementRepository` (hereda `BasePostgresRepository`) |
-| `src/infrastructure/repositories/product_repository.py` | `PostgresProductRepository` (hereda `BasePostgresRepository`) |
-| `src/infrastructure/repositories/category_repository.py` | `PostgresCategoryRepository` (hereda `BasePostgresRepository`) |
-| `src/infrastructure/repositories/stock_query_repository.py` | `PostgresStockQueryRepository` (hereda `BasePostgresRepository`) |
-| `src/infrastructure/repositories/__init__.py` | Re-exports: todos los repositorios y mappers |
+| `src/infrastructure/repositories/base_repository.py` | `BasePostgresRepository` — abstract class with shared `__init__` and `_get_conn()` |
+| `src/infrastructure/repositories/mappers.py` | Pure functions: `map_category_row`, `map_product_row`, `map_movement_row` (with `JSONDecodeError` handling) |
+| `src/infrastructure/repositories/movement_repository.py` | `PostgresMovementRepository` (inherits `BasePostgresRepository`) |
+| `src/infrastructure/repositories/product_repository.py` | `PostgresProductRepository` (inherits `BasePostgresRepository`) |
+| `src/infrastructure/repositories/category_repository.py` | `PostgresCategoryRepository` (inherits `BasePostgresRepository`) |
+| `src/infrastructure/repositories/stock_query_repository.py` | `PostgresStockQueryRepository` (inherits `BasePostgresRepository`) |
+| `src/infrastructure/repositories/__init__.py` | Re-exports: all repositories and mappers |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Los 4 repositorios implementan sus protocols respectivos (verificable con `isinstance(repo, Protocol)` a runtime)
-- [ ] Todos los repositorios heredan de `BasePostgresRepository` (no duplican `__init__` ni `_get_conn()`)
-- [ ] Todo SQL usa parámetros posicionales (`$1`, `$2`) — cero concatenación de strings
-- [ ] Los mappers son funciones puras (sin estado, sin I/O, testeables aisladamente)
-- [ ] `map_movement_row` maneja `JSONDecodeError` en metadata corrupta (fallback a `{}` con warning log)
-- [ ] **No** se usa `json.dumps()` para parámetros JSONB — asyncpg maneja `dict → JSONB` nativamente
-- [ ] Constructor acepta `connection` opcional para integración con Unit of Work (Spec-32)
-- [ ] `PostgresMovementRepository` **no** tiene métodos `update()` ni `delete()`
-- [ ] Tests de integración con `testcontainers.postgres` validan: CRUD, paginación, cálculo de stock, mapeo de tipos
-- [ ] `make lint` pasa sin errores en todos los archivos de repositorio
+- [ ] The 4 repositories implement their respective protocols (verifiable with `isinstance(repo, Protocol)` at runtime)
+- [ ] All repositories inherit from `BasePostgresRepository` (no duplicated `__init__` or `_get_conn()`)
+- [ ] All SQL uses positional parameters (`$1`, `$2`) — zero string concatenation
+- [ ] Mappers are pure functions (stateless, no I/O, isolated testable)
+- [ ] `map_movement_row` handles `JSONDecodeError` on corrupted metadata (fallback to `{}` with warning log)
+- [ ] **No** `json.dumps()` used for JSONB parameters — asyncpg handles `dict → JSONB` natively
+- [ ] Constructor accepts optional `connection` for Unit of Work integration (Spec-32)
+- [ ] `PostgresMovementRepository` **does not** have `update()` or `delete()` methods
+- [ ] Integration tests with `testcontainers.postgres` validate: CRUD, pagination, stock calculation, type mapping
+- [ ] `make lint` passes without errors on all repository files
 
 ---
 
 ## Testing Strategy
 
-- **Solo tests de integración** con `testcontainers.postgres` — valida SQL real contra PostgreSQL 16
-- Fixture `db_pool` existente en `tests/integration/` se reutiliza
-- Para cada repositorio: test de `create()`, `get_by_id()`, `list_*()`, y casos edge (no encontrado, paginación vacía)
-- Tests de mappers aislados: validar que `asyncpg.Record` simulado se transforma correctamente
-- `list_below_threshold`: insertar movimientos que lleven el stock por debajo del umbral y verificar que aparece en la lista
+- **Integration tests only** with `testcontainers.postgres` — validates real SQL against PostgreSQL 16
+- Existing `db_pool` fixture in `tests/integration/` is reused
+- For each repository: test `create()`, `get_by_id()`, `list_*()`, and edge cases (not found, empty pagination)
+- Isolated mapper tests: validate that simulated `asyncpg.Record` transforms correctly
+- `list_below_threshold`: insert movements that bring stock below threshold and verify it appears in the list
 
 ---
 
 ## Resolved Questions
 
-1. **`get_current_stock()` retorna `int` o `float`?** → **`float`**. El port `IStockQueryRepository` define `float` como tipo de retorno. Mantener compatibilidad con el contrato existente (F2). La implementación convierte explícitamente con `float(row["stock"])`. Si en el futuro se necesita un port con `int`, se puede añadir un método separado sin romper este contrato.
+1. **Does `get_current_stock()` return `int` or `float`?** → **`float`**. The `IStockQueryRepository` port defines `float` as the return type. Maintain compatibility with the existing contract (F2). The implementation explicitly converts with `float(row["stock"])`. If an `int` port is needed in the future, a separate method can be added without breaking this contract.
 
-2. **Añadir método batch `get_stock_for_multiple_products()`?** → **No en F3 (YAGNI).** No existe un use case que lo requiera actualmente. Los repositorios de F4 pueden hacer consultas individuales. Si en F5/F6 se identifica un cuello de botella real, se añade sin romper la API existente.
+2. **Add batch method `get_stock_for_multiple_products()`?** → **Not in F3 (YAGNI).** There is no current use case that requires it. F4 repositories can perform individual queries. If a real bottleneck is identified in F5/F6, it can be added without breaking the existing API.
 
-3. **¿Los mappers validan entidades o asumen DB válida?** → **Asumen DB válida con validación de tipos.** La base de datos tiene CHECK constraints, FK y trigger de inmutabilidad que protegen la integridad. Los mappers solo transforman tipos (`string → Enum`, `int → Quantity VO`). Si un valor no coincide (ej: `movement_type` no reconocido en Enum), se lanza la excepción nativa (`ValueError`). Si el SKU tiene formato inválido, `SKU()` lanza `InvalidSKUError`. Los mappers no validan invariantes de negocio — eso es responsabilidad de las entidades y la capa de dominio.
+3. **Do mappers validate entities or assume valid DB?** → **Assume valid DB with type validation.** The database has CHECK constraints, FKs, and an immutability trigger that protect integrity. Mappers only transform types (`string → Enum`, `int → Quantity VO`). If a value does not match (e.g., unrecognized `movement_type` in Enum), the native exception is raised (`ValueError`). If the SKU has an invalid format, `SKU()` raises `InvalidSKUError`. Mappers do not validate business invariants — that is the responsibility of entities and the domain layer.
